@@ -49,3 +49,12 @@ Thumbs.db
 *.secret
 secrets.json
 appsettings.Development.json
+
+# Local S TOM'S machine configuration (Never commit private profiles)
+.stoms/
+local_profile.json
+*.dpapi
+*.private.json
+.team/profile.md
+.team/*.local.md
+

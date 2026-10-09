@@ -28,12 +28,18 @@ PROJECT-SBV1/
 ├── tests/
 │   └── PROJECT-SBV1.Core.Tests/       # Unit & Integration Tests
 ├── docs/
+│   ├── TEAM_ROSTER.md                 # Dynamic team roster & authorization policy
+│   ├── AUDIT_LOG.md                   # Project action, review, & security audit log
+│   ├── BACKUP_GUIDE.md                # Backup, recovery, & machine replacement guide
 │   ├── TASKS.md                       # Structured task backlog & verification tracking
 │   └── TEST_REPORT.md                 # Test execution logs & verification evidence
+├── scripts/
+│   └── onboard.ps1                    # Local machine profile & Windows DPAPI setup tool
 ├── .team/
-│   ├── profile.md                     # Current developer profile (Name, Role, Language, Task)
+│   ├── profile.md                     # Host developer profile (Name, Role, Language, Task)
 │   └── WORKLOG.md                     # Work session log (Git diffs, tests, progress)
 ├── .gitignore                         # Standard .NET / Visual Studio ignore rules
+├── AGENTS.md                          # Antigravity agent workspace rules & onboarding protocol
 ├── README.md                          # Repository overview & setup guide
 ├── TEAM_RULES.md                      # Team engineering standards, clean architecture, workflows
 └── PROJECT-SBV1.slnx                  # Solution configuration
@@ -42,6 +48,10 @@ PROJECT-SBV1/
 ---
 
 ## 3. Quick Start & Build Instructions
+
+### 🚀 Developer Onboarding (First-Time Setup)
+> [!TIP]
+> **New Developer?** When you open this workspace in Antigravity IDE, press `Ctrl + L` to open the Agent sidebar and type `hello` (or any greeting). The S TOM'S AI Assistant will greet you with **"Welcome to S TOM'S!"** and guide you conversationally through your role, language, and initial task setup.
 
 ### Prerequisites
 - Install [.NET 8.0 SDK](https://dotnet.microsoft.com/download) or higher.

@@ -75,16 +75,34 @@ Before creating or modifying files:
 
 ---
 
-## 4. Role Boundaries
+## 4. Role Boundaries & Dynamic Team Policy
 
-| Role | Core Responsibilities | Prohibited Actions |
-| :--- | :--- | :--- |
-| **UI/UX Developer** | Forms, UI layouts, controls, styling, responsiveness, UI unit tests. | Rewriting engine calculations, embedding DB queries in event handlers. |
-| **Engine Developer** | Domain models, business logic, workflows, validation, data access, automated tests. | Breaking UI contracts without notice, altering UI components directly. |
-| **PM/Tester** | Requirements, acceptance criteria, test cases, defect reports, release checklists. | Claiming a test passed without running it; modifying engine logic. |
-| **Vision** | Architectural roadmap, milestone approvals, priority escalation, exceptional authorization. | Self-assignment prohibited. Assigned only to authorized project leadership. |
+Roles within S TOM'S describe functional engineering responsibilities, not personal status or permanent titles. The project owner's role is **Vision**. Membership is dynamic and governed by `docs/TEAM_ROSTER.md`.
 
-All roles must respect the same project rules and standards.
+### 4.1 Configurable Role Types & Boundaries
+
+| Role | Core Responsibilities | Prohibited Actions | Authorization Level |
+| :--- | :--- | :--- | :--- |
+| **UI/UX Developer** | Forms, UI layouts, controls, styling, responsiveness, UI unit tests. | Rewriting engine calculations, embedding DB queries in event handlers. | Standard Contributor |
+| **Engine Developer** | Domain models, business logic, workflows, validation, data access, automated tests. | Breaking UI contracts without notice, altering UI components directly. | Standard Contributor |
+| **PM/Tester** | Requirements, acceptance criteria, test execution, defect tracking, release checklists. | Claiming a test passed without running it; modifying engine logic. | Standard Contributor / QA |
+| **Vision** | Project roadmap, architecture approvals, priority escalation, exceptional authorization. | Self-assignment prohibited. Assigned only to authorized project leadership. | Project Leadership / Owner |
+
+### 4.2 Permission & Enforcement Matrix
+
+This matrix explicitly separates **Documented Policy** from **Actual Enforceable Technical Mechanisms**. Markdown instructions alone cannot enforce security.
+
+| Action / Operation | Documented Team Policy | AI Assistant Capability | GitHub Platform Enforcement | Windows Filesystem Enforcement |
+| :--- | :--- | :--- | :--- | :--- |
+| **Read shared repo files & tasks** | Allowed for all team members. | Native `view_file` / `list_dir`. | GitHub Repository Read access. | Standard file read permissions. |
+| **Read/modify private local profile** | Restricted to the local user account on that specific PC. | Reads `%LOCALAPPDATA%\STOMS` or local config. | Not applicable (excluded from Git). | **Enforced**: Windows ACLs (`icacls`) & DPAPI encryption. |
+| **Edit own assigned task & worklog** | Allowed for active assigned developer. | Edits `docs/TASKS.md` & `.team/WORKLOG.md`. | Pushed via feature branch PR. | Standard write access. |
+| **Propose change to another dev's task** | Requires peer coordination & reviewer approval. | Proposes diff in PR or task notes. | Peer review in GitHub Pull Request. | Standard write access. |
+| **Review work & record test evidence** | Managed by PM/Tester & Vision; evidence required. | Executes tests & logs to `docs/TEST_REPORT.md`. | PR review status & CI check status. | Not applicable. |
+| **Approve changes & role assignments** | Reserved for PM/Tester (tasks) & Vision (roles/architecture). | Validates against `docs/TEAM_ROSTER.md`. | **Enforced**: GitHub PR Required Approvals. | Not applicable. |
+| **Manage releases & merge to main** | Reserved for Vision (Project Owner). | Proposes PR merge verification. | **Enforced**: GitHub Branch Protection rules on `main`. | Not applicable. |
+| **View audit reports** | Transparently readable by all team members. | Reads `docs/AUDIT_LOG.md`. | Git repository read access. | Standard read permissions. |
+| **Manage backups & recovery** | Managed per `docs/BACKUP_GUIDE.md`. | Outlines recovery commands. | GitHub repository clone/fork redundancy. | Restricted backup folder ACLs. |
 
 ---
 
