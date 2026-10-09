@@ -1,0 +1,51 @@
+## Visual Studio / .NET Ignore Rules
+.vs/
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build Results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userprefs
+*.docstates
+*.jsproj.user
+*.launchSettings.json
+
+# Roslyn / Code Analysis
+*.suo
+*.opensdf
+*.sdf
+*.sublime-workspace
+
+# OS Generated Files
+.DS_Store
+ehthumbs.db
+Icon?
+Thumbs.db
+
+# Sensitive local configurations / Secrets (Never commit secrets)
+*.env
+*.env.*
+*.secret
+secrets.json
+appsettings.Development.json
