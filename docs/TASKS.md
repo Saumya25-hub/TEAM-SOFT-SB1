@@ -68,3 +68,17 @@ Allowed Statuses:
 - **Status**: Not Started
 - **Verification Evidence**: None yet.
 - **Blockers**: Awaiting developer onboarding task assignment.
+
+---
+
+### [ ] `TASK-TEST-001`: Temporary Onboarding Workflow Demonstration
+- **Owner**: Temporary Developer (Test Role: PM/Tester)
+- **Role**: PM/Tester
+- **Description**: Verify feature branch isolation, task checklist update, and worklog synchronization on a test branch.
+- **Acceptance Criteria**:
+  1. Feature branch created and isolated from main without application code changes.
+  2. Task checklist entry tracked with unique ID and In Progress status.
+  3. Worklog entry synchronized in .team/WORKLOG.md for the onboarding session.
+- **Status**: In Progress
+- **Verification Evidence**: Branch test/onboarding-workflow verified isolated; task entry added to docs/TASKS.md; worklog entry synchronized in .team/WORKLOG.md.
+- **Blockers**: None.
