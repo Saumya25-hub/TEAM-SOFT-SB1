@@ -44,14 +44,14 @@ Allowed Statuses:
 ---
 
 ### [ ] `TASK-BOOT-003`: Automated Testing Project Setup
-- **Owner**: PM/Tester / Engine Developer
-- **Role**: Testing & QA
+- **Owner**: Saumya Chaudhari
+- **Role**: PM/Tester
 - **Description**: Set up an automated unit test project under `tests/` (e.g. xUnit) for validating domain validation and engine workflows.
 - **Acceptance Criteria**:
   1. Test project created and referenced in solution.
   2. Sample domain tests run via `dotnet test` and pass.
   3. Test outputs logged in `docs/TEST_REPORT.md`.
-- **Status**: Not Started
+- **Status**: In Progress
 - **Verification Evidence**: None yet.
 - **Blockers**: Pending TASK-BOOT-002.
 

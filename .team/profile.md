@@ -4,12 +4,12 @@
 > **SECURITY DIRECTIVE**: Never store passwords, API keys, GitHub tokens, or private credentials in this file.
 
 ## Developer Information
-- **Full / Preferred Name**: Saumya Chaudhari
-- **Assigned Role**: Pending Final Onboarding Selection (`UI/UX Developer`, `Engine Developer`, or `PM/Tester`)
-- **Preferred Language**: Pending Selection (`English (UK)`, `Hinglish`, or `Gujarati`)
-- **GitHub Repository URL**: Pending Input
+- **Full / Preferred Name**: Saumya Chaudhari (`Saumya25-hub`)
+- **Assigned Role**: `PM/Tester`
+- **Preferred Language**: `Hinglish (Hindi + English)`
+- **GitHub Repository URL**: Pending user remote configuration (`git remote add origin <URL>`)
 - **Assigned Project**: S TOM'S — Project SBV1
-- **Current Task**: `TASK-BOOT-001` (Team Development Bootstrap & Initial Setup)
+- **Current Task**: `TASK-BOOT-003` (Automated Testing Setup & Acceptance Criteria Validation)
 
 ---
 
