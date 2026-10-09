@@ -15,8 +15,8 @@ Allowed Statuses:
 ## Task Backlog
 
 ### [x] `TASK-BOOT-001`: Multi-Developer Bootstrap & Standards Setup
-- **Owner**: Saumya Chaudhari / AI Assistant
-- **Role**: Workflow Setup
+- **Owner**: Saumya Chaudhari (Vision & Project Owner) / AI Assistant
+- **Role**: Vision & Workflow Setup
 - **Description**: Initialize Git repository, configure .gitignore, establish team standards (`TEAM_RULES.md`), project documentation (`README.md`), task tracking (`docs/TASKS.md`), test logs (`docs/TEST_REPORT.md`), and developer workspace (`.team/`).
 - **Acceptance Criteria**:
   1. `.git` initialized with `main` branch.
@@ -24,7 +24,7 @@ Allowed Statuses:
   3. `TEAM_RULES.md` created with 9-step workflow, clean architecture, role boundaries, and security rules.
   4. Build succeeds with zero warnings and zero errors.
 - **Status**: Verified
-- **Verification Evidence**: `dotnet build` succeeded with 0 warnings, 0 errors. Git repository initialized. Verified via automated terminal checks.
+- **Verification Evidence**: `dotnet build` succeeded with 0 warnings, 0 errors. Git repository initialized. Verified via automated terminal checks. Approved by Vision.
 - **Blockers**: None.
 
 ---
@@ -44,16 +44,16 @@ Allowed Statuses:
 ---
 
 ### [ ] `TASK-BOOT-003`: Automated Testing Project Setup
-- **Owner**: Saumya Chaudhari
+- **Owner**: PM/Tester (Unassigned - Open for incoming PM/Tester)
 - **Role**: PM/Tester
 - **Description**: Set up an automated unit test project under `tests/` (e.g. xUnit) for validating domain validation and engine workflows.
 - **Acceptance Criteria**:
   1. Test project created and referenced in solution.
   2. Sample domain tests run via `dotnet test` and pass.
   3. Test outputs logged in `docs/TEST_REPORT.md`.
-- **Status**: In Progress
+- **Status**: Not Started
 - **Verification Evidence**: None yet.
-- **Blockers**: Pending TASK-BOOT-002.
+- **Blockers**: Pending PM/Tester assignment and TASK-BOOT-002.
 
 ---
 

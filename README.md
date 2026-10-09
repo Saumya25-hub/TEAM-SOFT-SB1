@@ -1,6 +1,7 @@
-# S TOM'S — Project SBV1
+# TEAM-SOFT-SB1 — S TOM'S Project SBV1
 
-Welcome to **S TOM'S Project SBV1**, an AI-assisted, multi-developer Windows desktop application built with **.NET 8.0 Windows Forms**.
+Welcome to **S TOM'S Project SBV1** (`TEAM-SOFT-SB1`), an AI-assisted, multi-developer Windows desktop application built with **.NET 8.0 Windows Forms**.
+GitHub Repository: [https://github.com/Saumya25-hub/TEAM-SOFT-SB1](https://github.com/Saumya25-hub/TEAM-SOFT-SB1)
 
 ---
 
