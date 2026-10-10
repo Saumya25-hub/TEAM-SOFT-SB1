@@ -82,3 +82,50 @@ Allowed Statuses:
 - **Status**: In Progress
 - **Verification Evidence**: Branch test/onboarding-workflow verified isolated; task entry added to docs/TASKS.md; worklog entry synchronized in .team/WORKLOG.md.
 - **Blockers**: None.
+
+---
+
+### [ ] `TASK-SPRINT-001`: UI Presentation — Splash, Login & Dashboard Forms
+- **Owner**: UI/UX Developer
+- **Role**: UI/UX Developer
+- **Description**: Design and implement WinForms presentation views, controls, and styling for Splash Screen, Login Screen, and Dashboard Screen. The developer guides the styling and Antigravity collaborates on the implementation without imposing direct code assumptions.
+- **Acceptance Criteria**:
+  1. Splash Form displays branding and initiates smooth startup transition.
+  2. Login Form provides username/password controls, error labels, and submit buttons.
+  3. Dashboard Form renders main application layout and placeholder panels.
+  4. Completed on a feature branch (e.g. `feature/ui-splash-login-dashboard`), verified with `dotnet build`, and pushed to GitHub.
+- **Status**: Not Started
+- **Verification Evidence**: None yet.
+- **Blockers**: None.
+
+---
+
+### [ ] `TASK-SPRINT-002`: Engine Logic — Auth, Session & Navigation Services
+- **Owner**: Engine Developer
+- **Role**: Engine Developer
+- **Description**: Implement Clean Architecture domain models, authentication validation, user session state, and navigation workflow for Splash ➔ Login ➔ Dashboard. Developer has complete freedom to write simple, robust logic with no unnecessary restrictions.
+- **Acceptance Criteria**:
+  1. Core models/interfaces for User, Credentials, and SessionState created under Clean Architecture.
+  2. Engine service validates credentials and manages user session.
+  3. Navigation transition logic coordinates state between screens.
+  4. Unit tests pass via `dotnet test`.
+  5. Completed on a feature branch (e.g. `feature/engine-auth-dashboard`), verified with `dotnet build`, and pushed to GitHub.
+- **Status**: Not Started
+- **Verification Evidence**: None yet.
+- **Blockers**: None.
+
+---
+
+### [ ] `TASK-SPRINT-003`: Verification & Test Cases — Splash, Login & Dashboard
+- **Owner**: PM/Tester
+- **Role**: PM/Tester
+- **Description**: Define acceptance test scenarios and verify the integrated flow between Splash, Login, and Dashboard.
+- **Acceptance Criteria**:
+  1. Verify Splash-to-Login transition.
+  2. Verify valid and invalid login handling.
+  3. Verify Dashboard landing upon authentication.
+  4. Test report logged in `docs/TEST_REPORT.md`.
+- **Status**: Not Started
+- **Verification Evidence**: None yet.
+- **Blockers**: Pending completion of TASK-SPRINT-001 and TASK-SPRINT-002.
+

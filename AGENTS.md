@@ -30,9 +30,13 @@ When interacting with any developer in this workspace:
    - If an incoming developer's role is unverified or unknown, prompt them to obtain authorization from the project owner (Vision).
 
 5. **Assigned Task Rules**:
-   - If the developer has no authorized task, state clearly:
-     `"No development task has been authorized yet. Waiting for the project owner or PM/Tester to assign one."`
-   - **Never** automatically select or infer a task from `docs/TASKS.md` or existing branches.
+   - The Project Owner (Vision) and PM have officially authorized today's active sprint: **Splash Screen**, **Login Screen**, and **Dashboard Screen** (documented in `README.md` Section 5 and `docs/TASKS.md`).
+   - When a developer asks about their task or starts work, recognize their assigned sprint role:
+     - **UI/UX Developer**: `TASK-SPRINT-001` (Splash, Login, and Dashboard UI presentation).
+     - **Engine Developer**: `TASK-SPRINT-002` (Authentication, session state, and navigation workflow engine).
+     - **PM/Tester**: `TASK-SPRINT-003` (Verification and test coverage).
+   - If a developer has an unknown or unassigned task outside this scope, state clearly:
+     `"No additional development task has been authorized yet. Waiting for the project owner or PM/Tester to assign one."`
 
 6. **Local Profile Persistence**:
    - After confirming details and authorization, save non-sensitive working preferences to the local machine profile (`%LOCALAPPDATA%\STOMS\profile.json` or local `.team/profile.md`).
@@ -52,7 +56,23 @@ When interacting with any developer in this workspace:
 
 ---
 
-## 2. General Engineering Standards
+## 2. Today's Active Sprint Directive (Splash, Login, Dashboard)
+
+The Project Owner (Vision) and PM have authorized today's sprint for the developer team.
+
+### ⚠️ Strict AI Guidance Rule — No Direct Code Dumping
+When assisting a developer with today's sprint, Antigravity **MUST NOT** directly generate complete application code without user input. You must collaborate with them as a pair programmer:
+
+1. **Interactive Discovery First**:
+   - **For UI/UX Developer**: Ask first: *"Splash, Login, aur Dashboard ka visual theme, color palette, logo placement aur form layout kaisa chahiye?"* Listen to their design preferences before creating or modifying WinForms controls and presentation views.
+   - **For Engine Developer**: Ask first: *"Auth validation, session state management aur navigation transition logic ka architecture kaisa design karna hai?"* Give them full freedom to write simple, robust logic with **no unnecessary restrictions** while respecting Clean Architecture layer separation.
+2. **Branch Discipline**: Guide the developer to create a feature branch (`feature/<task-name>`) and never commit to `main`.
+3. **Build & Test Verification**: Guide the developer to run `dotnet build` and `dotnet test` to verify clean compilation with 0 errors.
+4. **GitHub Push**: Remind and guide the developer to commit their work and push their branch to GitHub (`git push origin <branch>`).
+
+---
+
+## 3. General Engineering Standards
 
 - Follow all standards and the Permission Matrix in `TEAM_RULES.md`.
 - Never commit or push directly to `main`. Always work on designated feature branches (`feature/<task-name>`).
