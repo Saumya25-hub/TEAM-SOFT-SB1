@@ -6,6 +6,42 @@ GitHub Repository: [https://github.com/Saumya25-hub/TEAM-SOFT-SB1](https://githu
 
 ---
 
+## 📢 🎯 TODAY'S ACTIVE SPRINT (Assigned by PM & Vision)
+
+> [!IMPORTANT]
+> ### 🚀 Active Sprint: Splash Screen, Login Screen, & Dashboard Screen
+> **PM ne aaj ka task official assign kar diya hai!** 
+> 
+> All developers should check their role assignment below, start work on their feature branch, and push to GitHub!
+
+### 📌 Role Assignments for Today
+
+- **UI/UX Developer**:
+  - **Task**: `TASK-SPRINT-001` — **Splash, Login & Dashboard UI Presentation**
+  - **Scope**: User interface presentation, layout, visual hierarchy, styling, controls, and screen responsiveness for **Splash**, **Login**, and **Dashboard** WinForms.
+  - **Collaborative AI Directive**: When you open Antigravity on your PC, Antigravity will **NOT** dump code immediately. Antigravity will first ask you: *"Aapko Splash, Login, aur Dashboard ka visual theme, color palette, logo placement aur form layout kaisa chahiye?"* You guide the design, and Antigravity helps you implement it into WinForms controls and views cleanly.
+  - **Branch**: `feature/ui-splash-login-dashboard` ➔ push to GitHub!
+
+- **Engine Developer**:
+  - **Task**: `TASK-SPRINT-002` — **Auth, Session State & Navigation Engine Services**
+  - **Scope**: Core business logic, authentication service, credentials/token validation, user session state, and navigation workflow between Splash ➔ Login ➔ Dashboard.
+  - **Freedom of Implementation**: Write simple, robust C# logic with **no unnecessary restrictions** — follow Clean Architecture principles (Core models and interfaces separated from UI).
+  - **Collaborative AI Directive**: When you open Antigravity on your PC, Antigravity will first ask you: *"Auth validation, session state management aur navigation transition logic ka architecture kaisa design karna hai?"* You direct the logic, and Antigravity assists you in structuring the services and models.
+  - **Branch**: `feature/engine-auth-dashboard` ➔ verify with `dotnet test` ➔ push to GitHub!
+
+- **PM/Tester**:
+  - **Task**: `TASK-SPRINT-003` — **Splash, Login & Dashboard Verification**
+  - **Scope**: Verify acceptance criteria for Splash-to-Login transition, Login validation (valid/invalid credentials), and Dashboard landing.
+  - **Deliverable**: Record verification evidence in [docs/TEST_REPORT.md](file:///d:/TEAM%20LEAD%20SOFFWATRE/PROJECT-SBV1/docs/TEST_REPORT.md).
+
+### 🛠️ How to Start Work with Antigravity
+1. Open this repository in Antigravity IDE on your PC.
+2. Press `Ctrl + L` to open the Assistant chat.
+3. Type: *"Aaj ka task start karna hai"* or *"Mujhe Splash, Login aur Dashboard par kaam karna hai"*.
+4. Antigravity will recognize today's assignment from PM, ask for your design/architecture input, help you create your feature branch, write and refine the code with you, run builds/tests, and guide you to push your changes to GitHub!
+
+---
+
 ## 1. Technology Stack
 
 - **Framework**: .NET 8.0 Windows Forms (`net8.0-windows`)
@@ -51,7 +87,7 @@ PROJECT-SBV1/
 
 ### 🚀 Developer Onboarding (First-Time Setup)
 > [!TIP]
-> **New Developer?** When you open this workspace in Antigravity IDE, press `Ctrl + L` to open the Agent sidebar and type `hello` (or any greeting). The S TOM'S AI Assistant will greet you with **"Welcome to S TOM'S!"** and guide you conversationally through your role, language, and initial task setup.
+> **New Developer?** When you open this workspace in Antigravity IDE, press `Ctrl + L` to open the Agent sidebar and type `hello` (or any greeting). The S TOM'S AI Assistant will greet you with **"Welcome to S TOM'S Team!"** and guide you conversationally through your role, language, and initial task setup.
 
 ### Prerequisites
 - Install [.NET 8.0 SDK](https://dotnet.microsoft.com/download) or higher.
@@ -84,38 +120,4 @@ All team members must follow the standards defined in [TEAM_RULES.md](file:///d:
 - **Session Logging**: Update [docs/TASKS.md](file:///d:/TEAM%20LEAD%20SOFFWATRE/PROJECT-SBV1/docs/TASKS.md) and [.team/WORKLOG.md](file:///d:/TEAM%20LEAD%20SOFFWATRE/PROJECT-SBV1/.team/WORKLOG.md) before concluding each work session.
 - **Verification First**: Never mark a task `Done` without build/test verification proof in [docs/TEST_REPORT.md](file:///d:/TEAM%20LEAD%20SOFFWATRE/PROJECT-SBV1/docs/TEST_REPORT.md).
 
----
-
-## 5. 🎯 Today's Sprint Assignment (Assigned by PM / Project Owner)
-
-> [!IMPORTANT]
-> **Active Sprint Goals**: Today's work focuses on the three foundational application screens:
-> 1. **Splash Screen**
-> 2. **Login Screen**
-> 3. **Dashboard Screen**
-
-### Role Responsibilities & Work Breakdown
-
-- **UI/UX Developer**:
-  - **Scope**: User interface presentation, layout, visual hierarchy, styling, controls, and screen responsiveness for **Splash**, **Login**, and **Dashboard** forms.
-  - **Collaborative AI Directive**: When you open Antigravity on your PC, Antigravity will **NOT** dump code immediately. Antigravity will first ask you: *"Aapko Splash, Login, aur Dashboard ka visual theme, color palette, logo placement aur form layout kaisa chahiye?"* You guide the design, and Antigravity helps you implement it into WinForms controls and views cleanly.
-  - **Branch**: Create and work on a feature branch (e.g. `feature/ui-splash-login-dashboard`).
-  - **Deliverable**: Complete the presentation forms, test locally with `dotnet build`, and push to GitHub.
-
-- **Engine Developer**:
-  - **Scope**: Core business logic, authentication service, credentials/token validation, user session state, and navigation workflow between Splash ➔ Login ➔ Dashboard.
-  - **Freedom of Implementation**: Write simple, robust C# logic with **no unnecessary restrictions** — follow Clean Architecture principles (Core models and interfaces separated from UI).
-  - **Collaborative AI Directive**: When you open Antigravity on your PC, Antigravity will first ask you: *"Auth validation, session state management aur navigation transition logic ka architecture kaisa design karna hai?"* You direct the logic, and Antigravity assists you in structuring the services and models.
-  - **Branch**: Create and work on a feature branch (e.g. `feature/engine-auth-dashboard`).
-  - **Deliverable**: Implement core logic and unit tests, verify with `dotnet test`, and push to GitHub.
-
-- **PM/Tester**:
-  - **Scope**: Verify acceptance criteria for Splash-to-Login transition, Login validation (valid/invalid credentials), and Dashboard landing.
-  - **Deliverable**: Record verification evidence in [docs/TEST_REPORT.md](file:///d:/TEAM%20LEAD%20SOFFWATRE/PROJECT-SBV1/docs/TEST_REPORT.md).
-
-### 🛠️ How to Start Work with Antigravity
-1. Open this repository in Antigravity IDE on your PC.
-2. Press `Ctrl + L` to open the Assistant chat.
-3. Type: *"Aaj ka task start karna hai"* or *"Mujhe Splash, Login aur Dashboard par kaam karna hai"*.
-4. Antigravity will recognize today's assignment, ask for your design/architecture input, help you create your feature branch, write and refine the code with you, run builds/tests, and guide you to push your changes to GitHub!
 
