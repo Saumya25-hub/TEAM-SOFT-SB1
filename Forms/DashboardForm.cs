@@ -149,23 +149,36 @@ namespace PROJECT_SBV1.Forms
         // ═══════════════════════════════════════════════════════════════════════════
         private void PaintSidebarLogo(Graphics g)
         {
-            // Emblem
-            int cx = pnlSidebar.Width / 2, cy = 52, r = 24;
+            int sw = pnlSidebar.Width;   // 210
+            int cx = sw / 2;             // centre
+
+            // Gradient bg strip behind logo area
+            using var logoBg = new LinearGradientBrush(
+                new Point(0, 0), new Point(0, 122),
+                Color.FromArgb(25, 33, 56), Color.FromArgb(15, 23, 42));
+            g.FillRectangle(logoBg, 0, 0, sw, 122);
+
+            // Emblem circle
+            int cy = 44, r = 28;
             using var grad = new LinearGradientBrush(
                 new Point(cx - r, cy - r), new Point(cx + r, cy + r), C_Blue, C_Violet);
+            // Subtle glow ring
+            using var glowPen = new Pen(Color.FromArgb(50, 124, 58, 237), 6f);
+            g.DrawEllipse(glowPen, cx - r - 3, cy - r - 3, (r + 3) * 2, (r + 3) * 2);
             g.FillEllipse(grad, cx - r, cy - r, r * 2, r * 2);
 
+            // "SB1" inside emblem
             var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-            using var mf = new Font("Segoe UI", 10f, FontStyle.Bold);
+            using var mf = new Font("Segoe UI", 11f, FontStyle.Bold);
             using var wb = new SolidBrush(Color.White);
             g.DrawString("SB1", mf, wb, cx, cy, sf);
 
-            // App name
-            var sf2 = new StringFormat { Alignment = StringAlignment.Center };
-            using var nf  = new Font("Segoe UI", 10.5f, FontStyle.Bold);
+            // App name below emblem
+            var sf2 = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Near };
+            using var nf = new Font("Segoe UI", 10f, FontStyle.Bold);
             g.DrawString("Simple Billing", nf, wb, cx, 84f, sf2);
-            using var tf  = new Font("Segoe UI", 7.5f);
-            using var tb  = new SolidBrush(C_NavText);
+            using var tf = new Font("Segoe UI", 7.5f);
+            using var tb = new SolidBrush(C_NavText);
             g.DrawString("v1.0  ·  SB1", tf, tb, cx, 102f, sf2);
 
             // Divider
@@ -176,9 +189,6 @@ namespace PROJECT_SBV1.Forms
             using var mlf = new Font("Segoe UI", 7.5f, FontStyle.Bold);
             using var mlb = new SolidBrush(C_NavText);
             g.DrawString("MENU", mlf, mlb, 18f, 130f);
-
-            // "GENERAL" section label (above settings)
-            g.DrawString("GENERAL", mlf, mlb, 18f, (float)(pnlSidebar.Height - 168));
 
             // User avatar at very bottom
             int ay = ClientSize.Height - 52, ar = 18, ax = 26;
@@ -213,12 +223,13 @@ namespace PROJECT_SBV1.Forms
                 idx++;
             }
 
-            // General section
-            ConfigNavBtn(btnNavSettings, "\u2699  Settings",  "Settings");
-            ConfigNavBtn(btnNavSecurity, "\u25C6  Security",  "Security");
-            btnNavSettings.Location = new Point(0, pnlSidebar.Height - 148);
-            btnNavSecurity.Location = new Point(0, pnlSidebar.Height - 104);
-            btnNavSettings.Size = btnNavSecurity.Size = new Size(210, 44);
+            // Settings — pinned at bottom
+            ConfigNavBtn(btnNavSettings, "\u2699  Settings", "Settings");
+            btnNavSettings.Location = new Point(0, pnlSidebar.Height - 100);
+            btnNavSettings.Size     = new Size(210, 44);
+
+            // Security button hidden (not used in SB1)
+            btnNavSecurity.Visible = false;
         }
 
         private void ConfigNavBtn(Button btn, string text, string page)
@@ -246,7 +257,7 @@ namespace PROJECT_SBV1.Forms
             // Reset all nav buttons
             foreach (var b in new[] { btnNavOverview, btnNavNewBill, btnNavCustomers,
                 btnNavProducts, btnNavTransactions, btnNavMessages,
-                btnNavSettings, btnNavSecurity })
+                btnNavSettings })
             {
                 b.ForeColor = C_NavText;
                 b.BackColor = Color.Transparent;
@@ -263,7 +274,6 @@ namespace PROJECT_SBV1.Forms
                 "Transactions" => btnNavTransactions,
                 "Messages"     => btnNavMessages,
                 "Settings"     => btnNavSettings,
-                "Security"     => btnNavSecurity,
                 _              => (Button?)null
             };
             if (active != null)
