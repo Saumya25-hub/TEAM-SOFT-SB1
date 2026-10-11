@@ -27,8 +27,8 @@ namespace PROJECT_SBV1
             {
                 loginForm.LoginSucceeded += (s, e) =>
                 {
-                    // Transition to Dashboard (Form1 for now)
-                    var dashboard = new Form1();
+                    // Transition to SB1 Billing Dashboard
+                    var dashboard = new Forms.DashboardForm();
                     loginForm.Hide();
                     dashboard.ShowDialog();
                     loginForm.Close();
