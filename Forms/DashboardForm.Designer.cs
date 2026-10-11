@@ -12,11 +12,12 @@ namespace PROJECT_SBV1.Forms
         // Sidebar
         private System.Windows.Forms.Panel  pnlSidebar;
         private System.Windows.Forms.Button btnNavOverview;
+        private System.Windows.Forms.Button btnNavStatistics;
         private System.Windows.Forms.Button btnNavNewBill;
         private System.Windows.Forms.Button btnNavCustomers;
         private System.Windows.Forms.Button btnNavProducts;
-        private System.Windows.Forms.Button btnNavTransactions;
         private System.Windows.Forms.Button btnNavMessages;
+        private System.Windows.Forms.Button btnNavTransactions;
         private System.Windows.Forms.Button btnNavSettings;
         private System.Windows.Forms.Button btnNavSecurity;
         private System.Windows.Forms.Label  lblSidebarUser;
@@ -89,11 +90,12 @@ namespace PROJECT_SBV1.Forms
             btnMaximize          = new System.Windows.Forms.Button();
             pnlSidebar           = new System.Windows.Forms.Panel();
             btnNavOverview       = new System.Windows.Forms.Button();
+            btnNavStatistics     = new System.Windows.Forms.Button();
             btnNavNewBill        = new System.Windows.Forms.Button();
             btnNavCustomers      = new System.Windows.Forms.Button();
             btnNavProducts       = new System.Windows.Forms.Button();
-            btnNavTransactions   = new System.Windows.Forms.Button();
             btnNavMessages       = new System.Windows.Forms.Button();
+            btnNavTransactions   = new System.Windows.Forms.Button();
             btnNavSettings       = new System.Windows.Forms.Button();
             btnNavSecurity       = new System.Windows.Forms.Button();
             lblSidebarUser       = new System.Windows.Forms.Label();
@@ -141,8 +143,8 @@ namespace PROJECT_SBV1.Forms
 
             this.SuspendLayout();
 
-            // Form
-            this.Text            = "SB1 — Simple Billing Dashboard";
+            // ── Form ──────────────────────────────────────────────────────────────
+            this.Text            = "SB1 — Simple Billing";
             this.Name            = "DashboardForm";
             this.ClientSize      = new System.Drawing.Size(1280, 780);
             this.StartPosition   = System.Windows.Forms.FormStartPosition.CenterScreen;
@@ -151,7 +153,7 @@ namespace PROJECT_SBV1.Forms
             this.DoubleBuffered  = true;
             this.MinimumSize     = new System.Drawing.Size(1100, 700);
 
-            // Chrome buttons — positioned dynamically in code
+            // ── Chrome buttons ─────────────────────────────────────────────────────
             SetupChromeBtn(btnClose,    "✕",
                 System.Drawing.Color.FromArgb(254, 202, 202),
                 System.Drawing.Color.FromArgb(252, 165, 165));
@@ -168,39 +170,40 @@ namespace PROJECT_SBV1.Forms
                     ? System.Windows.Forms.FormWindowState.Normal
                     : System.Windows.Forms.FormWindowState.Maximized;
 
-            // Sidebar
+            // ── Sidebar ────────────────────────────────────────────────────────────
             pnlSidebar.Dock      = System.Windows.Forms.DockStyle.Left;
-            pnlSidebar.Width     = 210;
+            pnlSidebar.Width     = 220;
             pnlSidebar.BackColor = System.Drawing.Color.FromArgb(15, 23, 42);
 
+            // User labels at bottom
             lblSidebarUser.AutoSize  = false;
-            lblSidebarUser.Size      = new System.Drawing.Size(182, 20);
+            lblSidebarUser.Size      = new System.Drawing.Size(150, 20);
             lblSidebarUser.Text      = "Jenil Rana";
             lblSidebarUser.Font      = new System.Drawing.Font("Segoe UI", 9.5f, System.Drawing.FontStyle.Bold);
             lblSidebarUser.ForeColor = System.Drawing.Color.White;
             lblSidebarUser.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
 
             lblSidebarEmail.AutoSize  = false;
-            lblSidebarEmail.Size      = new System.Drawing.Size(182, 18);
+            lblSidebarEmail.Size      = new System.Drawing.Size(150, 18);
             lblSidebarEmail.Text      = "jenil@sb1billing.com";
-            lblSidebarEmail.Font      = new System.Drawing.Font("Segoe UI", 7.5f, System.Drawing.FontStyle.Regular);
+            lblSidebarEmail.Font      = new System.Drawing.Font("Segoe UI", 7.5f);
             lblSidebarEmail.ForeColor = System.Drawing.Color.FromArgb(100, 116, 139);
             lblSidebarEmail.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
 
             pnlSidebar.Controls.AddRange(new System.Windows.Forms.Control[] {
-                btnNavOverview, btnNavNewBill, btnNavCustomers,
-                btnNavProducts, btnNavTransactions, btnNavMessages,
-                btnNavSettings, btnNavSecurity,
+                btnNavOverview, btnNavStatistics, btnNavNewBill,
+                btnNavCustomers, btnNavProducts, btnNavMessages,
+                btnNavTransactions, btnNavSettings, btnNavSecurity,
                 lblSidebarUser, lblSidebarEmail
             });
 
-            // Top bar
+            // ── Top bar ────────────────────────────────────────────────────────────
             pnlTopBar.Dock      = System.Windows.Forms.DockStyle.Top;
             pnlTopBar.Height    = 68;
             pnlTopBar.BackColor = System.Drawing.Color.White;
 
             lblPageTitle.AutoSize  = false;
-            lblPageTitle.Size      = new System.Drawing.Size(280, 32);
+            lblPageTitle.Size      = new System.Drawing.Size(320, 32);
             lblPageTitle.Location  = new System.Drawing.Point(20, 8);
             lblPageTitle.Text      = "Dashboard";
             lblPageTitle.Font      = new System.Drawing.Font("Segoe UI", 18f, System.Drawing.FontStyle.Bold);
@@ -208,14 +211,14 @@ namespace PROJECT_SBV1.Forms
             lblPageTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
 
             lblPageSub.AutoSize  = false;
-            lblPageSub.Size      = new System.Drawing.Size(440, 18);
+            lblPageSub.Size      = new System.Drawing.Size(460, 18);
             lblPageSub.Location  = new System.Drawing.Point(22, 42);
             lblPageSub.Text      = "An easy way to manage your bills with care and precision.";
             lblPageSub.Font      = new System.Drawing.Font("Segoe UI", 8.5f);
             lblPageSub.ForeColor = System.Drawing.Color.FromArgb(148, 163, 184);
             lblPageSub.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
 
-            // Search box panel — rounded, properly sized
+            // Search box
             pnlSearchBox.BackColor   = System.Drawing.Color.FromArgb(248, 250, 252);
             pnlSearchBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
             pnlSearchBox.Size        = new System.Drawing.Size(260, 38);
@@ -228,7 +231,6 @@ namespace PROJECT_SBV1.Forms
                 g2.FillPath(bg, rp);
                 using var bp = new System.Drawing.Pen(System.Drawing.Color.FromArgb(203, 213, 225), 1.2f);
                 g2.DrawPath(bp, rp);
-                // Search icon (magnifier)
                 using var iconPen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(148, 163, 184), 1.5f);
                 g2.DrawEllipse(iconPen, 10, 11, 13, 13);
                 g2.DrawLine(iconPen, 21, 22, 27, 28);
@@ -239,11 +241,11 @@ namespace PROJECT_SBV1.Forms
             txtSearch.Font            = new System.Drawing.Font("Segoe UI", 9.5f);
             txtSearch.ForeColor       = System.Drawing.Color.FromArgb(71, 85, 105);
             txtSearch.PlaceholderText = "Search anything in SB1...";
-            txtSearch.Location        = new System.Drawing.Point(32, 9);
-            txtSearch.Size            = new System.Drawing.Size(218, 20);
+            txtSearch.Location        = new System.Drawing.Point(34, 9);
+            txtSearch.Size            = new System.Drawing.Size(216, 20);
             pnlSearchBox.Controls.Add(txtSearch);
 
-            // "+ Add new product" button — rounded, properly sized
+            // Add product button with gradient + rounded
             btnTopAddProduct.Text      = "+ Add new product";
             btnTopAddProduct.Size      = new System.Drawing.Size(160, 38);
             btnTopAddProduct.Font      = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Bold);
@@ -255,7 +257,6 @@ namespace PROJECT_SBV1.Forms
             btnTopAddProduct.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(29, 78, 216);
             btnTopAddProduct.Cursor    = System.Windows.Forms.Cursors.Hand;
             btnTopAddProduct.Click    += (s, e) => ShowPage("Products");
-            // Rounded corners via Paint
             btnTopAddProduct.Paint += (s, e2) =>
             {
                 var g2 = e2.Graphics;
@@ -276,12 +277,12 @@ namespace PROJECT_SBV1.Forms
                 btnClose, btnMinimize, btnMaximize
             });
 
-            // Content area
+            // ── Content area ───────────────────────────────────────────────────────
             pnlContent.Dock      = System.Windows.Forms.DockStyle.Fill;
             pnlContent.BackColor = System.Drawing.Color.FromArgb(241, 245, 249);
             pnlContent.Padding   = new System.Windows.Forms.Padding(20, 16, 20, 16);
 
-            // Assemble form
+            // ── Assemble ───────────────────────────────────────────────────────────
             this.Controls.Add(pnlContent);
             this.Controls.Add(pnlTopBar);
             this.Controls.Add(pnlSidebar);

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -163,108 +163,222 @@ namespace PROJECT_SBV1.Forms
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
-        //  SIDEBAR  — logo + nav
+        //  SIDEBAR — logo + nav  (reference image layout, blue palette)
         // ═══════════════════════════════════════════════════════════════════════════
         private void PaintSidebarLogo(Graphics g)
         {
-            int sw = pnlSidebar.Width;   // 210
-            int cx = sw / 2;             // centre
+            int sw = pnlSidebar.Width;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
 
-            // Gradient bg strip behind logo area
-            using var logoBg = new LinearGradientBrush(
-                new Point(0, 0), new Point(0, 122),
-                Color.FromArgb(25, 33, 56), Color.FromArgb(15, 23, 42));
-            g.FillRectangle(logoBg, 0, 0, sw, 122);
+            // ── Star/asterisk icon + "Simple Billing" (left-aligned like reference) ─
+            int sx = 20, sy = 24, sr = 9;
+            using var starPen = new Pen(C_Blue, 2.2f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+            for (int i = 0; i < 6; i++)
+            {
+                double angle = i * Math.PI / 3;
+                float x1 = sx + (float)Math.Cos(angle) * (sr * 0.35f);
+                float y1 = sy + (float)Math.Sin(angle) * (sr * 0.35f);
+                float x2 = sx + (float)Math.Cos(angle) * sr;
+                float y2 = sy + (float)Math.Sin(angle) * sr;
+                g.DrawLine(starPen, x1, y1, x2, y2);
+            }
+            using var appF = new Font("Segoe UI", 11f, FontStyle.Bold);
+            using var appB = new SolidBrush(Color.White);
+            g.DrawString("Simple Billing", appF, appB, sx + sr + 8, sy - 9);
 
-            // Emblem circle
-            int cy = 44, r = 28;
-            using var grad = new LinearGradientBrush(
-                new Point(cx - r, cy - r), new Point(cx + r, cy + r), C_Blue, C_Violet);
-            // Subtle glow ring
-            using var glowPen = new Pen(Color.FromArgb(50, 124, 58, 237), 6f);
-            g.DrawEllipse(glowPen, cx - r - 3, cy - r - 3, (r + 3) * 2, (r + 3) * 2);
-            g.FillEllipse(grad, cx - r, cy - r, r * 2, r * 2);
+            // ── Divider below logo ───────────────────────────────────────────────
+            using var dp = new Pen(Color.FromArgb(30, 255, 255, 255), 1f);
+            g.DrawLine(dp, 14, 48, sw - 14, 48);
 
-            // "SB1" inside emblem
-            var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-            using var mf = new Font("Segoe UI", 11f, FontStyle.Bold);
-            using var wb = new SolidBrush(Color.White);
-            g.DrawString("SB1", mf, wb, cx, cy, sf);
+            // ── "MENU" section label ─────────────────────────────────────────────
+            using var secF = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+            using var secB = new SolidBrush(Color.FromArgb(100, 116, 139));
+            g.DrawString("MENU", secF, secB, 18f, 58f);
 
-            // App name below emblem
-            var sf2 = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Near };
-            using var nf = new Font("Segoe UI", 10f, FontStyle.Bold);
-            g.DrawString("Simple Billing", nf, wb, cx, 84f, sf2);
-            using var tf = new Font("Segoe UI", 7.5f);
-            using var tb = new SolidBrush(C_NavText);
-            g.DrawString("v1.0  ·  SB1", tf, tb, cx, 102f, sf2);
+            // ── "GENERAL" section label (above Settings) ─────────────────────────
+            g.DrawString("GENERAL", secF, secB, 18f, pnlSidebar.Height - 148f);
 
-            // Divider
-            using var dp = new Pen(Color.FromArgb(35, 255, 255, 255), 1f);
-            g.DrawLine(dp, 14, 120, pnlSidebar.Width - 14, 120);
+            // ── Divider above user row ────────────────────────────────────────────
+            g.DrawLine(dp, 14, pnlSidebar.Height - 72, sw - 14, pnlSidebar.Height - 72);
 
-            // "MENU" section label
-            using var mlf = new Font("Segoe UI", 7.5f, FontStyle.Bold);
-            using var mlb = new SolidBrush(C_NavText);
-            g.DrawString("MENU", mlf, mlb, 18f, 130f);
-
-            // User avatar at very bottom
-            int ay = ClientSize.Height - 52, ar = 18, ax = 26;
-            using var ag = new LinearGradientBrush(new Point(ax-ar,ay-ar),new Point(ax+ar,ay+ar),C_Blue,C_Violet);
+            // ── User avatar + labels ─────────────────────────────────────────────
+            int ay = pnlSidebar.Height - 42, ar = 16, ax = 22;
+            var avSf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            using var ag = new LinearGradientBrush(
+                new Point(ax - ar, ay - ar), new Point(ax + ar, ay + ar), C_Blue, C_Violet);
             g.FillEllipse(ag, ax - ar, ay - ar, ar * 2, ar * 2);
             using var avf = new Font("Segoe UI", 9f, FontStyle.Bold);
-            g.DrawString("J", avf, wb, ax, ay, sf);
+            using var avb = new SolidBrush(Color.White);
+            g.DrawString("J", avf, avb, ax, ay, avSf);
 
-            lblSidebarUser.Location  = new Point(50, ay - 13);
-            lblSidebarEmail.Location = new Point(50, ay + 5);
+            lblSidebarUser.Location  = new Point(44, ay - 12);
+            lblSidebarEmail.Location = new Point(44, ay + 6);
         }
 
         private void SetupSidebarNav()
         {
-            // (page-key, icon-char, label, button)
-            var items = new[]
+            int rowH = 42;
+
+            // MENU items — matches reference photo order exactly
+            var menuItems = new (string page, string label, Button btn, bool badge, string badgeText, bool chevron)[]
             {
-                ("Overview",     "\u25A3", "Overview",      btnNavOverview),
-                ("NewBill",      "+",      "New Bill",       btnNavNewBill),
-                ("Customers",    "\u25CF", "Customers",      btnNavCustomers),
-                ("Products",     "\u25A1", "Product",        btnNavProducts),
-                ("Transactions", "\u21C4", "Transactions",   btnNavTransactions),
-                ("Messages",     "\u2709", "Messages",       btnNavMessages),
+                ("Overview",     "Overview",     btnNavOverview,     false, "",   false),
+                ("Statistics",   "Statistics",   btnNavStatistics,   false, "",   false),
+                ("Customers",    "Customers",    btnNavCustomers,    false, "",   false),
+                ("Products",     "Product",      btnNavProducts,     false, "",   true),
+                ("Messages",     "Messages",     btnNavMessages,     true,  "13", false),
+                ("Transactions", "Transactions", btnNavTransactions, false, "",   false),
             };
 
-            int startY = 148, idx = 0;
-            foreach (var (page, icon, label, btn) in items)
+            int startY = 76;
+            for (int i = 0; i < menuItems.Length; i++)
             {
-                ConfigNavBtn(btn, icon + "  " + label, page);
-                btn.Location = new Point(0, startY + idx * 44);
-                btn.Size     = new Size(210, 44);
-                idx++;
+                var item = menuItems[i];
+                ConfigNavBtn(item.btn, item.label, item.page, item.badge, item.badgeText, item.chevron);
+                item.btn.Location = new Point(0, startY + i * rowH);
+                item.btn.Size     = new Size(pnlSidebar.Width, rowH);
             }
 
-            // Settings — pinned at bottom
-            ConfigNavBtn(btnNavSettings, "\u2699  Settings", "Settings");
-            btnNavSettings.Location = new Point(0, pnlSidebar.Height - 100);
-            btnNavSettings.Size     = new Size(210, 44);
+            // GENERAL section
+            int genStart = pnlSidebar.Height - 132;
+            ConfigNavBtn(btnNavSettings, "Settings", "Settings", false, "", false);
+            ConfigNavBtn(btnNavSecurity, "Security", "Security", false, "", false);
+            btnNavSettings.Location = new Point(0, genStart);
+            btnNavSecurity.Location = new Point(0, genStart + rowH);
+            btnNavSettings.Size = btnNavSecurity.Size = new Size(pnlSidebar.Width, rowH);
+            btnNavSecurity.Visible = true;
 
-            // Security button hidden (not used in SB1)
-            btnNavSecurity.Visible = false;
+            // NewBill accessed via top button — hide from sidebar
+            btnNavNewBill.Visible = false;
         }
 
-        private void ConfigNavBtn(Button btn, string text, string page)
+        private void ConfigNavBtn(Button btn, string label, string page,
+                                   bool hasBadge, string badgeText, bool hasChevron)
         {
             btn.FlatStyle = FlatStyle.Flat;
             btn.FlatAppearance.BorderSize = 0;
-            btn.FlatAppearance.MouseOverBackColor = C_NavHover;
-            btn.FlatAppearance.MouseDownBackColor = C_NavActive;
+            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(20, 59, 130, 246);
+            btn.FlatAppearance.MouseDownBackColor = Color.FromArgb(35, 59, 130, 246);
             btn.BackColor = Color.Transparent;
             btn.ForeColor = C_NavText;
             btn.Font      = new Font("Segoe UI", 9.5f);
-            btn.Text      = text;
-            btn.TextAlign = ContentAlignment.MiddleLeft;
-            btn.Padding   = new Padding(18, 0, 0, 0);
+            btn.Text      = string.Empty;
             btn.Cursor    = Cursors.Hand;
             btn.Tag       = page;
-            btn.Click    += (s, e) => { if (btn.Tag is string p) ShowPage(p); };
+
+            btn.Paint += (s, e) =>
+            {
+                var b2 = (Button)s!;
+                var g2 = e.Graphics;
+                g2.SmoothingMode = SmoothingMode.AntiAlias;
+                g2.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                bool isActive = _activePage == page;
+                int  bw = b2.Width, bh = b2.Height;
+
+                // Active tinted background
+                if (isActive)
+                {
+                    using var bgBr = new SolidBrush(Color.FromArgb(30, 59, 130, 246));
+                    g2.FillRectangle(bgBr, 0, 0, bw, bh);
+                    // Left blue accent bar
+                    using var barBr   = new SolidBrush(C_Blue);
+                    using var barPath = GraphicsExtensions.CreateRoundedRectanglePath(0, 7, 4, bh - 14, 2);
+                    g2.FillPath(barBr, barPath);
+                }
+
+                // Nav icon
+                DrawNavIcon(g2, page, 20, bh / 2, isActive ? C_Blue : C_NavText);
+
+                // Label text
+                using var textBr = new SolidBrush(isActive ? Color.White : C_NavText);
+                using var textF  = new Font("Segoe UI", 9.5f, isActive ? FontStyle.Bold : FontStyle.Regular);
+                float textX = 38f;
+                float textW = bw - textX - (hasChevron ? 22 : 6) - (hasBadge ? 38 : 0);
+                var sf3 = new StringFormat { LineAlignment = StringAlignment.Center };
+                g2.DrawString(label, textF, textBr, new RectangleF(textX, 0, textW, bh), sf3);
+
+                // Notification badge
+                if (hasBadge && !string.IsNullOrEmpty(badgeText))
+                {
+                    int bx = bw - 44, by = bh / 2 - 9;
+                    using var badgeBr = new SolidBrush(C_Blue);
+                    using var badgeP  = GraphicsExtensions.CreateRoundedRectanglePath(bx, by, 30, 18, 9);
+                    g2.FillPath(badgeBr, badgeP);
+                    using var badgeF  = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+                    using var badgeTB = new SolidBrush(Color.White);
+                    var bsf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                    g2.DrawString(badgeText, badgeF, badgeTB, new RectangleF(bx, by, 30, 18), bsf);
+                }
+
+                // Dropdown chevron (Product)
+                if (hasChevron)
+                {
+                    int cx2 = bw - 18, cy2 = bh / 2;
+                    using var chevPen = new Pen(C_NavText, 1.5f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+                    g2.DrawLine(chevPen, cx2 - 4, cy2 - 3, cx2, cy2 + 3);
+                    g2.DrawLine(chevPen, cx2, cy2 + 3, cx2 + 4, cy2 - 3);
+                }
+            };
+
+            btn.Click += (s, e) => { if (btn.Tag is string p) ShowPage(p); };
+        }
+
+        // Pixel-drawn nav icons, matching reference image shapes
+        private static void DrawNavIcon(Graphics g, string page, int cx, int cy, Color clr)
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using var p  = new Pen(clr, 1.5f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+            using var br = new SolidBrush(clr);
+            switch (page)
+            {
+                case "Overview":      // 2x2 grid
+                    g.FillRectangle(br, cx - 6, cy - 6, 5, 5);
+                    g.FillRectangle(br, cx + 2, cy - 6, 5, 5);
+                    g.FillRectangle(br, cx - 6, cy + 2, 5, 5);
+                    g.FillRectangle(br, cx + 2, cy + 2, 5, 5);
+                    break;
+                case "Statistics":    // bar chart
+                    g.FillRectangle(br, cx - 6, cy + 2, 3, 4);
+                    g.FillRectangle(br, cx - 2, cy - 1, 3, 7);
+                    g.FillRectangle(br, cx + 2, cy - 5, 3, 11);
+                    break;
+                case "Customers":     // person silhouette
+                    g.DrawEllipse(p, cx - 4, cy - 7, 7, 7);
+                    g.DrawArc(p, cx - 6, cy + 1, 11, 6, 180, 180);
+                    break;
+                case "Products":      // box/product
+                    g.DrawRectangle(p, cx - 5, cy - 4, 10, 9);
+                    g.DrawLine(p, cx - 5, cy, cx + 5, cy);
+                    break;
+                case "Messages":      // envelope
+                    g.DrawRectangle(p, cx - 6, cy - 4, 12, 9);
+                    g.DrawLine(p, cx - 6, cy - 4, cx, cy + 1);
+                    g.DrawLine(p, cx + 6, cy - 4, cx, cy + 1);
+                    break;
+                case "Transactions":  // swap arrows
+                    g.DrawLine(p, cx - 5, cy - 2, cx + 5, cy - 2);
+                    g.DrawLine(p, cx + 2, cy - 5, cx + 5, cy - 2);
+                    g.DrawLine(p, cx - 5, cy + 2, cx + 5, cy + 2);
+                    g.DrawLine(p, cx - 5, cy + 2, cx - 2, cy - 1);
+                    break;
+                case "Settings":      // gear
+                    g.DrawEllipse(p, cx - 4, cy - 4, 8, 8);
+                    for (int i = 0; i < 6; i++)
+                    {
+                        double a = i * Math.PI / 3;
+                        g.DrawLine(p,
+                            cx + (float)Math.Cos(a) * 5f, cy + (float)Math.Sin(a) * 5f,
+                            cx + (float)Math.Cos(a) * 7f, cy + (float)Math.Sin(a) * 7f);
+                    }
+                    break;
+                case "Security":      // shield
+                    g.DrawArc(p, cx - 5, cy - 7, 10, 10, 180, 180);
+                    g.DrawLine(p, cx - 5, cy - 2, cx - 5, cy + 3);
+                    g.DrawLine(p, cx + 5, cy - 2, cx + 5, cy + 3);
+                    g.DrawLine(p, cx - 5, cy + 3, cx, cy + 7);
+                    g.DrawLine(p, cx + 5, cy + 3, cx, cy + 7);
+                    break;
+            }
         }
 
         // ─── ShowPage ──────────────────────────────────────────────────────────────
@@ -272,55 +386,39 @@ namespace PROJECT_SBV1.Forms
         {
             _activePage = page;
 
-            // Reset all nav buttons
-            foreach (var b in new[] { btnNavOverview, btnNavNewBill, btnNavCustomers,
+            // Repaint all nav buttons (they self-draw active state)
+            foreach (var b in new[] {
+                btnNavOverview, btnNavStatistics, btnNavCustomers,
                 btnNavProducts, btnNavTransactions, btnNavMessages,
-                btnNavSettings })
-            {
-                b.ForeColor = C_NavText;
-                b.BackColor = Color.Transparent;
-                b.Font = new Font("Segoe UI", 9.5f);
-            }
-
-            // Activate selected
-            var active = page switch
-            {
-                "Overview"     => btnNavOverview,
-                "NewBill"      => btnNavNewBill,
-                "Customers"    => btnNavCustomers,
-                "Products"     => btnNavProducts,
-                "Transactions" => btnNavTransactions,
-                "Messages"     => btnNavMessages,
-                "Settings"     => btnNavSettings,
-                _              => (Button?)null
-            };
-            if (active != null)
-            {
-                active.ForeColor = C_NavTextOn;
-                active.BackColor = C_NavActive;
-                active.Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-            }
+                btnNavSettings, btnNavSecurity })
+                b.Invalidate();
 
             lblPageTitle.Text = page switch
             {
                 "Overview"     => "Dashboard",
+                "Statistics"   => "Statistics",
                 "NewBill"      => "New Bill",
                 "Customers"    => "Customers",
                 "Products"     => "Products",
                 "Transactions" => "Transactions",
+                "Messages"     => "Messages",
+                "Settings"     => "Settings",
+                "Security"     => "Security",
                 _              => page
             };
             lblPageSub.Text = page switch
             {
                 "Overview"     => "An easy way to manage your bills with care and precision.",
+                "Statistics"   => "View your sales statistics and performance metrics.",
                 "NewBill"      => "Create a new invoice for your customer.",
                 "Customers"    => "Manage your customer database.",
                 "Products"     => "Manage your product catalogue.",
                 "Transactions" => "View and search all billing transactions.",
+                "Messages"     => "View messages and notifications.",
                 _              => ""
             };
 
-            pnlOverview.Visible   = page == "Overview";
+            pnlOverview.Visible   = page is "Overview" or "Statistics" or "Messages";
             pnlNewBill.Visible    = page == "NewBill";
             pnlCustomers.Visible  = page == "Customers";
             pnlProducts.Visible   = page == "Products";
@@ -328,6 +426,7 @@ namespace PROJECT_SBV1.Forms
 
             Invalidate();
         }
+
 
         // ═══════════════════════════════════════════════════════════════════════════
         //  PAGE: OVERVIEW
