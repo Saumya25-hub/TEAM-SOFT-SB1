@@ -121,12 +121,30 @@ namespace PROJECT_SBV1.Forms
 
         private void RepositionTopBarItems()
         {
-            int right = ClientSize.Width;
-            btnClose.Location         = new Point(right - 42,  19);
-            btnMaximize.Location      = new Point(right - 80,  19);
-            btnMinimize.Location      = new Point(right - 118, 19);
-            btnTopAddProduct.Location = new Point(right - 282,  16);
-            pnlSearchBox.Location     = new Point(right - 538,  16);
+            int tbW   = pnlTopBar.Width;   // topbar width (excludes sidebar)
+            int tbH   = pnlTopBar.Height;  // 68px
+
+            int btnW  = 160;  // Add button
+            int srchW = 260;  // Search box
+            int ctrlH = 38;   // common height
+            int gap   = 10;   // gap between elements
+
+            // Chrome buttons — right edge, vertically centred
+            btnClose.Location    = new Point(tbW - 42,          (tbH - 30) / 2);
+            btnMaximize.Location = new Point(tbW - 42 - 38,     (tbH - 30) / 2);
+            btnMinimize.Location = new Point(tbW - 42 - 38*2,   (tbH - 30) / 2);
+
+            int chromeEnd = 42 + 38*2 + 8; // total space used by chrome + small pad
+
+            // Add button — left of chrome
+            int btnX = tbW - chromeEnd - gap - btnW;
+            btnTopAddProduct.Size     = new Size(btnW, ctrlH);
+            btnTopAddProduct.Location = new Point(btnX, (tbH - ctrlH) / 2);
+
+            // Search box — left of add button
+            int srchX = btnX - gap - srchW;
+            pnlSearchBox.Size     = new Size(srchW, ctrlH);
+            pnlSearchBox.Location = new Point(srchX, (tbH - ctrlH) / 2);
         }
 
         private void SetupWindowDrag()

@@ -215,30 +215,61 @@ namespace PROJECT_SBV1.Forms
             lblPageSub.ForeColor = System.Drawing.Color.FromArgb(148, 163, 184);
             lblPageSub.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
 
-            // Search box panel
+            // Search box panel — rounded, properly sized
             pnlSearchBox.BackColor   = System.Drawing.Color.FromArgb(248, 250, 252);
-            pnlSearchBox.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            pnlSearchBox.Size        = new System.Drawing.Size(240, 36);
+            pnlSearchBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            pnlSearchBox.Size        = new System.Drawing.Size(260, 38);
+            pnlSearchBox.Paint += (s, e2) =>
+            {
+                var g2 = e2.Graphics;
+                g2.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using var rp = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, pnlSearchBox.Width - 1, pnlSearchBox.Height - 1, 8);
+                using var bg = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(248, 250, 252));
+                g2.FillPath(bg, rp);
+                using var bp = new System.Drawing.Pen(System.Drawing.Color.FromArgb(203, 213, 225), 1.2f);
+                g2.DrawPath(bp, rp);
+                // Search icon (magnifier)
+                using var iconPen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(148, 163, 184), 1.5f);
+                g2.DrawEllipse(iconPen, 10, 11, 13, 13);
+                g2.DrawLine(iconPen, 21, 22, 27, 28);
+            };
 
             txtSearch.BorderStyle     = System.Windows.Forms.BorderStyle.None;
             txtSearch.BackColor       = System.Drawing.Color.FromArgb(248, 250, 252);
             txtSearch.Font            = new System.Drawing.Font("Segoe UI", 9.5f);
             txtSearch.ForeColor       = System.Drawing.Color.FromArgb(71, 85, 105);
             txtSearch.PlaceholderText = "Search anything in SB1...";
-            txtSearch.Location        = new System.Drawing.Point(10, 8);
-            txtSearch.Size            = new System.Drawing.Size(214, 20);
+            txtSearch.Location        = new System.Drawing.Point(32, 9);
+            txtSearch.Size            = new System.Drawing.Size(218, 20);
             pnlSearchBox.Controls.Add(txtSearch);
 
-            // "Add new product" top-right button
+            // "+ Add new product" button — rounded, properly sized
             btnTopAddProduct.Text      = "+ Add new product";
-            btnTopAddProduct.Size      = new System.Drawing.Size(152, 36);
-            btnTopAddProduct.Font      = new System.Drawing.Font("Segoe UI", 8.5f, System.Drawing.FontStyle.Bold);
+            btnTopAddProduct.Size      = new System.Drawing.Size(160, 38);
+            btnTopAddProduct.Font      = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Bold);
             btnTopAddProduct.ForeColor = System.Drawing.Color.White;
             btnTopAddProduct.BackColor = System.Drawing.Color.FromArgb(59, 130, 246);
             btnTopAddProduct.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            btnTopAddProduct.FlatAppearance.BorderSize = 0;
+            btnTopAddProduct.FlatAppearance.BorderSize         = 0;
+            btnTopAddProduct.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(37, 99, 235);
+            btnTopAddProduct.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(29, 78, 216);
             btnTopAddProduct.Cursor    = System.Windows.Forms.Cursors.Hand;
             btnTopAddProduct.Click    += (s, e) => ShowPage("Products");
+            // Rounded corners via Paint
+            btnTopAddProduct.Paint += (s, e2) =>
+            {
+                var g2 = e2.Graphics;
+                g2.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using var rp = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, btnTopAddProduct.Width - 1, btnTopAddProduct.Height - 1, 8);
+                using var grad = new System.Drawing.Drawing2D.LinearGradientBrush(
+                    new System.Drawing.Point(0, 0), new System.Drawing.Point(btnTopAddProduct.Width, 0),
+                    System.Drawing.Color.FromArgb(59, 130, 246), System.Drawing.Color.FromArgb(99, 102, 241));
+                g2.FillPath(grad, rp);
+                var sf2 = new System.Drawing.StringFormat { Alignment = System.Drawing.StringAlignment.Center, LineAlignment = System.Drawing.StringAlignment.Center };
+                using var tf2 = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Bold);
+                using var wb2 = new System.Drawing.SolidBrush(System.Drawing.Color.White);
+                g2.DrawString("+ Add new product", tf2, wb2, new System.Drawing.RectangleF(0, 0, btnTopAddProduct.Width, btnTopAddProduct.Height), sf2);
+            };
 
             pnlTopBar.Controls.AddRange(new System.Windows.Forms.Control[] {
                 lblPageTitle, lblPageSub, pnlSearchBox, btnTopAddProduct,
