@@ -58,3 +58,5 @@ local_profile.json
 .team/profile.md
 .team/*.local.md
 
+
+push.bat
