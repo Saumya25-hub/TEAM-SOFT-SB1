@@ -21,7 +21,7 @@ namespace PROJECT_SBV1.Forms
         private bool  _isDarkMode = false;
         private float _toggleAnimProgress = 0f; // 0.0f = Light, 1.0f = Dark
         private float _targetAnimProgress = 0f;
-        private readonly System.Windows.Forms.Timer _animTimer = new() { Interval = 15 };
+        private readonly System.Windows.Forms.Timer _animTimer = new() { Interval = 10 };
 
         // ═══════════════════════════════════════════════════════════════════════════
         //  COLOUR PALETTE  — dynamic getters blending smoothly with _toggleAnimProgress
@@ -183,27 +183,31 @@ namespace PROJECT_SBV1.Forms
         {
             btnThemeToggle.Paint += (s, e) => PaintThemeToggle(e.Graphics);
 
+            _animTimer.Interval = 10;
             _animTimer.Tick += (s, e) =>
             {
                 float diff = _targetAnimProgress - _toggleAnimProgress;
-                if (Math.Abs(diff) < 0.02f)
+                float step = Math.Max(0.14f, Math.Abs(diff) * 0.55f);
+
+                if (Math.Abs(diff) <= step)
                 {
                     _toggleAnimProgress = _targetAnimProgress;
                     _animTimer.Stop();
+                    ApplyTheme(fullRefresh: true);
                 }
                 else
                 {
-                    // Smooth ease-out interpolation for 60 FPS transition
-                    _toggleAnimProgress += diff * 0.28f;
+                    // Fast, snappy ease-out interpolation for instant theme transition
+                    _toggleAnimProgress += Math.Sign(diff) * step;
+                    ApplyTheme(fullRefresh: false);
                 }
-
-                ApplyTheme();
             };
 
             btnThemeToggle.Click += (s, e) =>
             {
                 _isDarkMode = !_isDarkMode;
                 _targetAnimProgress = _isDarkMode ? 1.0f : 0.0f;
+                ApplyTheme(fullRefresh: true);
                 _animTimer.Start();
             };
 
@@ -320,7 +324,7 @@ namespace PROJECT_SBV1.Forms
             g.FillPath(moonBrush, moonPath);
         }
 
-        private void ApplyTheme()
+        private void ApplyTheme(bool fullRefresh = false)
         {
             // Form background
             this.BackColor = _isDarkMode ? Color.FromArgb(11, 12, 17) : Color.FromArgb(15, 23, 42);
@@ -346,34 +350,38 @@ namespace PROJECT_SBV1.Forms
             txtSearch.BackColor    = C_SearchBg;
             txtSearch.ForeColor    = C_TextDark;
 
-            // Inputs
-            ApplyTextBoxTheme(txtSearch);
-            ApplyTextBoxTheme(txtBillCustomerName);
-            ApplyTextBoxTheme(txtBillPhone);
-            ApplyTextBoxTheme(txtBillItemName);
-            ApplyTextBoxTheme(txtBillQty);
-            ApplyTextBoxTheme(txtBillPrice);
-            ApplyTextBoxTheme(txtCustSearch);
-            ApplyTextBoxTheme(txtProdSearch);
-            ApplyTextBoxTheme(txtTransSearch);
+            // Only run heavy Grid and Input theme logic on fullRefresh / completion
+            if (fullRefresh)
+            {
+                ApplyTextBoxTheme(txtSearch);
+                ApplyTextBoxTheme(txtBillCustomerName);
+                ApplyTextBoxTheme(txtBillPhone);
+                ApplyTextBoxTheme(txtBillItemName);
+                ApplyTextBoxTheme(txtBillQty);
+                ApplyTextBoxTheme(txtBillPrice);
+                ApplyTextBoxTheme(txtCustSearch);
+                ApplyTextBoxTheme(txtProdSearch);
+                ApplyTextBoxTheme(txtTransSearch);
 
-            // Grids
-            ApplyGridTheme(dgvTransactions);
-            ApplyGridTheme(dgvBillItems);
-            ApplyGridTheme(dgvCustomers);
-            ApplyGridTheme(dgvProducts);
-            ApplyGridTheme(dgvAllTransactions);
+                ApplyGridTheme(dgvTransactions);
+                ApplyGridTheme(dgvBillItems);
+                ApplyGridTheme(dgvCustomers);
+                ApplyGridTheme(dgvProducts);
+                ApplyGridTheme(dgvAllTransactions);
+            }
 
             // Redraw panels
             pnlTopBar.Invalidate();
             pnlSearchBox.Invalidate();
             pnlSidebar.Invalidate();
             btnThemeToggle.Invalidate();
-            pnlOverview.Invalidate(true);
-            pnlNewBill.Invalidate(true);
-            pnlCustomers.Invalidate(true);
-            pnlProducts.Invalidate(true);
-            pnlTransPage.Invalidate(true);
+
+            // Repaint active visible page for high-performance animation
+            if (pnlOverview.Visible) pnlOverview.Invalidate(true);
+            else if (pnlNewBill.Visible) pnlNewBill.Invalidate(true);
+            else if (pnlCustomers.Visible) pnlCustomers.Invalidate(true);
+            else if (pnlProducts.Visible) pnlProducts.Invalidate(true);
+            else if (pnlTransPage.Visible) pnlTransPage.Invalidate(true);
         }
 
         private void ApplyTextBoxTheme(TextBox? txt)
