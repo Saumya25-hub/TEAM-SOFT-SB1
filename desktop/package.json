@@ -2,7 +2,7 @@
   "name": "simple-billing-desktop",
   "version": "1.0.0",
   "description": "Simple Billing - Multi-tenant Windows Inventory, Billing & Transaction Management Suite",
-  "main": "dist-electron/main.js",
+  "main": "src-electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

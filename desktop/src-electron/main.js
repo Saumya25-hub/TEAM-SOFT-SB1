@@ -18,11 +18,17 @@ function createWindow() {
     },
   });
 
-  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
+  const prodFile = path.join(__dirname, '../dist/index.html');
+  const devUrl = 'http://localhost:5173';
+
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.loadURL(devUrl).catch(() => {
+      mainWindow.loadFile(prodFile);
+    });
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    mainWindow.loadFile(prodFile).catch(() => {
+      mainWindow.loadURL(devUrl);
+    });
   }
 
   mainWindow.on('closed', () => {
