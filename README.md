@@ -172,7 +172,51 @@ The application will launch the Splash Screen, transition smoothly to the Login 
 
 ---
 
-## 8. Multi-Developer Contribution Guidelines
+---
+
+## 9. Windows Desktop Inventory & Billing Suite (Electron + React + Node.js Backend)
+
+This project has been expanded into a full-scale, multi-tenant Windows Desktop Inventory, Billing & Transaction Management Suite with 10 core business modules matching the reference dashboard UI:
+
+### 🧩 10 Core Application Modules
+1. **Overview Dashboard**: Metric KPI cards (Net Income, Sales, Returns), 7-month interactive revenue bar chart, category donut breakdown, recent transactions, low-stock warnings, and fast theme toggle.
+2. **Statistics & Reports**: Financial intelligence, product margins, inventory valuation, and CSV export.
+3. **Customers**: Customer database, contact cards, bill history, and credit balance tracking.
+4. **Suppliers**: Wholesale supplier directory, procurement logs, and payable accounts.
+5. **Products & Inventory**: SKU codes, barcode scanner integration, category organization, and manual stock adjustment modal with audit trail.
+6. **Purchase Management**: Purchase order generation, receiving items, and automatic stock increment.
+7. **Sales Billing & POS Invoices**: Rapid Point-of-Sale checkout, barcode lookup, line discounts, configurable taxes, Cash/Bank/UPI payment modes, and **Printable Tax Invoice Modal**.
+8. **Messages & Notifications**: Operational warnings, threshold breaches, and backup notices.
+9. **Transactions & Receipts**: Real-time financial ledger across Cash, Bank Transfer, UPI, and Card receipts.
+10. **Settings & Security**: Multi-tenant business switcher, legal profile, tax rules, and immutable audit logs.
+
+### 🚀 How to Run the Suite
+1. **Start Central Backend API**:
+   ```powershell
+   cd backend
+   npm run dev
+   ```
+   *(Server starts at `http://localhost:5000` with automatic database connection & mock seeding).*
+2. **Start Desktop Client**:
+   ```powershell
+   cd desktop
+   npm run dev
+   # Or launch inside Electron:
+   npm run electron:dev
+   ```
+3. **One-Click Master Launcher**:
+   - Double click `start-all.bat` in the project root to launch both backend and desktop client concurrently.
+
+### 📦 Building Windows x64 Installer
+To generate a standalone branded Windows x64 NSIS installer (`release/SimpleBilling-Setup-1.0.0.exe`):
+```powershell
+cd desktop
+npm run electron:build
+```
+
+---
+
+## 10. Multi-Developer Contribution Guidelines
 
 All team members must follow the engineering standards in [TEAM_RULES.md](file:///d:/TEAM%20LEAD%20SOFFWATRE/PROJECT-SBV1/TEAM_RULES.md):
 - **Feature Branches**: Never commit directly to `main`. Create feature branches (`feature/<task-name>`).
@@ -182,7 +226,8 @@ All team members must follow the engineering standards in [TEAM_RULES.md](file:/
 
 ---
 
-## 9. License
+## 11. License
 
 This project is licensed under the **MIT License**. See `LICENSE` for details.
+
 
