@@ -1,310 +1,519 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   TrendingUp,
   TrendingDown,
-  ArrowRight,
-  AlertTriangle,
-  Receipt,
-  CheckCircle2,
-  Clock,
-  MoreVertical,
+  Package,
+  CheckSquare,
+  DollarSign,
+  CreditCard,
+  Wallet,
+  RotateCcw,
+  ChevronDown,
 } from 'lucide-react';
-import { api } from '../services/api';
 
 interface DashboardModuleProps {
-  onNavigate: (module: any) => void;
-  currencySymbol: string;
+  onNavigate?: (module: any) => void;
+  currencySymbol?: string;
 }
 
-export const DashboardModule: React.FC<DashboardModuleProps> = ({ onNavigate, currencySymbol }) => {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+export const DashboardModule: React.FC<DashboardModuleProps> = () => {
+  const [selectedYear, setSelectedYear] = useState('2021');
 
-  useEffect(() => {
-    loadOverview();
-  }, []);
+  // Customer orders matching reference photo
+  const customerOrders = [
+    {
+      id: '1',
+      name: 'Press',
+      address: 'London',
+      date: '22.08.2022',
+      status: 'Delivered',
+      price: '$920',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80',
+      statusColor: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-300 dark:border-amber-800/50',
+    },
+    {
+      id: '2',
+      name: 'Marina',
+      address: 'Man city',
+      date: '24.08.2022',
+      status: 'Processed',
+      price: '$452',
+      avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=80&auto=format&fit=crop&q=80',
+      statusColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800/50',
+    },
+    {
+      id: '3',
+      name: 'Alex',
+      address: 'Unknown',
+      date: '19.08.2022',
+      status: 'Cancelled',
+      price: '$1200',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=80',
+      statusColor: 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-300 dark:border-rose-800/50',
+    },
+    {
+      id: '4',
+      name: 'Robert',
+      address: 'New York',
+      date: '03.08.2022',
+      status: 'Delivered',
+      price: '$1235',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&auto=format&fit=crop&q=80',
+      statusColor: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-300 dark:border-amber-800/50',
+    },
+  ];
 
-  const loadOverview = async () => {
-    try {
-      setLoading(true);
-      const res = await api.getDashboardOverview();
-      setData(res);
-    } catch (err) {
-      console.error('Failed to load overview:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const stats = data?.stats || {
-    netIncome: 193000,
-    totalSales: 245000,
-    totalReturn: 32000,
-    totalInvoicesCount: 6,
-    lowStockCount: 1,
-  };
-
-  const chartMonths = data?.chartData?.months || ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May'];
-  const chartIncome = data?.chartData?.income || [55, 80, 60, 95, 70, 115, 100];
-  const chartExpense = data?.chartData?.expense || [30, 45, 35, 50, 40, 65, 55];
+  // Sales dynamics 12-month data (% fill of bar)
+  const salesMonths = [
+    { label: 'JAN', fill: 20 },
+    { label: 'FEB', fill: 55 },
+    { label: 'MAR', fill: 35 },
+    { label: 'APR', fill: 68 },
+    { label: 'MAY', fill: 40 },
+    { label: 'JUN', fill: 78 },
+    { label: 'JUL', fill: 62 },
+    { label: 'AUG', fill: 28 },
+    { label: 'SEP', fill: 50 },
+    { label: 'OCT', fill: 75 },
+    { label: 'NOV', fill: 88 },
+    { label: 'DEC', fill: 95 },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* ── ROW 1: Metric KPI Cards (Matching Reference Screenshot) ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Hero Card */}
-        <div
-          onClick={() => onNavigate('statistics')}
-          className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br from-slate-900 via-[#182033] to-[#0f172a] text-white shadow-xl cursor-pointer group border border-slate-800"
-        >
-          <div className="relative z-10 flex flex-col justify-between h-32">
-            <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-blue-400">Monthly Performance</span>
-              <h3 className="text-2xl font-extrabold mt-1">Quick Overview</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Real-time financial analytics</p>
+    <div className="space-y-5 pb-8 font-sans select-none">
+      {/* ══════════════════════════════════════════════════════════════════
+          ROW 1: TOP METRICS (4 Small Cards + 2 Donut Cards)
+         ══════════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left 4 Mini Cards in a 2x2 Grid (5 Columns) */}
+        <div className="lg:col-span-5 grid grid-cols-2 gap-4">
+          {/* Orders */}
+          <div className="bg-white dark:bg-[#1e202e] rounded-2xl p-4 border border-slate-100 dark:border-[#27293c] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Orders</span>
+              <Package className="w-4 h-4 text-slate-400" />
             </div>
-            <div className="flex items-center gap-1.5 text-xs font-bold text-blue-400 group-hover:translate-x-1.5 transition-transform">
-              <span>See Statistics</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+            <div className="mt-2">
+              <div className="text-2xl font-bold text-slate-900 dark:text-white">201</div>
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-500 mt-1">
+                <TrendingUp className="w-3 h-3" />
+                <span>0.2% since last month</span>
+              </div>
             </div>
           </div>
-          {/* Ambient Glow */}
-          <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-blue-500/20 rounded-full blur-2xl pointer-events-none" />
+
+          {/* Approved */}
+          <div className="bg-white dark:bg-[#1e202e] rounded-2xl p-4 border border-slate-100 dark:border-[#27293c] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Approved</span>
+              <CheckSquare className="w-4 h-4 text-slate-400" />
+            </div>
+            <div className="mt-2">
+              <div className="text-2xl font-bold text-slate-900 dark:text-white">36</div>
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-500 mt-1">
+                <TrendingUp className="w-3 h-3" />
+                <span>2.4% since last month</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Month total */}
+          <div className="bg-white dark:bg-[#1e202e] rounded-2xl p-4 border border-slate-100 dark:border-[#27293c] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Month total</span>
+              <DollarSign className="w-4 h-4 text-slate-400" />
+            </div>
+            <div className="mt-2">
+              <div className="text-2xl font-bold text-slate-900 dark:text-white">25410</div>
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-rose-500 mt-1">
+                <TrendingDown className="w-3 h-3" />
+                <span>0.2% since last month</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Revenue */}
+          <div className="bg-white dark:bg-[#1e202e] rounded-2xl p-4 border border-slate-100 dark:border-[#27293c] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Revenue</span>
+              <CreditCard className="w-4 h-4 text-slate-400" />
+            </div>
+            <div className="mt-2">
+              <div className="text-2xl font-bold text-slate-900 dark:text-white">1352</div>
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-rose-500 mt-1">
+                <TrendingDown className="w-3 h-3" />
+                <span>1.2% since last month</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Net Income Card */}
-        <div className="rounded-2xl p-6 bg-white dark:bg-[#161722] border border-slate-200 dark:border-[#232536] shadow-sm flex flex-col justify-between h-44 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Net Income
-            </span>
-            <MoreVertical className="w-4 h-4 text-slate-400" />
-          </div>
+        {/* Center Donut Card: Users (3.5 Columns) */}
+        <div className="lg:col-span-3.5 bg-white dark:bg-[#1e202e] rounded-2xl p-5 border border-slate-100 dark:border-[#27293c] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-colors">
           <div>
-            <div className="text-3xl font-extrabold text-slate-900 dark:text-white">
-              {currencySymbol}{stats.netIncome.toLocaleString()}
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Users</span>
+            <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">4.890</div>
+            <p className="text-[10px] text-slate-400">since last month</p>
+          </div>
+
+          <div className="flex items-center justify-between mt-3">
+            {/* Legend */}
+            <div className="space-y-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#f59e0b]" />
+                <span>65% New</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#181926] dark:bg-[#2d3149]" />
+                <span>23% Returning</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#e2e8f0] dark:bg-[#4b5563]" />
+                <span>12% Inactive</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 mt-2 text-xs font-bold text-emerald-500">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>+35% from last month</span>
+
+            {/* Donut Chart SVG */}
+            <div className="relative w-24 h-24 flex items-center justify-center flex-shrink-0">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                {/* Background Ring */}
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  className="text-slate-100 dark:text-[#282a3c]"
+                />
+                {/* 65% Yellow Segment */}
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="#f59e0b"
+                  strokeWidth="4"
+                  strokeDasharray="57.18 87.96"
+                  strokeDashoffset="0"
+                  strokeLinecap="round"
+                />
+                {/* 23% Dark Segment */}
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="currentColor"
+                  className="text-[#181926] dark:text-[#2d3149]"
+                  strokeWidth="4"
+                  strokeDasharray="20.23 87.96"
+                  strokeDashoffset="-59"
+                  strokeLinecap="round"
+                />
+                {/* 12% Light Segment */}
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="currentColor"
+                  className="text-[#e2e8f0] dark:text-[#4b5563]"
+                  strokeWidth="4"
+                  strokeDasharray="10.55 87.96"
+                  strokeDashoffset="-80"
+                  strokeLinecap="round"
+                />
+              </svg>
             </div>
           </div>
         </div>
 
-        {/* Total Return Card */}
-        <div className="rounded-2xl p-6 bg-white dark:bg-[#161722] border border-slate-200 dark:border-[#232536] shadow-sm flex flex-col justify-between h-44 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Total Return
-            </span>
-            <MoreVertical className="w-4 h-4 text-slate-400" />
-          </div>
+        {/* Right Donut Card: Subscriptions (3.5 Columns) */}
+        <div className="lg:col-span-3.5 bg-white dark:bg-[#1e202e] rounded-2xl p-5 border border-slate-100 dark:border-[#27293c] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-colors">
           <div>
-            <div className="text-3xl font-extrabold text-slate-900 dark:text-white">
-              {currencySymbol}{stats.totalReturn.toLocaleString()}
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Subscriptions</span>
+            <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">1.201</div>
+            <p className="text-[10px] text-slate-400">since last month</p>
+          </div>
+
+          <div className="flex items-center justify-between mt-3">
+            {/* Legend */}
+            <div className="space-y-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#2563eb]" />
+                <span>70% Paid</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#60a5fa]" />
+                <span>30% Trial</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 mt-2 text-xs font-bold text-rose-500">
-              <TrendingDown className="w-3.5 h-3.5" />
-              <span>-24% from last month</span>
+
+            {/* Donut Chart SVG */}
+            <div className="relative w-24 h-24 flex items-center justify-center flex-shrink-0">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                {/* Background Ring */}
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  className="text-slate-100 dark:text-[#282a3c]"
+                />
+                {/* 70% Blue Segment */}
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="#2563eb"
+                  strokeWidth="4"
+                  strokeDasharray="61.57 87.96"
+                  strokeDashoffset="0"
+                  strokeLinecap="round"
+                />
+                {/* 30% Light Blue Segment */}
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="#60a5fa"
+                  strokeWidth="4"
+                  strokeDasharray="26.39 87.96"
+                  strokeDashoffset="-63"
+                  strokeLinecap="round"
+                />
+              </svg>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── ROW 2: Body Split (Matching Reference Screenshot) ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          ROW 2: SALES DYNAMICS BAR CHART + PAID INVOICES & FUNDS RECEIVED
+         ══════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left Column (Transactions) */}
-        <div className="lg:col-span-4 rounded-2xl p-5 bg-white dark:bg-[#161722] border border-slate-200 dark:border-[#232536] shadow-sm flex flex-col justify-between transition-colors">
+        {/* Left: Sales Dynamics Chart (7 Columns) */}
+        <div className="lg:col-span-7 bg-white dark:bg-[#1e202e] rounded-2xl p-5 border border-slate-100 dark:border-[#27293c] shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-colors">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Sales dynamics</h3>
+            <button
+              onClick={() => setSelectedYear(selectedYear === '2021' ? '2022' : '2021')}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-[#282a3c] rounded-lg hover:bg-slate-200 dark:hover:bg-[#34374e] transition-colors"
+            >
+              <span>{selectedYear}</span>
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Bar Chart Container */}
+          <div className="relative h-44 flex">
+            {/* Y-Axis Labels */}
+            <div className="flex flex-col justify-between text-[10px] text-slate-400 font-medium pr-3 select-none pb-5">
+              <span>300k</span>
+              <span>200k</span>
+              <span>100k</span>
+              <span>0</span>
+            </div>
+
+            {/* Horizontal Grid lines */}
+            <div className="flex-1 relative flex flex-col justify-between pb-5">
+              <div className="absolute inset-x-0 top-0 border-b border-dashed border-slate-100 dark:border-slate-800/60 pointer-events-none" />
+              <div className="absolute inset-x-0 top-1/3 border-b border-dashed border-slate-100 dark:border-slate-800/60 pointer-events-none" />
+              <div className="absolute inset-x-0 top-2/3 border-b border-dashed border-slate-100 dark:border-slate-800/60 pointer-events-none" />
+              <div className="absolute inset-x-0 bottom-5 border-b border-slate-100 dark:border-slate-800 pointer-events-none" />
+
+              {/* 12 Vertical Pill Bars */}
+              <div className="flex items-end justify-between h-full pt-2 px-1 z-10">
+                {salesMonths.map((m) => (
+                  <div key={m.label} className="flex flex-col items-center gap-2 group flex-1">
+                    {/* Pill Bar Column */}
+                    <div className="relative w-2.5 h-28 bg-[#e0e7ff] dark:bg-[#25283c] rounded-full overflow-hidden flex items-end">
+                      <div
+                        style={{ height: `${m.fill}%` }}
+                        className="w-full bg-[#2563eb] rounded-full transition-all duration-300 group-hover:bg-[#1d4ed8]"
+                      />
+                    </div>
+                    {/* Month Label */}
+                    <span className="text-[9px] font-semibold text-slate-400 group-hover:text-blue-500 transition-colors">
+                      {m.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Paid Invoices & Funds Received (5 Columns) */}
+        <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Paid Invoices Card */}
+          <div className="bg-white dark:bg-[#1e202e] rounded-2xl p-5 border border-slate-100 dark:border-[#27293c] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-[#282a3c] flex items-center justify-center text-slate-700 dark:text-slate-300">
+                <Wallet className="w-4 h-4" />
+              </div>
+              {/* +15% Circular Gauge */}
+              <div className="relative w-8 h-8 flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 32 32">
+                  <circle cx="16" cy="16" r="12" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-100 dark:text-[#2a2c3e]" />
+                  <circle cx="16" cy="16" r="12" fill="none" stroke="#c084fc" strokeWidth="2.5" strokeDasharray="15 75.4" strokeLinecap="round" />
+                </svg>
+                <span className="absolute text-[8px] font-bold text-purple-500">+15%</span>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <span className="text-xs font-semibold text-slate-400">Paid Invoices</span>
+              <div className="text-xl font-extrabold text-slate-900 dark:text-white mt-1">$30256.23</div>
+              <p className="text-[10px] text-slate-400 mt-0.5">Current Financial Year</p>
+            </div>
+          </div>
+
+          {/* Funds received Card */}
+          <div className="bg-white dark:bg-[#1e202e] rounded-2xl p-5 border border-slate-100 dark:border-[#27293c] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-[#282a3c] flex items-center justify-center text-slate-700 dark:text-slate-300">
+                <DollarSign className="w-4 h-4" />
+              </div>
+              {/* +59% Circular Gauge */}
+              <div className="relative w-8 h-8 flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 32 32">
+                  <circle cx="16" cy="16" r="12" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-100 dark:text-[#2a2c3e]" />
+                  <circle cx="16" cy="16" r="12" fill="none" stroke="#34d399" strokeWidth="2.5" strokeDasharray="45 75.4" strokeLinecap="round" />
+                </svg>
+                <span className="absolute text-[8px] font-bold text-emerald-500">+59%</span>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <span className="text-xs font-semibold text-slate-400">Funds received</span>
+              <div className="text-xl font-extrabold text-slate-900 dark:text-white mt-1">$150256.23</div>
+              <p className="text-[10px] text-slate-400 mt-0.5">Current Financial Year</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          ROW 3: OVERALL USER ACTIVITY SPLINE CHART + CUSTOMER ORDER TABLE
+         ══════════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left: Overall User Activity (7 Columns) */}
+        <div className="lg:col-span-7 bg-white dark:bg-[#1e202e] rounded-2xl p-5 border border-slate-100 dark:border-[#27293c] shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-colors">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Overall User Activity</h3>
+            <button
+              onClick={() => setSelectedYear(selectedYear === '2021' ? '2022' : '2021')}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-[#282a3c] rounded-lg hover:bg-slate-200 dark:hover:bg-[#34374e] transition-colors"
+            >
+              <span>{selectedYear}</span>
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Spline Wave Line Chart */}
+          <div className="relative h-44 flex">
+            {/* Y-Axis Labels */}
+            <div className="flex flex-col justify-between text-[10px] text-slate-400 font-medium pr-3 select-none pb-2">
+              <span>400k</span>
+              <span>300k</span>
+              <span>200k</span>
+              <span>100k</span>
+            </div>
+
+            {/* Canvas / SVG Curve */}
+            <div className="flex-1 relative pb-2">
+              <div className="absolute inset-x-0 top-0 border-b border-dashed border-slate-100 dark:border-slate-800/60 pointer-events-none" />
+              <div className="absolute inset-x-0 top-1/3 border-b border-dashed border-slate-100 dark:border-slate-800/60 pointer-events-none" />
+              <div className="absolute inset-x-0 top-2/3 border-b border-dashed border-slate-100 dark:border-slate-800/60 pointer-events-none" />
+              <div className="absolute inset-x-0 bottom-2 border-b border-slate-100 dark:border-slate-800 pointer-events-none" />
+
+              <svg className="w-full h-full overflow-visible" viewBox="0 0 500 130" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="purpleGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#c084fc" stopOpacity="0.35" />
+                    <stop offset="100%" stopColor="#c084fc" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+                {/* Area under curve */}
+                <path
+                  d="M 0 115 Q 120 120 220 100 T 360 70 T 450 35 L 500 10 L 500 130 L 0 130 Z"
+                  fill="url(#purpleGradient)"
+                />
+                {/* Spline stroke curve */}
+                <path
+                  d="M 0 115 Q 120 120 220 100 T 360 70 T 450 35 L 500 10"
+                  fill="none"
+                  stroke="#c084fc"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Customer Order Table (5 Columns) */}
+        <div className="lg:col-span-5 bg-white dark:bg-[#1e202e] rounded-2xl p-5 border border-slate-100 dark:border-[#27293c] shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-colors flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Recent Transactions</h4>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Customer order</h3>
               <button
-                onClick={() => onNavigate('transactions')}
-                className="text-xs font-bold text-blue-600 hover:text-blue-500"
+                title="Refresh orders"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
               >
-                View All
+                <RotateCcw className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="space-y-3">
-              {(data?.recentTransactions || [
-                { id: '1', receiptNumber: 'RCP-261011', amount: 1250, paymentMethod: 'UPI', date: '11 Oct 2026' },
-                { id: '2', receiptNumber: 'RCP-261010', amount: 4800, paymentMethod: 'CASH', date: '10 Oct 2026' },
-                { id: '3', receiptNumber: 'RCP-261009', amount: 620, paymentMethod: 'UPI', date: '09 Oct 2026' },
-                { id: '4', receiptNumber: 'RCP-261009', amount: 9100, paymentMethod: 'BANK', date: '09 Oct 2026' },
-              ]).map((t: any) => (
-                <div
-                  key={t.id}
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-[#1a1c2a] border border-slate-100 dark:border-[#2b2e46]"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold">
-                      <Receipt className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{t.receiptNumber}</p>
-                      <p className="text-[10px] text-slate-400">{t.paymentMethod} • {new Date(t.date).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-extrabold text-slate-900 dark:text-white">
-                      {currencySymbol}{Number(t.amount).toLocaleString()}
-                    </p>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-500">
-                      <CheckCircle2 className="w-2.5 h-2.5" /> Paid
-                    </span>
-                  </div>
-                </div>
-              ))}
+            {/* Table */}
+            <div className="w-full overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="text-[10px] text-slate-400 font-semibold border-b border-slate-100 dark:border-slate-800">
+                    <th className="pb-2 font-normal">Profile</th>
+                    <th className="pb-2 font-normal">Address</th>
+                    <th className="pb-2 font-normal">Date</th>
+                    <th className="pb-2 font-normal">Status</th>
+                    <th className="pb-2 font-normal text-right">Price</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100/60 dark:divide-slate-800/40">
+                  {customerOrders.map((order) => (
+                    <tr key={order.id} className="hover:bg-slate-50/60 dark:hover:bg-[#25283c]/50 transition-colors">
+                      {/* Profile */}
+                      <td className="py-2.5 flex items-center gap-2">
+                        <img
+                          src={order.avatar}
+                          alt={order.name}
+                          className="w-5 h-5 rounded-full object-cover"
+                        />
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">{order.name}</span>
+                      </td>
+                      {/* Address */}
+                      <td className="py-2.5 text-slate-500 dark:text-slate-400 text-[11px]">{order.address}</td>
+                      {/* Date */}
+                      <td className="py-2.5 text-slate-400 text-[10px]">{order.date}</td>
+                      {/* Status */}
+                      <td className="py-2.5">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${order.statusColor}`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      {/* Price */}
+                      <td className="py-2.5 text-right font-bold text-slate-900 dark:text-white text-[11px]">
+                        {order.price}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-
-          {/* Quick CTA */}
-          <button
-            onClick={() => onNavigate('billing')}
-            className="w-full mt-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
-          >
-            <span>Create New Invoice</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Mid Column (Bar Chart & Sales Report) */}
-        <div className="lg:col-span-5 space-y-5">
-          {/* Revenue Bar Chart Card */}
-          <div className="rounded-2xl p-5 bg-white dark:bg-[#161722] border border-slate-200 dark:border-[#232536] shadow-sm transition-colors">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Revenue & Expenses</h4>
-                <p className="text-xs text-slate-400">Last 7 months activity</p>
-              </div>
-              <div className="flex items-center gap-3 text-xs">
-                <span className="flex items-center gap-1.5 font-bold text-slate-600 dark:text-slate-300">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Income
-                </span>
-                <span className="flex items-center gap-1.5 font-bold text-slate-400">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700" /> Expense
-                </span>
-              </div>
-            </div>
-
-            {/* Custom Interactive HTML Bar Chart */}
-            <div className="h-44 flex items-end justify-between gap-3 pt-6 px-2">
-              {chartMonths.map((m: string, idx: number) => {
-                const inc = chartIncome[idx] || 50;
-                const exp = chartExpense[idx] || 30;
-                const max = 120;
-                const incHeight = (inc / max) * 100;
-                const expHeight = (exp / max) * 100;
-
-                return (
-                  <div key={m} className="flex-1 flex flex-col items-center gap-2 group">
-                    <div className="w-full flex items-end justify-center gap-1 h-32">
-                      {/* Income Bar */}
-                      <div
-                        style={{ height: `${incHeight}%` }}
-                        className="w-3.5 rounded-t-md bg-blue-600 group-hover:bg-blue-500 transition-all shadow-sm"
-                        title={`Income: ${currencySymbol}${inc}k`}
-                      />
-                      {/* Expense Bar */}
-                      <div
-                        style={{ height: `${expHeight}%` }}
-                        className="w-3.5 rounded-t-md bg-slate-200 dark:bg-[#282a3c] group-hover:bg-slate-300 dark:group-hover:bg-[#34374e] transition-all"
-                        title={`Expense: ${currencySymbol}${exp}k`}
-                      />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400">{m}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Sales Report Quick Card */}
-          <div className="rounded-2xl p-4 bg-white dark:bg-[#161722] border border-slate-200 dark:border-[#232536] shadow-sm flex items-center justify-between transition-colors">
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase">Total Sales Generated</p>
-              <p className="text-xl font-extrabold text-slate-900 dark:text-white mt-0.5">
-                {currencySymbol}{stats.totalSales.toLocaleString()}
-              </p>
-            </div>
-            <button
-              onClick={() => onNavigate('statistics')}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors"
-            >
-              Export Report
-            </button>
-          </div>
-        </div>
-
-        {/* Right Column (Donut & Low Stock) */}
-        <div className="lg:col-span-3 space-y-5">
-          {/* Donut Card */}
-          <div className="rounded-2xl p-5 bg-white dark:bg-[#161722] border border-slate-200 dark:border-[#232536] shadow-sm text-center transition-colors">
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Category Share</h4>
-            <p className="text-xs text-slate-400 mb-4">Stock distribution</p>
-
-            {/* Circular representation */}
-            <div className="relative w-32 h-32 mx-auto flex items-center justify-center">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                <path
-                  className="text-slate-100 dark:text-slate-800"
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className="text-blue-600"
-                  strokeDasharray="50, 100"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className="text-violet-500"
-                  strokeDasharray="30, 100"
-                  strokeDashoffset="-50"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-              </svg>
-              <div className="absolute flex flex-col items-center">
-                <span className="text-lg font-black text-slate-900 dark:text-white">100%</span>
-                <span className="text-[9px] uppercase font-bold text-slate-400">Total View</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 mt-4 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-              <div className="flex items-center gap-1.5 justify-center">
-                <span className="w-2 h-2 rounded-full bg-blue-600" /> Stationery
-              </div>
-              <div className="flex items-center gap-1.5 justify-center">
-                <span className="w-2 h-2 rounded-full bg-violet-500" /> Electronics
-              </div>
-            </div>
-          </div>
-
-          {/* Low Stock Alert Box */}
-          <div className="rounded-2xl p-4 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400">
-            <div className="flex items-center gap-2 font-bold text-xs">
-              <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-              <span>Stock Warnings ({data?.lowStockAlerts?.length || 1})</span>
-            </div>
-            <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1">
-              {data?.lowStockAlerts?.[0]?.name || 'Desk Mouse Pad'} has reached minimum threshold!
-            </p>
-            <button
-              onClick={() => onNavigate('products')}
-              className="mt-2.5 text-xs font-bold text-blue-600 hover:underline"
-            >
-              Reorder stock &rarr;
-            </button>
           </div>
         </div>
       </div>

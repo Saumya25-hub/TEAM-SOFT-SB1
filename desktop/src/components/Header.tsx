@@ -1,100 +1,87 @@
 import React from 'react';
-import { Search, Sun, Moon, Building2, Plus, Bell } from 'lucide-react';
+import { Sun, Moon, CalendarDays, Search } from 'lucide-react';
 
 interface HeaderProps {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   isDarkMode: boolean;
   onToggleTheme: () => void;
-  businessName: string;
-  onQuickBillClick: () => void;
-  searchQuery: string;
-  onSearchChange: (q: string) => void;
+  businessName?: string;
+  onQuickBillClick?: () => void;
+  searchQuery?: string;
+  onSearchChange?: (q: string) => void;
+  userName?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   title,
-  subtitle,
   isDarkMode,
   onToggleTheme,
-  businessName,
-  onQuickBillClick,
-  searchQuery,
-  onSearchChange,
+  userName = 'Kristi Kamiykova',
 }) => {
   return (
-    <header className="h-16 px-6 bg-white dark:bg-[#12131c] border-b border-slate-200 dark:border-[#232536] flex items-center justify-between flex-shrink-0 transition-colors">
-      {/* Title & Subtitle */}
-      <div>
-        <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{title}</h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
+    <header className="h-20 px-8 bg-transparent flex items-center justify-between flex-shrink-0 select-none">
+      {/* ── Left: Title + Date Range Pill ── */}
+      <div className="flex items-center gap-6">
+        <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+          {title}
+        </h1>
+
+        {/* Date Filter Pill matching reference photo: "01.08.2022 - 31.08.2022 [calendar]" */}
+        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white dark:bg-[#1e202e] border border-slate-200/80 dark:border-[#2b2e46] text-xs font-medium text-slate-700 dark:text-slate-300 shadow-sm cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
+          <span>01.08.2022 - 31.08.2022</span>
+          <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
+        </div>
       </div>
 
-      {/* Right Controls */}
-      <div className="flex items-center gap-3">
-        {/* Global Search Bar */}
-        <div className="relative w-64">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search items, bills, contacts..."
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-[#1a1c2a] border border-slate-200 dark:border-[#2b2e46] text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-          />
-        </div>
-
+      {/* ── Right Controls: Theme Toggle + User Profile ── */}
+      <div className="flex items-center gap-5">
         {/* Animated Light/Dark Mode Capsule Toggle */}
-        <button
-          onClick={onToggleTheme}
-          title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          className={`relative w-16 h-8 rounded-full p-1 transition-colors duration-150 flex items-center border ${
-            isDarkMode
-              ? 'bg-[#181a28] border-indigo-500/40'
-              : 'bg-slate-200 border-slate-300'
-          }`}
-        >
-          {/* Background Sun and Moon icons */}
-          <div className="absolute inset-0 px-2 flex items-center justify-between pointer-events-none text-slate-400">
-            <Sun className="w-3.5 h-3.5 text-amber-500" />
-            <Moon className="w-3.5 h-3.5 text-indigo-400" />
-          </div>
-
-          {/* Sliding Knob (Fast, snappy 100ms transition) */}
-          <div
-            className={`w-6 h-6 rounded-full bg-white dark:bg-gradient-to-tr dark:from-blue-600 dark:to-indigo-500 shadow-md flex items-center justify-center transform transition-transform duration-150 ease-out z-10 ${
-              isDarkMode ? 'translate-x-8' : 'translate-x-0'
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onToggleTheme}
+            type="button"
+            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            className={`relative w-14 h-7 rounded-full p-0.5 transition-colors duration-200 flex items-center border ${
+              isDarkMode
+                ? 'bg-[#1e202e] border-[#383c56]'
+                : 'bg-slate-200/80 border-slate-300/80'
             }`}
           >
-            {isDarkMode ? (
-              <Moon className="w-3 h-3 text-white" />
-            ) : (
-              <Sun className="w-3.5 h-3.5 text-amber-500" />
-            )}
-          </div>
-        </button>
+            {/* Background Sun and Moon icons */}
+            <div className="absolute inset-0 px-1.5 flex items-center justify-between pointer-events-none text-slate-400">
+              <Sun className={`w-3.5 h-3.5 transition-colors ${!isDarkMode ? 'text-amber-500' : 'text-slate-500'}`} />
+              <Moon className={`w-3.5 h-3.5 transition-colors ${isDarkMode ? 'text-indigo-400' : 'text-slate-400'}`} />
+            </div>
 
-        {/* Business Selector Pill */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#1a1c2a] border border-slate-200 dark:border-[#2b2e46] text-xs font-semibold text-slate-700 dark:text-slate-300">
-          <Building2 className="w-3.5 h-3.5 text-blue-500" />
-          <span className="truncate max-w-[140px]">{businessName}</span>
+            {/* Sliding Knob */}
+            <div
+              className={`w-6 h-6 rounded-full shadow-md flex items-center justify-center transform transition-transform duration-200 ease-out z-10 ${
+                isDarkMode
+                  ? 'translate-x-7 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white'
+                  : 'translate-x-0 bg-white text-amber-500'
+              }`}
+            >
+              {isDarkMode ? (
+                <Moon className="w-3 h-3 text-white" />
+              ) : (
+                <Sun className="w-3 h-3 text-amber-500" />
+              )}
+            </div>
+          </button>
         </div>
 
-        {/* Notification Bell */}
-        <button className="relative p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500" />
-        </button>
-
-        {/* POS Quick Bill CTA */}
-        <button
-          onClick={onQuickBillClick}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/25 active:scale-95 transition-all"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>New Bill</span>
-        </button>
+        {/* User Profile matching reference photo: Kristi Kamiykova */}
+        <div className="flex items-center gap-2.5 cursor-pointer">
+          <img
+            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80"
+            alt={userName}
+            className="w-9 h-9 rounded-full object-cover ring-2 ring-white dark:ring-slate-800 shadow-sm"
+          />
+          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+            {userName}
+          </span>
+        </div>
       </div>
     </header>
   );

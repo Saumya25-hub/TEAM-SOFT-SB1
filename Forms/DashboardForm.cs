@@ -33,24 +33,24 @@ namespace PROJECT_SBV1.Forms
         private static readonly Color C_Red        = Color.FromArgb(239,  68,  68);  // red-500
         private static readonly Color C_BarIncome  = Color.FromArgb(59,  130, 246);  // blue-500
 
-        private Color C_SidebarBg  => BlendColor(Color.FromArgb(15,  23,  42),  Color.FromArgb(14,  15,  22), _toggleAnimProgress);
-        private Color C_NavHover   => BlendColor(Color.FromArgb(30,  41,  59),  Color.FromArgb(28,  30,  44), _toggleAnimProgress);
-        private Color C_NavText    => BlendColor(Color.FromArgb(148, 163, 184), Color.FromArgb(148, 163, 184), _toggleAnimProgress);
-        private Color C_NavTextOn  => Color.White;
+        private Color C_SidebarBg  => BlendColor(Color.White,                   Color.FromArgb(24,  25,  38), _toggleAnimProgress);
+        private Color C_NavHover   => BlendColor(Color.FromArgb(241, 245, 249), Color.FromArgb(37,  39,  58), _toggleAnimProgress);
+        private Color C_NavText    => BlendColor(Color.FromArgb(100, 116, 139), Color.FromArgb(148, 163, 184), _toggleAnimProgress);
+        private Color C_NavTextOn  => BlendColor(Color.FromArgb(17,  24,  39),  Color.White,                   _toggleAnimProgress);
 
-        private Color C_PageBg     => BlendColor(Color.FromArgb(241, 245, 249), Color.FromArgb(15,  16,  22), _toggleAnimProgress);
-        private Color C_CardBg     => BlendColor(Color.White,                   Color.FromArgb(22,  23,  34), _toggleAnimProgress);
-        private Color C_Border     => BlendColor(Color.FromArgb(226, 232, 240), Color.FromArgb(35,  37,  54), _toggleAnimProgress);
-        private Color C_TopBarBg   => BlendColor(Color.White,                   Color.FromArgb(18,  19,  28), _toggleAnimProgress);
-        private Color C_SearchBg   => BlendColor(Color.FromArgb(248, 250, 252), Color.FromArgb(26,  28,  42), _toggleAnimProgress);
-        private Color C_SearchBdr  => BlendColor(Color.FromArgb(203, 213, 225), Color.FromArgb(45,  48,  70), _toggleAnimProgress);
+        private Color C_PageBg     => BlendColor(Color.FromArgb(244, 245, 249), Color.FromArgb(19,  20,  31), _toggleAnimProgress);
+        private Color C_CardBg     => BlendColor(Color.White,                   Color.FromArgb(30,  32,  46), _toggleAnimProgress);
+        private Color C_Border     => BlendColor(Color.FromArgb(234, 239, 245), Color.FromArgb(39,  41,  60), _toggleAnimProgress);
+        private Color C_TopBarBg   => BlendColor(Color.FromArgb(244, 245, 249), Color.FromArgb(19,  20,  31), _toggleAnimProgress);
+        private Color C_SearchBg   => BlendColor(Color.White,                   Color.FromArgb(30,  32,  46), _toggleAnimProgress);
+        private Color C_SearchBdr  => BlendColor(Color.FromArgb(226, 232, 240), Color.FromArgb(45,  48,  70), _toggleAnimProgress);
 
-        private Color C_TextDark   => BlendColor(Color.FromArgb(15,  23,  42),  Color.FromArgb(248, 250, 252), _toggleAnimProgress);
-        private Color C_TextMid    => BlendColor(Color.FromArgb(71,  85,  105), Color.FromArgb(148, 163, 184), _toggleAnimProgress);
+        private Color C_TextDark   => BlendColor(Color.FromArgb(17,  24,  39),  Color.FromArgb(248, 250, 252), _toggleAnimProgress);
+        private Color C_TextMid    => BlendColor(Color.FromArgb(100, 116, 139), Color.FromArgb(148, 163, 184), _toggleAnimProgress);
         private Color C_TextLight  => BlendColor(Color.FromArgb(148, 163, 184), Color.FromArgb(100, 116, 139), _toggleAnimProgress);
 
-        private Color C_HeroBg     => BlendColor(Color.FromArgb(15,  23,  42),  Color.FromArgb(18,  19,  30), _toggleAnimProgress);
-        private Color C_BarExpense => BlendColor(Color.FromArgb(226, 232, 240), Color.FromArgb(38,  42,  60),  _toggleAnimProgress);
+        private Color C_HeroBg     => BlendColor(Color.FromArgb(17,  24,  39),  Color.FromArgb(30,  32,  46), _toggleAnimProgress);
+        private Color C_BarExpense => BlendColor(Color.FromArgb(224, 231, 255), Color.FromArgb(37,  40,  60),  _toggleAnimProgress);
 
         private static Color BlendColor(Color c1, Color c2, float t)
         {
@@ -434,21 +434,24 @@ namespace PROJECT_SBV1.Forms
             int sw = pnlSidebar.Width;
             g.SmoothingMode = SmoothingMode.AntiAlias;
 
-            // ── Star/asterisk icon + "Simple Billing" (left-aligned like reference) ─
-            int sx = 20, sy = 24, sr = 9;
-            using var starPen = new Pen(C_Blue, 2.2f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-            for (int i = 0; i < 6; i++)
-            {
-                double angle = i * Math.PI / 3;
-                float x1 = sx + (float)Math.Cos(angle) * (sr * 0.35f);
-                float y1 = sy + (float)Math.Sin(angle) * (sr * 0.35f);
-                float x2 = sx + (float)Math.Cos(angle) * sr;
-                float y2 = sy + (float)Math.Sin(angle) * sr;
-                g.DrawLine(starPen, x1, y1, x2, y2);
-            }
-            using var appF = new Font("Segoe UI", 11f, FontStyle.Bold);
-            using var appB = new SolidBrush(Color.White);
-            g.DrawString("Simple Billing", appF, appB, sx + sr + 8, sy - 9);
+            // ── 4-Petal Geometric Flower Icon + "Business" (matching reference photo) ─
+            int sx = 22, sy = 24;
+            // Top petal: Magenta
+            using (var b1 = new SolidBrush(Color.FromArgb(192, 38, 211)))
+                g.FillEllipse(b1, sx - 4, sy - 11, 8, 12);
+            // Right petal: Cyan/Blue
+            using (var b2 = new SolidBrush(Color.FromArgb(6, 182, 212)))
+                g.FillEllipse(b2, sx - 1, sy - 4, 12, 8);
+            // Bottom petal: Orange
+            using (var b3 = new SolidBrush(Color.FromArgb(249, 115, 22)))
+                g.FillEllipse(b3, sx - 4, sy - 1, 8, 12);
+            // Left petal: Violet/Indigo
+            using (var b4 = new SolidBrush(Color.FromArgb(99, 102, 241)))
+                g.FillEllipse(b4, sx - 11, sy - 4, 12, 8);
+
+            using var appF = new Font("Segoe UI", 12f, FontStyle.Bold);
+            using var appB = new SolidBrush(C_TextDark);
+            g.DrawString("Business", appF, appB, sx + 14, sy - 10);
 
             // ── Divider below logo ───────────────────────────────────────────────
             using var dp = new Pen(Color.FromArgb(30, 255, 255, 255), 1f);
@@ -659,7 +662,7 @@ namespace PROJECT_SBV1.Forms
 
             lblPageTitle.Text = page switch
             {
-                "Overview"     => "Dashboard",
+                "Overview"     => "Analytics",
                 "Statistics"   => "Statistics",
                 "NewBill"      => "New Bill",
                 "Customers"    => "Customers",

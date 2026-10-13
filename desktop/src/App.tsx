@@ -66,8 +66,8 @@ export const App: React.FC = () => {
     switch (activeModule) {
       case 'overview':
         return {
-          title: 'Dashboard Overview',
-          subtitle: 'An easy way to manage your inventory and billing with precision.',
+          title: 'Analytics',
+          subtitle: 'Real-time performance and financial dynamics.',
         };
       case 'statistics':
         return {
@@ -122,7 +122,7 @@ export const App: React.FC = () => {
   const { title, subtitle } = getModuleMeta();
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-100 dark:bg-[#0b0c11] text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#f4f5f9] dark:bg-[#13141f] text-slate-900 dark:text-slate-100 transition-colors">
       {/* ── Left Sidebar ── */}
       <Sidebar
         activeModule={activeModule}
@@ -146,7 +146,7 @@ export const App: React.FC = () => {
         />
 
         {/* Scrollable Canvas */}
-        <main className="flex-1 overflow-y-auto p-6 bg-slate-100/70 dark:bg-[#0e0f17] transition-colors">
+        <main className="flex-1 overflow-y-auto px-8 py-2 bg-[#f4f5f9] dark:bg-[#13141f] transition-colors">
           <div className="max-w-[1600px] mx-auto">
             {activeModule === 'overview' && (
               <DashboardModule
