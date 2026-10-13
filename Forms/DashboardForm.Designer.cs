@@ -29,6 +29,7 @@ namespace PROJECT_SBV1.Forms
         private System.Windows.Forms.Label   lblPageSub;
         private System.Windows.Forms.Panel   pnlSearchBox;
         private System.Windows.Forms.TextBox txtSearch;
+        private System.Windows.Forms.Button  btnThemeToggle;
         private System.Windows.Forms.Button  btnTopAddProduct;
 
         // Content host
@@ -105,6 +106,7 @@ namespace PROJECT_SBV1.Forms
             lblPageSub           = new System.Windows.Forms.Label();
             pnlSearchBox         = new System.Windows.Forms.Panel();
             txtSearch            = new System.Windows.Forms.TextBox();
+            btnThemeToggle       = new System.Windows.Forms.Button();
             btnTopAddProduct     = new System.Windows.Forms.Button();
             pnlContent           = new System.Windows.Forms.Panel();
             pnlOverview          = new System.Windows.Forms.Panel();
@@ -222,19 +224,6 @@ namespace PROJECT_SBV1.Forms
             pnlSearchBox.BackColor   = System.Drawing.Color.FromArgb(248, 250, 252);
             pnlSearchBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
             pnlSearchBox.Size        = new System.Drawing.Size(260, 38);
-            pnlSearchBox.Paint += (s, e2) =>
-            {
-                var g2 = e2.Graphics;
-                g2.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using var rp = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, pnlSearchBox.Width - 1, pnlSearchBox.Height - 1, 8);
-                using var bg = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(248, 250, 252));
-                g2.FillPath(bg, rp);
-                using var bp = new System.Drawing.Pen(System.Drawing.Color.FromArgb(203, 213, 225), 1.2f);
-                g2.DrawPath(bp, rp);
-                using var iconPen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(148, 163, 184), 1.5f);
-                g2.DrawEllipse(iconPen, 10, 11, 13, 13);
-                g2.DrawLine(iconPen, 21, 22, 27, 28);
-            };
 
             txtSearch.BorderStyle     = System.Windows.Forms.BorderStyle.None;
             txtSearch.BackColor       = System.Drawing.Color.FromArgb(248, 250, 252);
@@ -244,6 +233,14 @@ namespace PROJECT_SBV1.Forms
             txtSearch.Location        = new System.Drawing.Point(34, 9);
             txtSearch.Size            = new System.Drawing.Size(216, 20);
             pnlSearchBox.Controls.Add(txtSearch);
+
+            // Theme toggle button
+            btnThemeToggle.Size            = new System.Drawing.Size(68, 34);
+            btnThemeToggle.FlatStyle       = System.Windows.Forms.FlatStyle.Flat;
+            btnThemeToggle.FlatAppearance.BorderSize = 0;
+            btnThemeToggle.BackColor       = System.Drawing.Color.Transparent;
+            btnThemeToggle.Cursor          = System.Windows.Forms.Cursors.Hand;
+            btnThemeToggle.TabStop         = false;
 
             // Add product button with gradient + rounded
             btnTopAddProduct.Text      = "+ Add new product";
@@ -273,7 +270,7 @@ namespace PROJECT_SBV1.Forms
             };
 
             pnlTopBar.Controls.AddRange(new System.Windows.Forms.Control[] {
-                lblPageTitle, lblPageSub, pnlSearchBox, btnTopAddProduct,
+                lblPageTitle, lblPageSub, pnlSearchBox, btnThemeToggle, btnTopAddProduct,
                 btnClose, btnMinimize, btnMaximize
             });
 

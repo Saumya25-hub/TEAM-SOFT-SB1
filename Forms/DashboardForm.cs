@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -16,31 +16,51 @@ namespace PROJECT_SBV1.Forms
     public partial class DashboardForm : Form
     {
         // ═══════════════════════════════════════════════════════════════════════════
-        //  COLOUR PALETTE  — matches Splash / Login exactly
+        //  THEME STATE & ANIMATION
         // ═══════════════════════════════════════════════════════════════════════════
-        private static readonly Color C_SidebarBg  = Color.FromArgb(15,  23,  42);   // slate-900
+        private bool  _isDarkMode = false;
+        private float _toggleAnimProgress = 0f; // 0.0f = Light, 1.0f = Dark
+        private float _targetAnimProgress = 0f;
+        private readonly System.Windows.Forms.Timer _animTimer = new() { Interval = 15 };
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  COLOUR PALETTE  — dynamic getters blending smoothly with _toggleAnimProgress
+        // ═══════════════════════════════════════════════════════════════════════════
         private static readonly Color C_NavActive  = Color.FromArgb(37,  99, 235);   // blue-600
-        private static readonly Color C_NavHover   = Color.FromArgb(30,  41,  59);   // slate-800
-        private static readonly Color C_NavText    = Color.FromArgb(148, 163, 184);  // slate-400
-        private static readonly Color C_NavTextOn  = Color.White;
-
-        private static readonly Color C_PageBg     = Color.FromArgb(241, 245, 249);  // slate-100
-        private static readonly Color C_White      = Color.White;
-        private static readonly Color C_Border     = Color.FromArgb(226, 232, 240);  // slate-200
-        private static readonly Color C_TextDark   = Color.FromArgb(15,  23,  42);   // slate-900
-        private static readonly Color C_TextMid    = Color.FromArgb(71,  85, 105);   // slate-600
-        private static readonly Color C_TextLight  = Color.FromArgb(148, 163, 184);  // slate-400
-
         private static readonly Color C_Blue       = Color.FromArgb(59,  130, 246);  // blue-500
         private static readonly Color C_Violet     = Color.FromArgb(124,  58, 237);  // violet-600
         private static readonly Color C_Amber      = Color.FromArgb(245, 158,  11);  // amber-500
         private static readonly Color C_Red        = Color.FromArgb(239,  68,  68);  // red-500
-
-        private static readonly Color C_HeroBg     = Color.FromArgb(15,  23,  42);  // dark hero card
-
-        // Bar chart data colours — blue/violet palette (no green)
         private static readonly Color C_BarIncome  = Color.FromArgb(59,  130, 246);  // blue-500
-        private static readonly Color C_BarExpense = Color.FromArgb(226, 232, 240);  // slate-200
+
+        private Color C_SidebarBg  => BlendColor(Color.FromArgb(15,  23,  42),  Color.FromArgb(14,  15,  22), _toggleAnimProgress);
+        private Color C_NavHover   => BlendColor(Color.FromArgb(30,  41,  59),  Color.FromArgb(28,  30,  44), _toggleAnimProgress);
+        private Color C_NavText    => BlendColor(Color.FromArgb(148, 163, 184), Color.FromArgb(148, 163, 184), _toggleAnimProgress);
+        private Color C_NavTextOn  => Color.White;
+
+        private Color C_PageBg     => BlendColor(Color.FromArgb(241, 245, 249), Color.FromArgb(15,  16,  22), _toggleAnimProgress);
+        private Color C_CardBg     => BlendColor(Color.White,                   Color.FromArgb(22,  23,  34), _toggleAnimProgress);
+        private Color C_Border     => BlendColor(Color.FromArgb(226, 232, 240), Color.FromArgb(35,  37,  54), _toggleAnimProgress);
+        private Color C_TopBarBg   => BlendColor(Color.White,                   Color.FromArgb(18,  19,  28), _toggleAnimProgress);
+        private Color C_SearchBg   => BlendColor(Color.FromArgb(248, 250, 252), Color.FromArgb(26,  28,  42), _toggleAnimProgress);
+        private Color C_SearchBdr  => BlendColor(Color.FromArgb(203, 213, 225), Color.FromArgb(45,  48,  70), _toggleAnimProgress);
+
+        private Color C_TextDark   => BlendColor(Color.FromArgb(15,  23,  42),  Color.FromArgb(248, 250, 252), _toggleAnimProgress);
+        private Color C_TextMid    => BlendColor(Color.FromArgb(71,  85,  105), Color.FromArgb(148, 163, 184), _toggleAnimProgress);
+        private Color C_TextLight  => BlendColor(Color.FromArgb(148, 163, 184), Color.FromArgb(100, 116, 139), _toggleAnimProgress);
+
+        private Color C_HeroBg     => BlendColor(Color.FromArgb(15,  23,  42),  Color.FromArgb(18,  19,  30), _toggleAnimProgress);
+        private Color C_BarExpense => BlendColor(Color.FromArgb(226, 232, 240), Color.FromArgb(38,  42,  60),  _toggleAnimProgress);
+
+        private static Color BlendColor(Color c1, Color c2, float t)
+        {
+            t = Math.Clamp(t, 0f, 1f);
+            int a = (int)(c1.A + (c2.A - c1.A) * t);
+            int r = (int)(c1.R + (c2.R - c1.R) * t);
+            int g = (int)(c1.G + (c2.G - c1.G) * t);
+            int b = (int)(c1.B + (c2.B - c1.B) * t);
+            return Color.FromArgb(a, r, g, b);
+        }
 
         // ═══════════════════════════════════════════════════════════════════════════
         //  STATE
@@ -69,6 +89,7 @@ namespace PROJECT_SBV1.Forms
         public DashboardForm()
         {
             InitializeComponent();
+            InitThemeToggle();
             PopulateSampleData();
             BuildOverviewPage();
             BuildNewBillPage();
@@ -88,6 +109,7 @@ namespace PROJECT_SBV1.Forms
             base.OnLoad(e);
             ApplyRoundedRegion(16);
             RepositionTopBarItems();
+            ApplyTheme();
         }
 
         protected override void OnResize(EventArgs e)
@@ -104,7 +126,7 @@ namespace PROJECT_SBV1.Forms
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             // Outer rounded border
-            using var pen = new Pen(Color.FromArgb(30, 41, 59), 1.5f);
+            using var pen = new Pen(_isDarkMode ? Color.FromArgb(40, 44, 64) : Color.FromArgb(30, 41, 59), 1.5f);
             g.DrawRoundedRectangle(pen, 0, 0, Width - 1, Height - 1, 16);
             // Sidebar logo area
             PaintSidebarLogo(g);
@@ -125,8 +147,10 @@ namespace PROJECT_SBV1.Forms
             int tbH   = pnlTopBar.Height;  // 68px
 
             int btnW  = 160;  // Add button
-            int srchW = 260;  // Search box
+            int togW  = 68;   // Theme toggle button
+            int srchW = 250;  // Search box
             int ctrlH = 38;   // common height
+            int togH  = 34;   // toggle height
             int gap   = 10;   // gap between elements
 
             // Chrome buttons — right edge, vertically centred
@@ -141,10 +165,242 @@ namespace PROJECT_SBV1.Forms
             btnTopAddProduct.Size     = new Size(btnW, ctrlH);
             btnTopAddProduct.Location = new Point(btnX, (tbH - ctrlH) / 2);
 
-            // Search box — left of add button
-            int srchX = btnX - gap - srchW;
+            // Theme toggle button — left of add button
+            int togX = btnX - gap - togW;
+            btnThemeToggle.Size     = new Size(togW, togH);
+            btnThemeToggle.Location = new Point(togX, (tbH - togH) / 2);
+
+            // Search box — left of toggle button (right beside search bar!)
+            int srchX = togX - gap - srchW;
             pnlSearchBox.Size     = new Size(srchW, ctrlH);
             pnlSearchBox.Location = new Point(srchX, (tbH - ctrlH) / 2);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  THEME TOGGLE SETUP & ANIMATION
+        // ═══════════════════════════════════════════════════════════════════════════
+        private void InitThemeToggle()
+        {
+            btnThemeToggle.Paint += (s, e) => PaintThemeToggle(e.Graphics);
+
+            _animTimer.Tick += (s, e) =>
+            {
+                float diff = _targetAnimProgress - _toggleAnimProgress;
+                if (Math.Abs(diff) < 0.02f)
+                {
+                    _toggleAnimProgress = _targetAnimProgress;
+                    _animTimer.Stop();
+                }
+                else
+                {
+                    // Smooth ease-out interpolation for 60 FPS transition
+                    _toggleAnimProgress += diff * 0.28f;
+                }
+
+                ApplyTheme();
+            };
+
+            btnThemeToggle.Click += (s, e) =>
+            {
+                _isDarkMode = !_isDarkMode;
+                _targetAnimProgress = _isDarkMode ? 1.0f : 0.0f;
+                _animTimer.Start();
+            };
+
+            // Custom search box painting with dynamic theme colors
+            pnlSearchBox.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                using var rp = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, pnlSearchBox.Width - 1, pnlSearchBox.Height - 1, 8);
+                using var bg = new SolidBrush(C_SearchBg);
+                g.FillPath(bg, rp);
+                using var bp = new Pen(C_SearchBdr, 1.2f);
+                g.DrawPath(bp, rp);
+                using var iconPen = new Pen(C_TextLight, 1.5f);
+                g.DrawEllipse(iconPen, 10, 11, 13, 13);
+                g.DrawLine(iconPen, 21, 22, 27, 28);
+            };
+        }
+
+        private void PaintThemeToggle(Graphics g)
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            int w = btnThemeToggle.Width;
+            int h = btnThemeToggle.Height;
+
+            // 1. Capsule Track
+            int radius = (h - 2) / 2;
+            using var trackPath = GraphicsExtensions.CreateRoundedRectanglePath(1, 1, w - 3, h - 3, radius * 2);
+
+            Color trackBg = BlendColor(Color.FromArgb(226, 232, 240), Color.FromArgb(30, 32, 48), _toggleAnimProgress);
+            Color trackBorder = BlendColor(Color.FromArgb(203, 213, 225), Color.FromArgb(99, 102, 241), _toggleAnimProgress);
+
+            using var trackBrush = new SolidBrush(trackBg);
+            g.FillPath(trackBrush, trackPath);
+
+            using var trackPen = new Pen(trackBorder, 1.2f);
+            g.DrawPath(trackPen, trackPath);
+
+            // 2. Background Sun Icon (Left side)
+            Color sunColor = BlendColor(Color.FromArgb(245, 158, 11), Color.FromArgb(71, 85, 105), _toggleAnimProgress);
+            DrawMiniSun(g, 18f, h / 2f, sunColor);
+
+            // 3. Background Moon Icon (Right side)
+            Color moonColor = BlendColor(Color.FromArgb(148, 163, 184), Color.FromArgb(165, 180, 252), _toggleAnimProgress);
+            DrawMiniMoon(g, w - 18f, h / 2f, moonColor);
+
+            // 4. Sliding Thumb Knob
+            float knobD = 24f; // knob diameter
+            float minX = 5f;
+            float maxX = w - knobD - 5f;
+            float knobX = minX + _toggleAnimProgress * (maxX - minX);
+            float knobY = (h - knobD) / 2f;
+
+            // Drop shadow under knob
+            using var shadowPath = new GraphicsPath();
+            shadowPath.AddEllipse(knobX, knobY + 1.2f, knobD, knobD);
+            using var shadowBrush = new SolidBrush(Color.FromArgb(40, 0, 0, 0));
+            g.FillPath(shadowBrush, shadowPath);
+
+            // Knob body
+            using var knobPath = new GraphicsPath();
+            knobPath.AddEllipse(knobX, knobY, knobD, knobD);
+
+            if (_toggleAnimProgress < 0.5f)
+            {
+                // Light mode knob: crisp white with subtle border and golden sun
+                using var knobBrush = new LinearGradientBrush(
+                    new PointF(knobX, knobY), new PointF(knobX + knobD, knobY + knobD),
+                    Color.White, Color.FromArgb(248, 250, 252));
+                g.FillPath(knobBrush, knobPath);
+
+                using var knobPen = new Pen(Color.FromArgb(226, 232, 240), 1f);
+                g.DrawPath(knobPen, knobPath);
+
+                DrawMiniSun(g, knobX + knobD / 2f, knobY + knobD / 2f, Color.FromArgb(245, 158, 11));
+            }
+            else
+            {
+                // Dark mode knob: glowing indigo/violet gradient with white crescent moon
+                using var knobBrush = new LinearGradientBrush(
+                    new PointF(knobX, knobY), new PointF(knobX + knobD, knobY + knobD),
+                    Color.FromArgb(59, 130, 246), Color.FromArgb(139, 92, 246));
+                g.FillPath(knobBrush, knobPath);
+
+                using var knobPen = new Pen(Color.FromArgb(165, 180, 252), 1f);
+                g.DrawPath(knobPen, knobPath);
+
+                DrawMiniMoon(g, knobX + knobD / 2f, knobY + knobD / 2f, Color.White);
+            }
+        }
+
+        private static void DrawMiniSun(Graphics g, float cx, float cy, Color clr)
+        {
+            using var sunBrush = new SolidBrush(clr);
+            using var rayPen = new Pen(clr, 1.2f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+
+            // Sun center disc
+            g.FillEllipse(sunBrush, cx - 3.5f, cy - 3.5f, 7f, 7f);
+
+            // 4 mini rays
+            g.DrawLine(rayPen, cx, cy - 6f, cx, cy - 4.5f);
+            g.DrawLine(rayPen, cx, cy + 4.5f, cx, cy + 6f);
+            g.DrawLine(rayPen, cx - 6f, cy, cx - 4.5f, cy);
+            g.DrawLine(rayPen, cx + 4.5f, cy, cx + 6f, cy);
+        }
+
+        private static void DrawMiniMoon(Graphics g, float cx, float cy, Color clr)
+        {
+            using var moonBrush = new SolidBrush(clr);
+            using var moonPath = new GraphicsPath();
+            moonPath.AddArc(cx - 5f, cy - 5f, 10f, 10f, 60f, 240f);
+            moonPath.AddArc(cx - 3f, cy - 4f, 7.5f, 8f, 270f, -180f);
+            moonPath.CloseFigure();
+            g.FillPath(moonBrush, moonPath);
+        }
+
+        private void ApplyTheme()
+        {
+            // Form background
+            this.BackColor = _isDarkMode ? Color.FromArgb(11, 12, 17) : Color.FromArgb(15, 23, 42);
+
+            // Topbar & Sidebar
+            pnlTopBar.BackColor  = C_TopBarBg;
+            pnlSidebar.BackColor = C_SidebarBg;
+
+            // Content host & pages
+            pnlContent.BackColor   = C_PageBg;
+            pnlOverview.BackColor  = C_PageBg;
+            pnlNewBill.BackColor   = C_PageBg;
+            pnlCustomers.BackColor = C_PageBg;
+            pnlProducts.BackColor  = C_PageBg;
+            pnlTransPage.BackColor = C_PageBg;
+
+            // Topbar Labels
+            lblPageTitle.ForeColor = C_TextDark;
+            lblPageSub.ForeColor   = C_TextLight;
+
+            // Search Box
+            pnlSearchBox.BackColor = C_SearchBg;
+            txtSearch.BackColor    = C_SearchBg;
+            txtSearch.ForeColor    = C_TextDark;
+
+            // Inputs
+            ApplyTextBoxTheme(txtSearch);
+            ApplyTextBoxTheme(txtBillCustomerName);
+            ApplyTextBoxTheme(txtBillPhone);
+            ApplyTextBoxTheme(txtBillItemName);
+            ApplyTextBoxTheme(txtBillQty);
+            ApplyTextBoxTheme(txtBillPrice);
+            ApplyTextBoxTheme(txtCustSearch);
+            ApplyTextBoxTheme(txtProdSearch);
+            ApplyTextBoxTheme(txtTransSearch);
+
+            // Grids
+            ApplyGridTheme(dgvTransactions);
+            ApplyGridTheme(dgvBillItems);
+            ApplyGridTheme(dgvCustomers);
+            ApplyGridTheme(dgvProducts);
+            ApplyGridTheme(dgvAllTransactions);
+
+            // Redraw panels
+            pnlTopBar.Invalidate();
+            pnlSearchBox.Invalidate();
+            pnlSidebar.Invalidate();
+            btnThemeToggle.Invalidate();
+            pnlOverview.Invalidate(true);
+            pnlNewBill.Invalidate(true);
+            pnlCustomers.Invalidate(true);
+            pnlProducts.Invalidate(true);
+            pnlTransPage.Invalidate(true);
+        }
+
+        private void ApplyTextBoxTheme(TextBox? txt)
+        {
+            if (txt == null) return;
+            txt.BackColor = C_SearchBg;
+            txt.ForeColor = C_TextDark;
+        }
+
+        private void ApplyGridTheme(DataGridView? dgv)
+        {
+            if (dgv == null) return;
+            dgv.BackgroundColor = C_CardBg;
+            dgv.GridColor        = C_Border;
+
+            dgv.ColumnHeadersDefaultCellStyle.BackColor = _isDarkMode ? Color.FromArgb(28, 30, 44) : Color.FromArgb(248, 250, 252);
+            dgv.ColumnHeadersDefaultCellStyle.ForeColor = _isDarkMode ? Color.FromArgb(148, 163, 184) : Color.FromArgb(71, 85, 105);
+
+            dgv.DefaultCellStyle.BackColor          = C_CardBg;
+            dgv.DefaultCellStyle.ForeColor          = C_TextDark;
+            dgv.DefaultCellStyle.SelectionBackColor = Color.FromArgb(37, 99, 235);
+            dgv.DefaultCellStyle.SelectionForeColor = Color.White;
+
+            dgv.AlternatingRowsDefaultCellStyle.BackColor = _isDarkMode ? Color.FromArgb(26, 27, 40) : Color.FromArgb(248, 250, 252);
+            dgv.AlternatingRowsDefaultCellStyle.ForeColor = C_TextDark;
+
+            dgv.Invalidate();
         }
 
         private void SetupWindowDrag()
@@ -582,7 +838,7 @@ namespace PROJECT_SBV1.Forms
         private void BuildSmallStatCard(Panel pnl, string title, string value,
                                          string sub, Color accentColor, bool isPositive)
         {
-            pnl.BackColor = C_White;
+            pnl.BackColor = Color.Transparent;
 
             pnl.Paint += (s, e) =>
             {
@@ -592,7 +848,7 @@ namespace PROJECT_SBV1.Forms
                 int w = p.Width, h = p.Height;
 
                 using var path   = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, w-1, h-1, 12);
-                using var bg     = new SolidBrush(C_White);
+                using var bg     = new SolidBrush(C_CardBg);
                 g.FillPath(bg, path);
                 using var border = new Pen(C_Border, 1f);
                 g.DrawPath(border, path);
@@ -625,7 +881,7 @@ namespace PROJECT_SBV1.Forms
         // ─── Transaction list ──────────────────────────────────────────────────────
         private void BuildTransactionPanel()
         {
-            pnlTransactions.BackColor = C_White;
+            pnlTransactions.BackColor = Color.Transparent;
 
             pnlTransactions.Paint += (s, e) =>
             {
@@ -633,7 +889,7 @@ namespace PROJECT_SBV1.Forms
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 var p = (Panel)s!;
                 using var path   = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, p.Width-1, p.Height-1, 12);
-                using var bg     = new SolidBrush(C_White);
+                using var bg     = new SolidBrush(C_CardBg);
                 g.FillPath(bg, path);
                 using var border = new Pen(C_Border, 1f);
                 g.DrawPath(border, path);
@@ -666,7 +922,7 @@ namespace PROJECT_SBV1.Forms
         // ─── Revenue bar chart ─────────────────────────────────────────────────────
         private void BuildRevenueChartPanel()
         {
-            pnlRevenueCard.BackColor = C_White;
+            pnlRevenueCard.BackColor = Color.Transparent;
 
             // Chart legend dots
             var legendIncome  = MakeLegendDot(C_BarIncome,  " Income");
@@ -678,7 +934,7 @@ namespace PROJECT_SBV1.Forms
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 var p = (Panel)s!;
                 using var path   = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, p.Width-1, p.Height-1, 12);
-                using var bg     = new SolidBrush(C_White);
+                using var bg     = new SolidBrush(C_CardBg);
                 g.FillPath(bg, path);
                 using var border = new Pen(C_Border, 1f);
                 g.DrawPath(border, path);
@@ -749,7 +1005,7 @@ namespace PROJECT_SBV1.Forms
             }
 
             // Horizontal grid lines
-            using var gridPen = new Pen(Color.FromArgb(15, 0, 0, 0), 1f);
+            using var gridPen = new Pen(_isDarkMode ? Color.FromArgb(30, 255, 255, 255) : Color.FromArgb(15, 0, 0, 0), 1f);
             for (int l = 0; l <= 4; l++)
             {
                 float ly = chartB - l * (chartH / 4f);
@@ -772,7 +1028,7 @@ namespace PROJECT_SBV1.Forms
         // ─── Sales Report panel ────────────────────────────────────────────────────
         private void BuildSalesReportPanel()
         {
-            pnlSalesReport.BackColor = C_White;
+            pnlSalesReport.BackColor = Color.Transparent;
 
             pnlSalesReport.Paint += (s, e) =>
             {
@@ -782,7 +1038,7 @@ namespace PROJECT_SBV1.Forms
                 int w = p.Width, h = p.Height;
 
                 using var path   = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, w-1, h-1, 12);
-                using var bg     = new SolidBrush(C_White);
+                using var bg     = new SolidBrush(C_CardBg);
                 g.FillPath(bg, path);
                 using var border = new Pen(C_Border, 1f);
                 g.DrawPath(border, path);
@@ -819,7 +1075,8 @@ namespace PROJECT_SBV1.Forms
 
                     // Track
                     int trackY = ry + 20;
-                    using var trackB    = new SolidBrush(Color.FromArgb(20, clr.R, clr.G, clr.B));
+                    Color trackClr = _isDarkMode ? Color.FromArgb(35, 38, 56) : Color.FromArgb(20, clr.R, clr.G, clr.B);
+                    using var trackB    = new SolidBrush(trackClr);
                     using var trackPath = GraphicsExtensions.CreateRoundedRectanglePath(barAreaL, trackY, barAreaW, barH2, barH2 / 2);
                     g.FillPath(trackB, trackPath);
 
@@ -846,7 +1103,7 @@ namespace PROJECT_SBV1.Forms
         // ─── Total-view donut ──────────────────────────────────────────────────────
         private void BuildTotalViewPanel()
         {
-            pnlTotalView.BackColor = C_White;
+            pnlTotalView.BackColor = Color.Transparent;
 
             pnlTotalView.Paint += (s, e) =>
             {
@@ -856,7 +1113,7 @@ namespace PROJECT_SBV1.Forms
                 int w = p.Width, h = p.Height;
 
                 using var path   = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, w-1, h-1, 12);
-                using var bg     = new SolidBrush(C_White);
+                using var bg     = new SolidBrush(C_CardBg);
                 g.FillPath(bg, path);
                 using var border = new Pen(C_Border, 1f);
                 g.DrawPath(border, path);
@@ -918,12 +1175,12 @@ namespace PROJECT_SBV1.Forms
                 // Guide Views button (painted)
                 int btnY = h - 44;
                 using var btnRect = GraphicsExtensions.CreateRoundedRectanglePath(12, btnY, w - 24, 32, 8);
-                using var btnBrush = new SolidBrush(Color.FromArgb(239, 246, 255));
+                using var btnBrush = new SolidBrush(_isDarkMode ? Color.FromArgb(30, 42, 68) : Color.FromArgb(239, 246, 255));
                 g.FillPath(btnBrush, btnRect);
                 using var btnPen = new Pen(C_Blue, 1f);
                 g.DrawPath(btnPen, btnRect);
                 using var btnF = new Font("Segoe UI", 8.5f, FontStyle.Bold);
-                using var btnB = new SolidBrush(C_Blue);
+                using var btnB = new SolidBrush(_isDarkMode ? Color.FromArgb(147, 197, 253) : C_Blue);
                 var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
                 g.DrawString("Guide Views", btnF, btnB, new RectangleF(12, btnY, w - 24, 32), sf);
             };
@@ -1296,13 +1553,13 @@ namespace PROJECT_SBV1.Forms
         // ═══════════════════════════════════════════════════════════════════════════
         //  UI STYLE HELPERS
         // ═══════════════════════════════════════════════════════════════════════════
-        private static Panel MakeCard(int x, int y, int w, int h)
+        private Panel MakeCard(int x, int y, int w, int h)
         {
             var c = new Panel
             {
                 Location  = new Point(x, y),
                 Size      = new Size(w, h),
-                BackColor = Color.White,
+                BackColor = Color.Transparent,
                 Padding   = new Padding(16, 14, 16, 14),
             };
             c.Paint += (s, e) =>
@@ -1310,15 +1567,15 @@ namespace PROJECT_SBV1.Forms
                 var g = e.Graphics;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 using var path   = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, c.Width-1, c.Height-1, 12);
-                using var bg     = new SolidBrush(Color.White);
+                using var bg     = new SolidBrush(C_CardBg);
                 g.FillPath(bg, path);
-                using var pen    = new Pen(Color.FromArgb(226,232,240), 1f);
+                using var pen    = new Pen(C_Border, 1f);
                 g.DrawPath(pen, path);
             };
             return c;
         }
 
-        private static void StyleDataGrid(DataGridView dgv)
+        private void StyleDataGrid(DataGridView dgv)
         {
             dgv.AutoSizeColumnsMode              = DataGridViewAutoSizeColumnsMode.Fill;
             dgv.RowHeadersVisible                = false;
@@ -1327,13 +1584,13 @@ namespace PROJECT_SBV1.Forms
             dgv.SelectionMode                    = DataGridViewSelectionMode.FullRowSelect;
             dgv.MultiSelect                      = false;
             dgv.BorderStyle                      = BorderStyle.None;
-            dgv.BackgroundColor                  = Color.White;
-            dgv.GridColor                        = Color.FromArgb(226,232,240);
+            dgv.BackgroundColor                  = C_CardBg;
+            dgv.GridColor                        = C_Border;
             dgv.CellBorderStyle                  = DataGridViewCellBorderStyle.SingleHorizontal;
             dgv.ColumnHeadersDefaultCellStyle    = new DataGridViewCellStyle
             {
-                BackColor = Color.FromArgb(248,250,252),
-                ForeColor = Color.FromArgb(71,85,105),
+                BackColor = _isDarkMode ? Color.FromArgb(28, 30, 44) : Color.FromArgb(248, 250, 252),
+                ForeColor = _isDarkMode ? Color.FromArgb(148, 163, 184) : Color.FromArgb(71, 85, 105),
                 Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                 Padding   = new Padding(8,0,0,0),
                 Alignment = DataGridViewContentAlignment.MiddleLeft
@@ -1343,24 +1600,25 @@ namespace PROJECT_SBV1.Forms
             dgv.EnableHeadersVisualStyles        = false;
             dgv.DefaultCellStyle = new DataGridViewCellStyle
             {
-                BackColor          = Color.White,
-                ForeColor          = Color.FromArgb(30,41,59),
+                BackColor          = C_CardBg,
+                ForeColor          = C_TextDark,
                 Font               = new Font("Segoe UI", 9f),
                 Padding            = new Padding(8,0,0,0),
-                SelectionBackColor = Color.FromArgb(219,234,254),
-                SelectionForeColor = Color.FromArgb(30,58,138)
+                SelectionBackColor = Color.FromArgb(37, 99, 235),
+                SelectionForeColor = Color.White
             };
             dgv.RowTemplate.Height               = 36;
-            dgv.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248,250,252);
+            dgv.AlternatingRowsDefaultCellStyle.BackColor = _isDarkMode ? Color.FromArgb(26, 27, 40) : Color.FromArgb(248, 250, 252);
+            dgv.AlternatingRowsDefaultCellStyle.ForeColor = C_TextDark;
         }
 
-        private static void StyleInput(TextBox txt, string ph, int x, int y, int w, int h)
+        private void StyleInput(TextBox txt, string ph, int x, int y, int w, int h)
         {
             txt.Location        = new Point(x, y);
             txt.Size            = new Size(w, h);
             txt.Font            = new Font("Segoe UI", 10f);
-            txt.ForeColor       = Color.FromArgb(30,41,59);
-            txt.BackColor       = Color.FromArgb(248,250,252);
+            txt.ForeColor       = C_TextDark;
+            txt.BackColor       = C_SearchBg;
             txt.BorderStyle     = BorderStyle.FixedSingle;
             txt.PlaceholderText = ph;
         }
@@ -1387,13 +1645,13 @@ namespace PROJECT_SBV1.Forms
                 DefaultCellStyle = { Padding = new Padding(8,0,0,0) }
             };
 
-        private static void AddSectionLabel(Panel p, string text, int x, int y)
+        private void AddSectionLabel(Panel p, string text, int x, int y)
         {
             p.Controls.Add(new Label
             {
                 Text      = text,
                 Font      = new Font("Segoe UI", 10.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(71,85,105),
+                ForeColor = C_TextMid,
                 AutoSize  = true,
                 Location  = new Point(x, y)
             });
