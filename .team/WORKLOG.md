@@ -424,6 +424,44 @@ This log records daily development sessions, code changes, verification test res
   - Every component updates at the exact same instant with zero sequential painting or animation.
 - **Status**: COMPLETE & VERIFIED.
 
+---
+
+## Session: 2026-10-14 — Sales & Billing Module Implementation & SQLite Persistence
+
+- **Developer**: Senior Desktop Full-Stack Engineer (@Saumya25-hub / @jenilrana026-max)
+- **Role**: `Full-Stack Desktop Architect` & `UI/UX Developer`
+- **Branch**: `feature/ui-splash-login-dashboard`
+- **Assigned Task**: `TASK-SALES-001` (Complete Sales & Billing Module for Service Businesses)
+- **Objective**: Build an enterprise-grade, desktop C# WinForms Sales & Billing module for service-based businesses with SQLite database persistence, strict decimal calculations, customer directory, payment tracking, vector printing, and PDF export.
+- **Components & Files Created / Modified**:
+  1. `PROJECT-SBV1.csproj`: Installed `Microsoft.Data.Sqlite` version `10.0.13`.
+  2. `Models/BillingModels.cs`: Domain models (`BusinessProfile`, `Customer`, `Invoice`, `InvoiceItem`, `PaymentRecord`, `SalesDashboardMetrics`) with real-time recalculation math and status automation (`Draft`, `Unpaid`, `Partially Paid`, `Paid`, `Overdue`, `Cancelled`).
+  3. `Services/DatabaseService.cs`: Complete SQLite Data Access Layer implementing tables (`BusinessProfile`, `Customers`, `Invoices`, `InvoiceItems`, `Payments`), auto-migration, seed data (default business profile, 4 service-based customers, 3 sample invoices), CRUD operations with ACID transactions, unique invoice number generator (`INV-YYYY-XXXX`), and live aggregate metrics queries (`GetSalesDashboardMetrics()`).
+  4. `Services/InvoicePrintService.cs`: Vector A4 GDI+ `PrintDocument` rendering, `PrintPreviewDialog`, native `PrintDialog`, and standalone styled HTML/PDF tax invoice export.
+  5. `Forms/CustomerDialog.cs`: Modal dialog for adding and editing customers with validation and theme support.
+  6. `Forms/RecordPaymentDialog.cs`: Modal dialog for recording partial and full payments with live balance calculation and method selection (Cash, UPI, Bank Transfer, Card, Other).
+  7. `Forms/InvoiceDetailsForm.cs`: Invoice viewer displaying customer information, line items, payment history ledger, and quick action buttons.
+  8. `Controls/SalesBillingModuleControl.cs`: Master UserControl hosting 4 sub-tabs:
+     - 📊 **Sales Overview**: KPI metric cards (Total Sales, Total Invoices, Paid, Unpaid, Outstanding Due), quick actions, recent sales grid.
+     - ➕ **Create Invoice**: Customer selection (with auto-fill & "+ New Customer"), service line items builder, live decimal arithmetic, initial payment recording, print/save/preview/export.
+     - 📋 **Invoices Directory**: Search, status & date filters, double-click to view details, payment recording, cancellation.
+     - 👥 **Customers Directory**: Search, add, edit, and track balances.
+  9. `Forms/DashboardForm.cs`:
+     - Initialized SQLite database on startup.
+     - Embedded `SalesBillingModuleControl` docked `Fill` inside `pnlNewBill`.
+     - Wired live SQLite metrics to the 6 overview stat cards.
+     - Wired live SQLite invoices to `dgvInvoices` with double-click opening `InvoiceDetailsForm`.
+     - Wired top bar "New Invoice" button and sidebar "Customers" button.
+     - Subscribed `_salesModule.DataChanged` to automatically refresh Dashboard KPI cards and invoices table.
+     - Instant Light & Dark mode support across all sales controls.
+  10. `Program.cs`: Added `--test-sales` comprehensive automated test suite verifying all 8 core workflows.
+- **Verification & Test Status**:
+  - `dotnet build`: Clean compilation (0 warnings, 0 errors).
+  - `dotnet run -- --test-sales`: 8/8 automated tests passed cleanly (100% success).
+  - `dotnet run -- --test-flow`: Verified login to dashboard and theme switch in 43ms.
+- **Status**: COMPLETE & VERIFIED.
+
+
 
 
 

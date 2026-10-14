@@ -121,6 +121,18 @@ This log records verifiable project events, role authorizations, task transition
 - **Details**: Completely eliminated sequential component redrawing ("ek ek karke") by implementing Win32 `WM_SETREDRAW` atomic screen freeze and `RedrawWindow`. All UI components (sidebar, topbar, cards, charts, tables, knobs) now flip simultaneously in a single hardware frame at 34ms average (down from 215ms). Recursively enabled double buffering across all dynamic page panels and removed parent-chain transparency overhead.
 - **Authorization / Approver**: UI/UX Developer / Active Sprint Directive
 
+---
+
+### [AUDIT-20261014-006] — Production Sales & Billing Module Architecture & Delivery
+- **Timestamp**: 2026-10-14 15:18:00 IST
+- **Event Category**: Architecture Approval & Feature Delivery
+- **Actor**: Senior Desktop Full-Stack Engineer (@Saumya25-hub / @jenilrana026-max)
+- **Role**: Full-Stack Desktop Architect & UI/UX Developer
+- **Target / Reference**: `TASK-SALES-001`, `Controls/SalesBillingModuleControl.cs`, `Services/DatabaseService.cs`, `Services/InvoicePrintService.cs`, `Forms/CustomerDialog.cs`, `Forms/RecordPaymentDialog.cs`, `Forms/InvoiceDetailsForm.cs`, `Forms/DashboardForm.cs`, `Models/BillingModels.cs`, Branch `feature/ui-splash-login-dashboard`
+- **Details**: Built production-grade Sales & Billing module with SQLite database persistence (`teamsoft_sales.db`), ACID transactions, customer management, multi-item invoicing with real-time decimal calculations, GST computation (CGST+SGST, IGST), payment recording ledger, vector GDI+ PrintPreview/printing, HTML/PDF export, and live metrics binding to Dashboard KPI cards. Verified with clean compilation (0 warnings, 0 errors) and automated test suite.
+- **Authorization / Approver**: Vision (Project Owner) & Project Directive
+
+
 
 
 

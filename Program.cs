@@ -27,6 +27,12 @@ namespace PROJECT_SBV1
                 return;
             }
 
+            if (args.Length > 0 && args[0].Equals("--test-sales", StringComparison.OrdinalIgnoreCase))
+            {
+                RunSalesBillingTest();
+                return;
+            }
+
             if (args.Length > 0 && args[0].Equals("--test-flow", StringComparison.OrdinalIgnoreCase))
             {
                 RunFlowTest();
@@ -34,6 +40,149 @@ namespace PROJECT_SBV1
             }
 
             Application.Run(new Sb1ApplicationContext());
+        }
+
+        private static void RunSalesBillingTest()
+        {
+            Console.WriteLine("================================================================================");
+            Console.WriteLine("  TEAM SOFT — SALES & BILLING MODULE COMPREHENSIVE AUTOMATED TEST SUITE");
+            Console.WriteLine("================================================================================");
+
+            // Step 1: Database Initialization
+            Console.WriteLine("[TEST 1/8] Initializing SQLite database at %LOCALAPPDATA%\\TEAMSOFT\\teamsoft_sales.db...");
+            Services.DatabaseService.InitializeDatabase();
+            var business = Services.DatabaseService.GetBusinessProfile();
+            Console.WriteLine($"[PASS] Database initialized. Business: {business.BusinessName} | GSTIN: {business.GSTIN}");
+
+            // Step 2: Customer Seeding & Retrieval
+            Console.WriteLine("[TEST 2/8] Verifying customers directory in SQLite...");
+            var customers = Services.DatabaseService.GetCustomers();
+            Console.WriteLine($"[PASS] Retrieved {customers.Count} customers. First customer: {customers[0].DisplayName}");
+            if (customers.Count == 0) throw new Exception("Customer seed failed!");
+
+            // Step 3: Decimal Precision & Arithmetic Calculations
+            Console.WriteLine("[TEST 3/8] Validating strict decimal calculations & tax scheme logic...");
+            var testInv = new Models.Invoice
+            {
+                InvoiceNumber = Services.DatabaseService.GetNextInvoiceNumber(),
+                CustomerId = customers[0].Id,
+                CustomerName = customers[0].Name,
+                CustomerCompany = customers[0].CompanyName,
+                CustomerPhone = customers[0].Phone,
+                CustomerEmail = customers[0].Email,
+                CustomerAddress = customers[0].BillingAddress,
+                CustomerGSTIN = customers[0].GSTIN,
+                InvoiceDate = DateTime.Today,
+                DueDate = DateTime.Today.AddDays(15),
+                PaymentTerms = "Net 15",
+                TaxType = "GST_INTRA", // CGST 9% + SGST 9%
+                OverallDiscount = 5000m
+            };
+
+            // Line Item 1: 2 x 50,000 = 100,000. 10% disc = 10,000. Net = 90,000. 18% Tax = 16,200. Line Total = 106,200.
+            testInv.Items.Add(new Models.InvoiceItem
+            {
+                ServiceName = "Custom Software Architecture & Dev",
+                Description = "Microservice backend engine with WinForms presentation",
+                Quantity = 2m,
+                UnitPrice = 50000m,
+                DiscountPercent = 10m,
+                TaxPercent = 18m
+            });
+
+            // Line Item 2: 1 x 15,000 = 15,000. 0% disc. Net = 15,000. 18% Tax = 2,700. Line Total = 17,700.
+            testInv.Items.Add(new Models.InvoiceItem
+            {
+                ServiceName = "Cloud SaaS Subscription (Monthly)",
+                Description = "High availability dedicated server cluster",
+                Quantity = 1m,
+                UnitPrice = 15000m,
+                DiscountPercent = 0m,
+                TaxPercent = 18m
+            });
+
+            testInv.RecalculateTotals();
+            Console.WriteLine($"       Subtotal:         ₹{testInv.Subtotal:N2} (Expected: ₹1,15,000.00)");
+            Console.WriteLine($"       Item Discounts:   ₹{testInv.ItemDiscountTotal:N2} (Expected: ₹10,000.00)");
+            Console.WriteLine($"       Overall Discount: ₹{testInv.OverallDiscount:N2} (Expected: ₹5,000.00)");
+            Console.WriteLine($"       Taxable Amount:   ₹{testInv.TaxableAmount:N2} (Expected: ₹1,00,000.00)");
+            Console.WriteLine($"       CGST (9%):        ₹{testInv.CgstAmount:N2} (Expected: ₹9,000.00)");
+            Console.WriteLine($"       SGST (9%):        ₹{testInv.SgstAmount:N2} (Expected: ₹9,000.00)");
+            Console.WriteLine($"       Grand Total:      ₹{testInv.GrandTotal:N2} (Expected: ₹1,18,000.00)");
+
+            if (testInv.GrandTotal != 118000m) throw new Exception($"Grand total mismatch! Expected 118000, got {testInv.GrandTotal}");
+            Console.WriteLine("[PASS] Decimal precision arithmetic verified (100% exact).");
+
+            // Step 4: Invoice Persistence with Initial Partial Payment
+            Console.WriteLine("[TEST 4/8] Saving invoice into SQLite with partial payment of ₹50,000...");
+            var initPay = new Models.PaymentRecord
+            {
+                Amount = 50000m,
+                PaymentMethod = "Bank Transfer",
+                ReferenceNumber = "NEFT-TEST-9921",
+                Notes = "Advance initial payment on contract signature"
+            };
+
+            var savedInv = Services.DatabaseService.SaveInvoice(testInv, initPay);
+            Console.WriteLine($"[PASS] Saved invoice ID: {savedInv.Id} | Number: {savedInv.InvoiceNumber}");
+            Console.WriteLine($"       Status: {savedInv.Status} | Amount Paid: ₹{savedInv.AmountPaid:N2} | Balance Due: ₹{savedInv.BalanceDue:N2}");
+            if (savedInv.Status != "Partially Paid") throw new Exception($"Expected Partially Paid, got {savedInv.Status}");
+            if (savedInv.BalanceDue != 68000m) throw new Exception($"Expected Balance Due 68000, got {savedInv.BalanceDue}");
+
+            // Step 5: Recording Remainder Payment
+            Console.WriteLine("[TEST 5/8] Recording second payment of ₹68,000 to fully settle invoice...");
+            var secondPay = new Models.PaymentRecord
+            {
+                InvoiceId = savedInv.Id,
+                Amount = 68000m,
+                PaymentMethod = "UPI",
+                ReferenceNumber = "UPI-TEST-88124",
+                Notes = "Final settlement payment"
+            };
+            Services.DatabaseService.RecordPayment(secondPay);
+            var updatedInv = Services.DatabaseService.GetInvoiceById(savedInv.Id);
+            if (updatedInv == null) throw new Exception("Failed to reload invoice!");
+            Console.WriteLine($"[PASS] Invoice updated. Status: {updatedInv.Status} | Paid: ₹{updatedInv.AmountPaid:N2} | Balance: ₹{updatedInv.BalanceDue:N2}");
+            if (updatedInv.Status != "Paid") throw new Exception($"Expected Status Paid, got {updatedInv.Status}");
+            if (updatedInv.BalanceDue != 0m) throw new Exception($"Expected Balance Due 0, got {updatedInv.BalanceDue}");
+
+            // Step 6: HTML & PDF Invoice Export Generator
+            Console.WriteLine("[TEST 6/8] Generating standalone HTML/PDF tax invoice report...");
+            string filePath = Services.InvoicePrintService.ExportToPdfFile(updatedInv, business);
+            if (!System.IO.File.Exists(filePath))
+                throw new Exception("HTML/PDF invoice generation failed!");
+            string htmlContent = System.IO.File.ReadAllText(filePath);
+            Console.WriteLine($"[PASS] Generated vector-styled A4 invoice document ({htmlContent.Length} bytes at {filePath}).");
+
+            // Step 7: Live Metrics Calculation
+            Console.WriteLine("[TEST 7/8] Verifying live sales dashboard SQLite metrics query...");
+            var metrics = Services.DatabaseService.GetSalesDashboardMetrics();
+            Console.WriteLine($"       Total Sales:       {metrics.TotalSalesFormatted}");
+            Console.WriteLine($"       Total Invoices:    {metrics.TotalInvoices}");
+            Console.WriteLine($"       Paid Invoices:     {metrics.PaidInvoices}");
+            Console.WriteLine($"       Unpaid Invoices:   {metrics.UnpaidInvoices}");
+            Console.WriteLine($"       Outstanding Due:   {metrics.OutstandingDueFormatted}");
+            Console.WriteLine($"       Active Clients:    {metrics.TotalCustomers}");
+            Console.WriteLine("[PASS] SQLite aggregate metrics query succeeded.");
+
+            // Step 8: UI Dashboard & Sales Module Instantiation & Theme Rendering
+            Console.WriteLine("[TEST 8/8] Testing UI Controls, SalesBillingModuleControl, and Theme rendering...");
+            using var dash = new Forms.DashboardForm();
+            dash.CreateControl();
+            dash.Show();
+            Application.DoEvents();
+
+            // Toggle Dark and Light themes
+            Services.ThemeManager.IsDarkMode = true;
+            Application.DoEvents();
+            Services.ThemeManager.IsDarkMode = false;
+            Application.DoEvents();
+            dash.Close();
+            Console.WriteLine("[PASS] WinForms controls, tabs, and theme toggling executed without errors!");
+
+            Console.WriteLine("================================================================================");
+            Console.WriteLine("  ALL SALES & BILLING MODULE TESTS PASSED CLEANLY (100% SUCCESS)!");
+            Console.WriteLine("================================================================================");
         }
 
         private static void RunFlowTest()

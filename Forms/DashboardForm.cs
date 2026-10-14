@@ -4,8 +4,11 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using PROJECT_SBV1.Controls;
+using PROJECT_SBV1.Models;
 using PROJECT_SBV1.Services;
 
 namespace PROJECT_SBV1.Forms
@@ -102,8 +105,10 @@ namespace PROJECT_SBV1.Forms
         // ═══════════════════════════════════════════════════════════════════════════
         private string _activePage = "Overview";
 
-        private readonly List<(string Item, int Qty, decimal Price)> _lineItems = new();
-        private decimal _billTotal = 0m;
+        private SalesBillingModuleControl? _salesModule;
+        private SalesDashboardMetrics? _currentMetrics;
+        private readonly (string Title, string Value, string Subtitle, Color StatusCol, ReiconRenderer.IconType Icon)[] _kpiCardData = new (string, string, string, Color, ReiconRenderer.IconType)[6];
+
 
         private readonly List<string[]> _invoicesStore = new();
         private readonly List<string[]> _lowStockStore = new();
@@ -122,6 +127,9 @@ namespace PROJECT_SBV1.Forms
         // ═══════════════════════════════════════════════════════════════════════════
         public DashboardForm()
         {
+            // Initialize SQLite Database schema & seed records first
+            DatabaseService.InitializeDatabase();
+
             InitializeComponent();
 
             this.Opacity = 1.0;
@@ -139,6 +147,7 @@ namespace PROJECT_SBV1.Forms
             BuildTransactionsPage();
             SetupSidebarNav();
             SetupWindowDrag();
+            RefreshLiveKpiCards();
             ShowPage("Overview");
 
             // CRITICAL: Double-buffer the entire form and all child controls AFTER pages are built
@@ -324,7 +333,11 @@ namespace PROJECT_SBV1.Forms
             };
 
             // New Invoice button click navigation (Custom Framework: Anti-aliased pill, built-in vector icon)
-            btnTopAddProduct.Click += (s, e) => ShowPage("Sales");
+            btnTopAddProduct.Click += (s, e) =>
+            {
+                ShowPage("Sales");
+                _salesModule?.SwitchTab("CreateInvoice");
+            };
 
             // Dynamic header layout resizing for mathematical alignment and zero overlap
             pnlTopBar.Resize += (s, e) => UpdateHeaderLayout();
@@ -450,6 +463,8 @@ namespace PROJECT_SBV1.Forms
                 if (pnlCustomers != null) pnlCustomers.BackColor = pageBg;
                 if (pnlProducts != null) pnlProducts.BackColor = pageBg;
                 if (pnlTransPage != null) pnlTransPage.BackColor = pageBg;
+
+                _salesModule?.ApplyTheme();
 
                 headerTitle.TitleColor    = textDark;
                 headerTitle.SubtitleColor = textMid;
@@ -608,6 +623,8 @@ namespace PROJECT_SBV1.Forms
 
         private void SetupStatCard(int cardIndex, Panel pnl, string title, string val, string sub, Color statusCol, ReiconRenderer.IconType iconType)
         {
+            _kpiCardData[cardIndex] = (title, val, sub, statusCol, iconType);
+
             pnl.MouseEnter += (s, e) => { _hoveredCardIndex = cardIndex; pnl.Invalidate(); };
             pnl.MouseLeave += (s, e) => { if (_hoveredCardIndex == cardIndex) { _hoveredCardIndex = -1; pnl.Invalidate(); } };
 
@@ -631,17 +648,44 @@ namespace PROJECT_SBV1.Forms
                 using var borderPen = new Pen(isHovered ? C_Blue : C_Border, isHovered ? 1.5f : 1.2f);
                 g.DrawPath(borderPen, path);
 
+                var d = _kpiCardData[cardIndex];
+
                 // Reicon Vector Icon (Clean 20x20 Vector, No Emojis!)
-                ReiconRenderer.DrawIcon(g, iconType, new Rectangle(12, 10, 18, 18), statusCol, 1.8f);
+                ReiconRenderer.DrawIcon(g, d.Icon, new Rectangle(12, 10, 18, 18), d.StatusCol, 1.8f);
 
                 using var bTitle = new SolidBrush(C_TextMid);
                 using var bVal   = new SolidBrush(C_TextDark);
-                using var bSub   = new SolidBrush(statusCol);
+                using var bSub   = new SolidBrush(d.StatusCol);
 
-                g.DrawString(title, s_fontStatTitle, bTitle, 36, 11);
-                g.DrawString(val, s_fontStatVal, bVal, 12, 34);
-                g.DrawString(sub, s_fontStatSub, bSub, 12, 64);
+                g.DrawString(d.Title, s_fontStatTitle, bTitle, 36, 11);
+                g.DrawString(d.Value, s_fontStatVal, bVal, 12, 34);
+                g.DrawString(d.Subtitle, s_fontStatSub, bSub, 12, 64);
             };
+        }
+
+        public void RefreshLiveKpiCards()
+        {
+            try
+            {
+                _currentMetrics = DatabaseService.GetSalesDashboardMetrics();
+                _kpiCardData[0] = ("Total Sales", _currentMetrics.TotalSalesFormatted, "All-time billings", C_Positive, ReiconRenderer.IconType.TrendingUp);
+                _kpiCardData[1] = ("Total Invoices", $"{_currentMetrics.TotalInvoices} Invoices", "Issued to date", C_Blue, ReiconRenderer.IconType.Wallet);
+                _kpiCardData[2] = ("Paid Invoices", $"{_currentMetrics.PaidInvoices} Invoices", "Settled in full", C_Positive, ReiconRenderer.IconType.TrendingUp);
+                _kpiCardData[3] = ("Unpaid Invoices", $"{_currentMetrics.UnpaidInvoices} Invoices", "Pending settlement", C_Negative, ReiconRenderer.IconType.TrendingDown);
+                _kpiCardData[4] = ("Outstanding Due", _currentMetrics.OutstandingDueFormatted, "Customer balances", C_Warning, ReiconRenderer.IconType.Warning);
+                _kpiCardData[5] = ("Active Clients", $"{_currentMetrics.TotalCustomers} Clients", "Service accounts", C_Blue, ReiconRenderer.IconType.Customers);
+
+                pnlCardSalesToday?.Invalidate();
+                pnlCardSalesMonth?.Invalidate();
+                pnlCardReceivables?.Invalidate();
+                pnlCardPayables?.Invalidate();
+                pnlCardTotalProducts?.Invalidate();
+                pnlCardLowStock?.Invalidate();
+            }
+            catch
+            {
+                // Fallback gracefully
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -839,6 +883,26 @@ namespace PROJECT_SBV1.Forms
             dgvInvoices.ReadOnly = true;
             dgvInvoices.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgvInvoices.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvInvoices.Cursor = Cursors.Hand;
+
+            dgvInvoices.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex >= 0 && e.RowIndex < dgvInvoices.Rows.Count)
+                {
+                    string invNo = dgvInvoices.Rows[e.RowIndex].Cells["InvoiceNo"].Value?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(invNo))
+                    {
+                        var inv = DatabaseService.GetInvoiceByNumber(invNo);
+                        if (inv != null)
+                        {
+                            using var dlg = new InvoiceDetailsForm(inv);
+                            dlg.ShowDialog(this);
+                            RefreshLiveKpiCards();
+                            RefreshInvoicesTable();
+                        }
+                    }
+                }
+            };
 
             RefreshInvoicesTable();
         }
@@ -872,9 +936,27 @@ namespace PROJECT_SBV1.Forms
         private void RefreshInvoicesTable()
         {
             dgvInvoices.Rows.Clear();
-            foreach (var inv in _invoicesStore)
+            try
             {
-                dgvInvoices.Rows.Add(inv[0], inv[1], inv[2], inv[3], inv[4], inv[5]);
+                var list = DatabaseService.GetInvoices().Take(10).ToList();
+                foreach (var inv in list)
+                {
+                    dgvInvoices.Rows.Add(
+                        inv.InvoiceNumber,
+                        inv.CustomerName,
+                        inv.InvoiceDate.ToString("dd MMM yyyy"),
+                        inv.PaymentMode,
+                        $"₹{inv.TotalAmount:N2}",
+                        inv.Status
+                    );
+                }
+            }
+            catch
+            {
+                foreach (var inv in _invoicesStore)
+                {
+                    dgvInvoices.Rows.Add(inv[0], inv[1], inv[2], inv[3], inv[4], inv[5]);
+                }
             }
         }
 
@@ -1003,6 +1085,22 @@ namespace PROJECT_SBV1.Forms
 
         private void ShowPage(string page)
         {
+            if (page == "Customers")
+            {
+                _activePage = "Sales";
+                pnlOverview.Visible = false;
+                pnlNewBill.Visible = true;
+                pnlCustomers.Visible = false;
+                pnlProducts.Visible = false;
+                pnlTransPage.Visible = false;
+
+                headerTitle.Title = "Customer Directory & Balances";
+                headerTitle.Subtitle = "Client accounts, contact info, outstanding dues & ledgers";
+                _salesModule?.SwitchTab("Customers");
+                pnlSidebar.Invalidate(true);
+                return;
+            }
+
             _activePage = page;
             pnlOverview.Visible = (page == "Overview");
             pnlNewBill.Visible = (page == "Sales");
@@ -1027,12 +1125,18 @@ namespace PROJECT_SBV1.Forms
             headerTitle.Subtitle = page switch
             {
                 "Overview" => "Real-time business performance overview",
-                "Sales" => "Rapid POS billing, barcode & receipt printing",
+                "Sales" => "Service invoicing, tax computations, A4 printing & PDF export",
                 "Customers" => "Customer ledger, balances & directories",
                 "Products" => "Product catalog stock & inventory valuation",
                 "Transactions" => "Audit log of receipts and vendor payouts",
                 _ => "Manage and monitor your business operations"
             };
+
+            if (page == "Overview")
+            {
+                RefreshLiveKpiCards();
+                RefreshInvoicesTable();
+            }
 
             pnlSidebar.Invalidate(true);
         }
@@ -1045,110 +1149,17 @@ namespace PROJECT_SBV1.Forms
             pnlNewBill.Dock = DockStyle.Fill;
             pnlNewBill.Visible = false;
             pnlNewBill.BackColor = C_PageBg;
+            pnlNewBill.Controls.Clear();
 
-            var lblHeader = new Label
+            _salesModule = new SalesBillingModuleControl();
+            _salesModule.Dock = DockStyle.Fill;
+            _salesModule.DataChanged += (s, e) =>
             {
-                Text = "⚡ Rapid POS Billing & Barcode Terminal",
-                Font = new Font("Segoe UI", 13f, FontStyle.Bold),
-                ForeColor = C_Blue,
-                Location = new Point(20, 20),
-                AutoSize = true
-            };
-
-            txtBillCustomerName.PlaceholderText = "Customer Name";
-            txtBillCustomerName.SetBounds(20, 60, 200, 30);
-
-            txtBillPhone.PlaceholderText = "Phone Number";
-            txtBillPhone.SetBounds(230, 60, 160, 30);
-
-            txtBillItemName.PlaceholderText = "Product / Barcode";
-            txtBillItemName.SetBounds(20, 105, 240, 30);
-
-            txtBillQty.PlaceholderText = "Qty";
-            txtBillQty.SetBounds(270, 105, 70, 30);
-
-            txtBillPrice.PlaceholderText = "Price (₹)";
-            txtBillPrice.SetBounds(350, 105, 90, 30);
-
-            btnAddLineItem.Text = "+ Add Item";
-            btnAddLineItem.BackColor = C_Blue;
-            btnAddLineItem.ForeColor = Color.White;
-            btnAddLineItem.FlatStyle = FlatStyle.Flat;
-            btnAddLineItem.SetBounds(450, 105, 100, 30);
-
-            dgvBillItems.SetBounds(20, 150, 700, 300);
-            dgvBillItems.Columns.Add("Item", "Item Name");
-            dgvBillItems.Columns.Add("Qty", "Qty");
-            dgvBillItems.Columns.Add("Price", "Price");
-            dgvBillItems.Columns.Add("Total", "Total");
-            dgvBillItems.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-
-            lblBillTotal.Text = "Total: ₹0.00";
-            lblBillTotal.Font = new Font("Segoe UI", 16f, FontStyle.Bold);
-            lblBillTotal.ForeColor = C_Positive;
-            lblBillTotal.SetBounds(20, 465, 300, 35);
-
-            btnSaveBill.Text = "💾 Save & Print Bill";
-            btnSaveBill.BackColor = C_Positive;
-            btnSaveBill.ForeColor = Color.White;
-            btnSaveBill.FlatStyle = FlatStyle.Flat;
-            btnSaveBill.SetBounds(420, 465, 150, 40);
-
-            btnClearBill.Text = "Clear";
-            btnClearBill.FlatStyle = FlatStyle.Flat;
-            btnClearBill.SetBounds(580, 465, 90, 40);
-
-            btnAddLineItem.Click += (s, e) =>
-            {
-                if (!string.IsNullOrWhiteSpace(txtBillItemName.Text) &&
-                    int.TryParse(txtBillQty.Text, out int q) &&
-                    decimal.TryParse(txtBillPrice.Text, out decimal p))
-                {
-                    decimal tot = q * p;
-                    _lineItems.Add((txtBillItemName.Text, q, p));
-                    dgvBillItems.Rows.Add(txtBillItemName.Text, q, p, tot);
-                    _billTotal += tot;
-                    lblBillTotal.Text = $"Total: ₹{_billTotal:N2}";
-                    txtBillItemName.Clear();
-                    txtBillQty.Text = "1";
-                    txtBillPrice.Clear();
-                }
-            };
-
-            btnSaveBill.Click += (s, e) =>
-            {
-                if (_lineItems.Count == 0)
-                {
-                    MessageBox.Show("Please add at least one item to bill.", "Empty Bill", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-                string invNo = $"INV-2026-09{_invoicesStore.Count + 1}";
-                string cust = string.IsNullOrWhiteSpace(txtBillCustomerName.Text) ? "Walk-in Customer" : txtBillCustomerName.Text;
-                _invoicesStore.Insert(0, new[] { invNo, cust, "13 Oct 2026", "Cash", $"₹{_billTotal:N2}", "Paid" });
+                RefreshLiveKpiCards();
                 RefreshInvoicesTable();
-                MessageBox.Show($"Invoice {invNo} saved and printed successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                _lineItems.Clear();
-                dgvBillItems.Rows.Clear();
-                _billTotal = 0;
-                lblBillTotal.Text = "Total: ₹0.00";
-                ShowPage("Overview");
             };
 
-            btnClearBill.Click += (s, e) =>
-            {
-                _lineItems.Clear();
-                dgvBillItems.Rows.Clear();
-                _billTotal = 0;
-                lblBillTotal.Text = "Total: ₹0.00";
-            };
-
-            pnlNewBill.Controls.AddRange(new Control[] {
-                lblHeader, txtBillCustomerName, txtBillPhone,
-                txtBillItemName, txtBillQty, txtBillPrice, btnAddLineItem,
-                dgvBillItems, lblBillTotal, btnSaveBill, btnClearBill
-            });
-
+            pnlNewBill.Controls.Add(_salesModule);
             pnlContentHost.Controls.Add(pnlNewBill);
         }
 

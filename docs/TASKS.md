@@ -129,3 +129,22 @@ Allowed Statuses:
 - **Verification Evidence**: None yet.
 - **Blockers**: Pending completion of TASK-SPRINT-001 and TASK-SPRINT-002.
 
+---
+
+### [x] `TASK-SALES-001`: Sales & Billing Module (Service Business Engine & Presentation)
+- **Owner**: Senior Desktop Full-Stack Engineer & Pair Programmer
+- **Role**: Full-Stack C# Desktop Architect
+- **Description**: Comprehensive Sales & Billing module for service-based businesses in TEAM SOFT C# WinForms desktop software. Houses live SQLite database figures, multi-item invoicing with real-time decimal calculations, customer directory, payment tracking, vector printing, and PDF export.
+- **Acceptance Criteria**:
+  1. Live SQLite sales metrics (Total Sales, Total Invoices, Paid, Unpaid, Outstanding Due).
+  2. Create Invoice screen with service presets, quantity, discounts, CGST/SGST/IGST, and balance calculations.
+  3. Customer management (add, edit, search, track balances).
+  4. Payment management (Cash, UPI, Bank Transfer, Card, Other; partial and full payments with auto status update).
+  5. Native printing, PrintPreview, and standalone HTML/PDF tax invoice export.
+  6. Invoice Directory with search, status filters, date filters, view details, and cancellation.
+  7. Full Light Mode & Dark Mode theme integration.
+- **Status**: Done
+- **Verification Evidence**: Automated test suite `dotnet run -- --test-sales` passed 8/8 tests. Clean build with 0 warnings, 0 errors. Recorded in `docs/TEST_REPORT.md` (Test Run `TR-20261014-003`).
+- **Blockers**: None.
+
+
