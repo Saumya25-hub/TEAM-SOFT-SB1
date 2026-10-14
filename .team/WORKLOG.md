@@ -340,6 +340,32 @@ This log records daily development sessions, code changes, verification test res
   - Runtime verification with DPI-aware screenshots confirmed complete text and clean corner separation in both Light and Dark modes.
 - **Status**: VERIFIED & READY FOR MERGE.
 
+---
+
+## Session: 2026-10-14 — Login to Dashboard Smooth Cross-Fade & Light/Dark Theme Fade Transition
+
+- **Developer**: Jenil Rana (`@jenilrana026-max`)
+- **Role**: `UI/UX Developer`
+- **Branch**: `feature/ui-splash-login-dashboard`
+- **Assigned Task**: `TASK-SPRINT-001` (UI Presentation — Smooth Navigation & Theme Transitions)
+- **Objective**: Fix stutter/lag during Login → Dashboard transition and implement silky smooth fade-in / fade-out cross-dissolve animation between Light Mode and Dark Mode.
+- **Root Cause Analysis & Fixes**:
+  1. **Login → Dashboard Stutter Fixed**:
+     - Previously, `loginForm.Hide()` was called before modal `dashboard.ShowDialog()`, causing UI thread freeze during `DashboardForm` initialization and an abrupt window flash.
+     - Implemented `Sb1ApplicationContext` in `Program.cs` eliminating modal dialog locking.
+     - Added `FadeOutAndClose()` in `LoginForm.cs` to smoothly fade out opacity from 1.0 down to 0.0 over ~180ms.
+     - Upgraded `InitEntranceAnimation()` and `FadeIn()` in `DashboardForm.cs`: starts at `Opacity = 0.0` and smoothly eases to 1.0 with quadratic ease-out (`t * (2 - t)`), completely removing `tlpCards.Invalidate(true)` thrashing from the 16ms timer loop.
+     - Both forms execute a 60 FPS hardware-accelerated cross-fade transition.
+  2. **Light <-> Dark Mode Smooth Cross-Dissolve Fade**:
+     - Built `ThemeFadeOverlay` inside `DashboardForm.cs` providing a dual-snapshot cross-dissolve dissolve between previous and current themes.
+     - Captures GDI+ bitmap snapshots of the form pre- and post-theme switch, rendering the old snapshot with decreasing alpha (`1.0 - progress`) over 180ms.
+     - Renders the active theme toggle switch on top of the overlay during transition so the user watches the knob glide smoothly from left to right while the dashboard colors dissolve seamlessly.
+- **Verification & Test Status**:
+  - `dotnet build`: Succeeded (0 warnings, 0 errors).
+  - Feature branch committed (`51a2a17`) and pushed to `origin: jenilrana026-max`.
+- **Status**: COMPLETE & VERIFIED.
+
+
 
 
 
