@@ -31,8 +31,9 @@ namespace PROJECT_SBV1.Forms
         private float _entranceProgress = 0f;
         private readonly System.Windows.Forms.Timer _entranceTimer = new() { Interval = 16 };
 
-        // Theme cross-dissolve transition overlay
-        private ThemeFadeOverlay? _fadeOverlay;
+        // Theme interpolated smooth animation
+        private float _startAnimProgress = 0f;
+        private float _themeAnimElapsed = 0f;
         private bool _isThemeTransitioning = false;
 
         // Micro-interaction states
@@ -105,8 +106,7 @@ namespace PROJECT_SBV1.Forms
             // Load data immediately — NEVER delay data loading for animation!
             PopulateSampleData();
 
-            _fadeOverlay = new ThemeFadeOverlay(this);
-            this.Controls.Add(_fadeOverlay);
+            EnableDoubleBuffering(this);
 
             InitTooltips();
             InitThemeToggle();
@@ -122,12 +122,10 @@ namespace PROJECT_SBV1.Forms
 
             ThemeManager.ThemeChanged += () =>
             {
-                _targetAnimProgress = ThemeManager.IsDarkMode ? 1.0f : 0.0f;
                 if (!_isThemeTransitioning)
                 {
                     ApplyThemeFast();
                 }
-                _animTimer.Start();
             };
         }
 
@@ -195,10 +193,6 @@ namespace PROJECT_SBV1.Forms
             else ApplyRoundedRegion(16);
             AdaptCardsLayout();
             UpdateHeaderLayout();
-            if (_fadeOverlay != null && _fadeOverlay.Visible)
-            {
-                _fadeOverlay.Bounds = new Rectangle(0, 0, ClientSize.Width, ClientSize.Height);
-            }
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -255,35 +249,35 @@ namespace PROJECT_SBV1.Forms
         {
             btnThemeToggle.Paint += (s, e) => PaintThemeToggle(e.Graphics);
 
-            // Fast 120ms transition for thumb knob
+            // Silky-smooth 60 FPS interpolated theme transition (~180ms)
+            _animTimer.Interval = 16;
             _animTimer.Tick += (s, e) =>
             {
-                float diff = _targetAnimProgress - _toggleAnimProgress;
-                float step = Math.Max(0.18f, Math.Abs(diff) * 0.65f);
-
-                if (Math.Abs(diff) <= step)
+                _themeAnimElapsed += 0.085f; // ~12 frames
+                if (_themeAnimElapsed >= 1.0f)
                 {
+                    _themeAnimElapsed = 1.0f;
                     _toggleAnimProgress = _targetAnimProgress;
                     _animTimer.Stop();
-                }
-                else
-                {
-                    _toggleAnimProgress += Math.Sign(diff) * step;
-                }
+                    _isThemeTransitioning = false;
 
-                if (_fadeOverlay != null && _fadeOverlay.Visible)
-                {
-                    _fadeOverlay.Invalidate();
+                    ApplyThemeColors();
+                    StyleDataGridView(dgvInvoices);
+                    StyleDataGridView(dgvLowStock);
                 }
                 else
                 {
-                    btnThemeToggle.Invalidate();
+                    // Smooth sinusoidal ease in-out
+                    float t = _themeAnimElapsed;
+                    float eased = (float)(0.5 - 0.5 * Math.Cos(t * Math.PI));
+                    _toggleAnimProgress = _startAnimProgress + (_targetAnimProgress - _startAnimProgress) * eased;
+                    ApplyThemeColors();
                 }
             };
 
             btnThemeToggle.Click += (s, e) =>
             {
-                ExecuteSmoothThemeTransition();
+                StartThemeTransition();
             };
 
             pnlBrandHeader.Paint += (s, e) =>
@@ -401,8 +395,8 @@ namespace PROJECT_SBV1.Forms
             int radius = (h - 2) / 2;
             using var trackPath = GraphicsExtensions.CreateRoundedRectanglePath(1, 1, w - 3, h - 3, radius * 2);
 
-            Color trackBg = ThemeManager.IsDarkMode ? Color.FromArgb(30, 32, 48) : Color.FromArgb(226, 232, 240);
-            Color trackBorder = ThemeManager.IsDarkMode ? Color.FromArgb(99, 102, 241) : Color.FromArgb(203, 213, 225);
+            Color trackBg = BlendColor(Color.FromArgb(226, 232, 240), Color.FromArgb(30, 32, 48), _toggleAnimProgress);
+            Color trackBorder = BlendColor(Color.FromArgb(203, 213, 225), Color.FromArgb(99, 102, 241), _toggleAnimProgress);
 
             using var trackBrush = new SolidBrush(trackBg);
             g.FillPath(trackBrush, trackPath);
@@ -410,14 +404,14 @@ namespace PROJECT_SBV1.Forms
             using var trackPen = new Pen(trackBorder, 1.2f);
             g.DrawPath(trackPen, trackPath);
 
-            // Reicon Sun (Left) & Moon (Right) Vector Icons
-            Color sunColor = ThemeManager.IsDarkMode ? Color.FromArgb(100, 116, 139) : Color.FromArgb(245, 158, 11);
+            // Reicon Sun (Left) & Moon (Right) Vector Icons with smooth color cross-fade
+            Color sunColor = BlendColor(Color.FromArgb(245, 158, 11), Color.FromArgb(100, 116, 139), _toggleAnimProgress);
             ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Sun, new Rectangle(6, (h - 16) / 2, 16, 16), sunColor, 1.5f);
 
-            Color moonColor = ThemeManager.IsDarkMode ? Color.FromArgb(165, 180, 252) : Color.FromArgb(148, 163, 184);
+            Color moonColor = BlendColor(Color.FromArgb(148, 163, 184), Color.FromArgb(165, 180, 252), _toggleAnimProgress);
             ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Moon, new Rectangle(w - 22, (h - 16) / 2, 16, 16), moonColor, 1.5f);
 
-            // Moving Thumb Knob
+            // Moving Thumb Knob with smooth color & position transition
             int knobD = h - 6;
             int knobMinX = 3;
             int knobMaxX = w - knobD - 3;
@@ -425,24 +419,37 @@ namespace PROJECT_SBV1.Forms
             float knobY = 3;
 
             using var knobPath = GraphicsExtensions.CreateRoundedRectanglePath((int)knobX, (int)knobY, knobD, knobD, knobD);
-            Color knobColor = ThemeManager.IsDarkMode ? Color.FromArgb(99, 102, 241) : Color.White;
+            Color knobColor = BlendColor(Color.White, Color.FromArgb(99, 102, 241), _toggleAnimProgress);
             using var knobBrush = new SolidBrush(knobColor);
             g.FillPath(knobBrush, knobPath);
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
-        //  THEME APPLICATION (OPTIMIZED: <100ms in-place update)
+        //  THEME APPLICATION (INSTANT & SMOOTH 60 FPS COLOR INTERPOLATION)
         // ═══════════════════════════════════════════════════════════════════════════
-        private void ApplyThemeFast()
+        private void StartThemeTransition()
         {
-            _toggleAnimProgress = ThemeManager.IsDarkMode ? 1.0f : 0.0f;
+            // Reverse target or start transition
+            bool targetIsDark = (_targetAnimProgress < 0.5f);
+            ThemeManager.IsDarkMode = targetIsDark;
 
-            BackColor                  = C_PageBg;
-            pnlSidebar.BackColor       = C_SidebarBg;
-            tblMainLayout.BackColor    = C_PageBg;
-            pnlTopBar.BackColor        = C_TopBarBg;
-            pnlContentHost.BackColor   = C_PageBg;
-            pnlOverview.BackColor      = C_PageBg;
+            _startAnimProgress = _toggleAnimProgress;
+            _targetAnimProgress = targetIsDark ? 1.0f : 0.0f;
+            _themeAnimElapsed = 0f;
+            _isThemeTransitioning = true;
+
+            _animTimer.Stop();
+            _animTimer.Start();
+        }
+
+        private void ApplyThemeColors()
+        {
+            BackColor                = C_PageBg;
+            pnlSidebar.BackColor     = C_SidebarBg;
+            tblMainLayout.BackColor  = C_PageBg;
+            pnlTopBar.BackColor      = C_TopBarBg;
+            pnlContentHost.BackColor = C_PageBg;
+            pnlOverview.BackColor    = C_PageBg;
 
             headerTitle.TitleColor    = C_TextDark;
             headerTitle.SubtitleColor = C_TextMid;
@@ -456,35 +463,43 @@ namespace PROJECT_SBV1.Forms
             txtSearch.ForeColor     = C_TextDark;
 
             winChrome.IconColor        = C_TextMid;
-            winChrome.HoverBg          = ThemeManager.IsDarkMode ? Color.FromArgb(40, 43, 56) : Color.FromArgb(226, 232, 240);
+            winChrome.HoverBg          = BlendColor(Color.FromArgb(226, 232, 240), Color.FromArgb(40, 43, 56), _toggleAnimProgress);
             chromeDivider.DividerColor = C_Border;
             btnNotifications.ForeColor = C_TextDark;
 
             btnTopAddProduct.FillColor  = C_Blue;
-            btnTopAddProduct.HoverColor = ThemeManager.IsDarkMode ? Color.FromArgb(124, 155, 255) : Color.FromArgb(50, 85, 209);
+            btnTopAddProduct.HoverColor = BlendColor(Color.FromArgb(50, 85, 209), Color.FromArgb(124, 155, 255), _toggleAnimProgress);
 
+            btnThemeToggle.Invalidate();
+            pnlBrandHeader.Invalidate();
+            pnlSidebar.Invalidate();
+            headerTitle.Invalidate();
             pnlSearchBox.Invalidate();
             btnNotifications.Invalidate();
             btnTopAddProduct.Invalidate();
             winChrome.Invalidate();
             chromeDivider.Invalidate();
-            headerTitle.Invalidate();
 
-            // Invalidate cards and tables once on theme change
-            tlpCards.Invalidate(true);
-            tlpCharts.Invalidate(true);
-            tlpTables.Invalidate(true);
+            pnlCardSalesToday.Invalidate();
+            pnlCardSalesMonth.Invalidate();
+            pnlCardReceivables.Invalidate();
+            pnlCardPayables.Invalidate();
+            pnlCardTotalProducts.Invalidate();
+            pnlCardLowStock.Invalidate();
 
             pnlSalesDynamicsCard.Invalidate();
             pnlCategoryDonutCard.Invalidate();
             pnlRecentInvoicesCard.Invalidate();
             pnlLowStockCard.Invalidate();
+        }
 
+        private void ApplyThemeFast()
+        {
+            _toggleAnimProgress = ThemeManager.IsDarkMode ? 1.0f : 0.0f;
+            _targetAnimProgress = _toggleAnimProgress;
+            ApplyThemeColors();
             StyleDataGridView(dgvInvoices);
             StyleDataGridView(dgvLowStock);
-            pnlSidebar.Invalidate(true);
-            pnlBrandHeader.Invalidate();
-            btnThemeToggle.Invalidate();
         }
 
         private void StyleDataGridView(DataGridView dgv)
@@ -1221,182 +1236,15 @@ namespace PROJECT_SBV1.Forms
             pnlContentHost.Controls.Add(pnlTransPage);
         }
 
-        // ═══════════════════════════════════════════════════════════════════════════
-        //  SMOOTH THEME TRANSITION LOGIC & OVERLAY
-        // ═══════════════════════════════════════════════════════════════════════════
-        private void ExecuteSmoothThemeTransition()
+        private static void EnableDoubleBuffering(Control c)
         {
-            if (_isThemeTransitioning) return;
-            _isThemeTransitioning = true;
+            var prop = typeof(Control).GetProperty("DoubleBuffered",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            prop?.SetValue(c, true, null);
 
-            Bitmap? oldSnapshot = null;
-            try
+            foreach (Control child in c.Controls)
             {
-                oldSnapshot = new Bitmap(ClientSize.Width, ClientSize.Height, PixelFormat.Format32bppPArgb);
-                using var g = Graphics.FromImage(oldSnapshot);
-                g.CopyFromScreen(PointToScreen(Point.Empty), Point.Empty, ClientSize);
-            }
-            catch
-            {
-                oldSnapshot?.Dispose();
-                oldSnapshot = null;
-            }
-
-            // Switch theme state
-            ThemeManager.ToggleTheme();
-            ApplyThemeFast();
-            this.Refresh();
-
-            if (oldSnapshot != null)
-            {
-                Bitmap? newSnapshot = null;
-                try
-                {
-                    newSnapshot = new Bitmap(ClientSize.Width, ClientSize.Height, PixelFormat.Format32bppPArgb);
-                    using var g = Graphics.FromImage(newSnapshot);
-                    g.CopyFromScreen(PointToScreen(Point.Empty), Point.Empty, ClientSize);
-                }
-                catch
-                {
-                    newSnapshot?.Dispose();
-                    newSnapshot = null;
-                }
-
-                if (newSnapshot != null && _fadeOverlay != null)
-                {
-                    _fadeOverlay.StartFade(oldSnapshot, newSnapshot, () =>
-                    {
-                        _isThemeTransitioning = false;
-                    });
-                    return;
-                }
-                else
-                {
-                    oldSnapshot.Dispose();
-                }
-            }
-
-            _isThemeTransitioning = false;
-        }
-
-        internal void RenderToggleOnOverlay(Graphics g)
-        {
-            if (btnThemeToggle == null || !btnThemeToggle.IsHandleCreated) return;
-
-            try
-            {
-                Point screenPt = btnThemeToggle.PointToScreen(Point.Empty);
-                Point formPt = this.PointToClient(screenPt);
-
-                var state = g.Save();
-                g.TranslateTransform(formPt.X, formPt.Y);
-                PaintThemeToggle(g);
-                g.Restore(state);
-            }
-            catch
-            {
-                // Fallback for edge cases
-            }
-        }
-
-        /// <summary>
-        /// Dedicated double-buffered overlay control that executes a cinematic
-        /// cross-dissolve fade between previous and next theme snapshots.
-        /// </summary>
-        private sealed class ThemeFadeOverlay : Control
-        {
-            private Bitmap? _oldBmp;
-            private Bitmap? _newBmp;
-            private float _crossFadeProgress = 0f;
-            private System.Windows.Forms.Timer? _fadeTimer;
-            private Action? _onCompleted;
-            private readonly DashboardForm _parent;
-
-            public ThemeFadeOverlay(DashboardForm parent)
-            {
-                _parent = parent;
-                SetStyle(ControlStyles.AllPaintingInWmPaint |
-                         ControlStyles.UserPaint |
-                         ControlStyles.OptimizedDoubleBuffer |
-                         ControlStyles.Opaque, true);
-                Visible = false;
-                TabStop = false;
-            }
-
-            public void StartFade(Bitmap oldBmp, Bitmap newBmp, Action onCompleted)
-            {
-                _oldBmp?.Dispose();
-                _newBmp?.Dispose();
-                _oldBmp = oldBmp;
-                _newBmp = newBmp;
-                _onCompleted = onCompleted;
-                _crossFadeProgress = 0f;
-
-                Bounds = new Rectangle(0, 0, _parent.ClientSize.Width, _parent.ClientSize.Height);
-                Visible = true;
-                BringToFront();
-
-                _fadeTimer?.Stop();
-                _fadeTimer?.Dispose();
-                _fadeTimer = new System.Windows.Forms.Timer { Interval = 16 };
-                _fadeTimer.Tick += (s, e) =>
-                {
-                    _crossFadeProgress += 0.085f; // ~12 frames (~180ms)
-                    if (_crossFadeProgress >= 1.0f)
-                    {
-                        _crossFadeProgress = 1.0f;
-                        _fadeTimer.Stop();
-                        _fadeTimer.Dispose();
-                        Visible = false;
-                        _oldBmp?.Dispose();
-                        _newBmp?.Dispose();
-                        _oldBmp = null;
-                        _newBmp = null;
-                        _onCompleted?.Invoke();
-                    }
-                    Invalidate();
-                };
-                _fadeTimer.Start();
-            }
-
-            protected override void OnPaint(PaintEventArgs e)
-            {
-                var g = e.Graphics;
-                g.InterpolationMode = InterpolationMode.NearestNeighbor;
-
-                // 1. Draw new theme base
-                if (_newBmp != null)
-                {
-                    g.DrawImageUnscaled(_newBmp, 0, 0);
-                }
-
-                // 2. Cross-dissolve old theme on top with decreasing alpha
-                if (_oldBmp != null && _crossFadeProgress < 1.0f)
-                {
-                    float oldAlpha = Math.Clamp(1.0f - _crossFadeProgress, 0f, 1f);
-                    using var ia = new ImageAttributes();
-                    var cm = new ColorMatrix { Matrix33 = oldAlpha };
-                    ia.SetColorMatrix(cm, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
-
-                    g.DrawImage(_oldBmp,
-                        new Rectangle(0, 0, Width, Height),
-                        0, 0, _oldBmp.Width, _oldBmp.Height,
-                        GraphicsUnit.Pixel, ia);
-                }
-
-                // 3. Draw theme toggle switch with active sliding knob on top
-                _parent.RenderToggleOnOverlay(g);
-            }
-
-            protected override void Dispose(bool disposing)
-            {
-                if (disposing)
-                {
-                    _fadeTimer?.Dispose();
-                    _oldBmp?.Dispose();
-                    _newBmp?.Dispose();
-                }
-                base.Dispose(disposing);
+                EnableDoubleBuffering(child);
             }
         }
     }
