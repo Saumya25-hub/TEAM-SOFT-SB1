@@ -4,11 +4,6 @@ namespace PROJECT_SBV1.Forms
     {
         private System.ComponentModel.IContainer components = null;
 
-        // Window Chrome
-        private System.Windows.Forms.Button btnClose;
-        private System.Windows.Forms.Button btnMinimize;
-        private System.Windows.Forms.Button btnMaximize;
-
         // Master Layout Panels
         private System.Windows.Forms.Panel pnlSidebar;
         private System.Windows.Forms.Panel pnlBrandHeader;
@@ -37,18 +32,17 @@ namespace PROJECT_SBV1.Forms
         // Eliminates any possibility of header and content overlap!
         private System.Windows.Forms.TableLayoutPanel tblMainLayout;
 
-        // Topbar
+        // Topbar Components (Custom Framework: Zero clipping, anti-aliased pill button, perfect alignment)
         private System.Windows.Forms.Panel pnlTopBar;
-        private System.Windows.Forms.Panel pnlTitleSection;
-        private System.Windows.Forms.Label lblPageTitle;
-        private System.Windows.Forms.Label lblPageSub;
-        private System.Windows.Forms.Panel pnlWindowChrome;
-        private System.Windows.Forms.FlowLayoutPanel flowHeaderActions;
+        private PROJECT_SBV1.Controls.TeamHeaderTitle headerTitle;
+        private System.Windows.Forms.Panel pnlHeaderRight;
         private System.Windows.Forms.Panel pnlSearchBox;
         private System.Windows.Forms.TextBox txtSearch;
         private System.Windows.Forms.Button btnNotifications;
         private System.Windows.Forms.Button btnThemeToggle;
-        private System.Windows.Forms.Button btnTopAddProduct;
+        private PROJECT_SBV1.Controls.TeamPillButton btnTopAddProduct;
+        private PROJECT_SBV1.Controls.TeamVerticalDivider chromeDivider;
+        private PROJECT_SBV1.Controls.TeamWindowChrome winChrome;
 
         // Content Area
         private System.Windows.Forms.Panel pnlContentHost;
@@ -110,11 +104,6 @@ namespace PROJECT_SBV1.Forms
 
         private void InitializeComponent()
         {
-            // Chrome Buttons
-            btnClose = new System.Windows.Forms.Button();
-            btnMinimize = new System.Windows.Forms.Button();
-            btnMaximize = new System.Windows.Forms.Button();
-
             // Master Containers
             pnlSidebar = new System.Windows.Forms.Panel();
             pnlBrandHeader = new System.Windows.Forms.Panel();
@@ -142,18 +131,17 @@ namespace PROJECT_SBV1.Forms
             // Main Layout: TableLayoutPanel (2 Rows: Row 0 = 68px, Row 1 = 100%)
             tblMainLayout = new System.Windows.Forms.TableLayoutPanel();
 
-            // Topbar
+            // Topbar & Framework Controls
             pnlTopBar = new System.Windows.Forms.Panel();
-            pnlWindowChrome = new System.Windows.Forms.Panel();
-            pnlTitleSection = new System.Windows.Forms.Panel();
-            lblPageTitle = new System.Windows.Forms.Label();
-            lblPageSub = new System.Windows.Forms.Label();
-            flowHeaderActions = new System.Windows.Forms.FlowLayoutPanel();
+            headerTitle = new PROJECT_SBV1.Controls.TeamHeaderTitle();
+            pnlHeaderRight = new System.Windows.Forms.Panel();
             pnlSearchBox = new System.Windows.Forms.Panel();
             txtSearch = new System.Windows.Forms.TextBox();
             btnNotifications = new System.Windows.Forms.Button();
             btnThemeToggle = new System.Windows.Forms.Button();
-            btnTopAddProduct = new System.Windows.Forms.Button();
+            btnTopAddProduct = new PROJECT_SBV1.Controls.TeamPillButton();
+            chromeDivider = new PROJECT_SBV1.Controls.TeamVerticalDivider();
+            winChrome = new PROJECT_SBV1.Controls.TeamWindowChrome();
 
             // Content Host
             pnlContentHost = new System.Windows.Forms.Panel();
@@ -219,23 +207,13 @@ namespace PROJECT_SBV1.Forms
             this.DoubleBuffered  = true;
             this.MinimumSize     = new System.Drawing.Size(1100, 700);
 
-            // ── Chrome Buttons ─────────────────────────────────────────────────────
-            SetupChromeBtn(btnClose, "✕",
-                System.Drawing.Color.FromArgb(239, 68, 68),
-                System.Drawing.Color.FromArgb(220, 38, 38));
-            SetupChromeBtn(btnMinimize, "─",
-                System.Drawing.Color.FromArgb(51, 65, 85),
-                System.Drawing.Color.FromArgb(71, 85, 105));
-            SetupChromeBtn(btnMaximize, "□",
-                System.Drawing.Color.FromArgb(51, 65, 85),
-                System.Drawing.Color.FromArgb(71, 85, 105));
-
-            btnClose.Click    += (s, e) => this.Close();
-            btnMinimize.Click += (s, e) => this.WindowState = System.Windows.Forms.FormWindowState.Minimized;
-            btnMaximize.Click += (s, e) =>
+            // ── Window Chrome Setup (Custom Framework) ─────────────────────────────
+            winChrome.MinimizeClicked += (s, e) => this.WindowState = System.Windows.Forms.FormWindowState.Minimized;
+            winChrome.MaximizeClicked += (s, e) =>
                 this.WindowState = this.WindowState == System.Windows.Forms.FormWindowState.Maximized
                     ? System.Windows.Forms.FormWindowState.Normal
                     : System.Windows.Forms.FormWindowState.Maximized;
+            winChrome.CloseClicked += (s, e) => this.Close();
 
             // ═══════════════════════════════════════════════════════════════════════
             //  1. SIDEBAR (Dock = Left, Width = 230)
@@ -322,114 +300,74 @@ namespace PROJECT_SBV1.Forms
             // Topbar Panel (Row 0)
             pnlTopBar.Dock      = System.Windows.Forms.DockStyle.Fill;
             pnlTopBar.BackColor = System.Drawing.Color.FromArgb(25, 26, 35);
-            pnlTopBar.Padding   = new System.Windows.Forms.Padding(18, 0, 8, 0);
+            pnlTopBar.Padding   = new System.Windows.Forms.Padding(18, 0, 10, 0);
             pnlTopBar.Margin    = System.Windows.Forms.Padding.Empty;
 
-            // Left Title Section (Dock = Left, Width = 285)
-            pnlTitleSection.Dock      = System.Windows.Forms.DockStyle.Left;
-            pnlTitleSection.Width     = 285;
-            pnlTitleSection.BackColor = System.Drawing.Color.Transparent;
+            // Header Title & Subtitle (Custom Framework: Zero clipping of descenders, generous bounds)
+            headerTitle.Dock     = System.Windows.Forms.DockStyle.Left;
+            headerTitle.Width    = 340;
+            headerTitle.Title    = "Dashboard";
+            headerTitle.Subtitle = "Real-time business performance overview";
 
-            lblPageTitle.AutoSize  = false;
-            lblPageTitle.Size      = new System.Drawing.Size(280, 26);
-            lblPageTitle.Location  = new System.Drawing.Point(0, 12);
-            lblPageTitle.Text      = "Dashboard";
-            lblPageTitle.Font      = new System.Drawing.Font("Segoe UI", 15f, System.Drawing.FontStyle.Bold);
-            lblPageTitle.ForeColor = System.Drawing.Color.White;
-            lblPageTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // Header Actions Panel (Dock = Fill, holds all right actions with center alignment)
+            pnlHeaderRight.Dock      = System.Windows.Forms.DockStyle.Fill;
+            pnlHeaderRight.BackColor = System.Drawing.Color.Transparent;
 
-            lblPageSub.AutoSize  = false;
-            lblPageSub.Size      = new System.Drawing.Size(280, 18);
-            lblPageSub.Location  = new System.Drawing.Point(0, 38);
-            lblPageSub.Text      = "Real-time business performance overview";
-            lblPageSub.Font      = new System.Drawing.Font("Segoe UI", 8.5f);
-            lblPageSub.ForeColor = System.Drawing.Color.FromArgb(148, 163, 184);
-            lblPageSub.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 1. Search Box
+            pnlSearchBox.BackColor    = System.Drawing.Color.FromArgb(30, 32, 43);
+            pnlSearchBox.Size         = new System.Drawing.Size(180, 36);
+            txtSearch.BorderStyle     = System.Windows.Forms.BorderStyle.None;
+            txtSearch.BackColor       = System.Drawing.Color.FromArgb(30, 32, 43);
+            txtSearch.Font            = new System.Drawing.Font("Segoe UI", 9.5f);
+            txtSearch.ForeColor       = System.Drawing.Color.FromArgb(203, 213, 225);
+            txtSearch.PlaceholderText = "Search bills, items...";
+            txtSearch.Location        = new System.Drawing.Point(32, 8);
+            txtSearch.Size            = new System.Drawing.Size(140, 20);
+            pnlSearchBox.Controls.Add(txtSearch);
 
-            pnlTitleSection.Controls.AddRange(new System.Windows.Forms.Control[] { lblPageTitle, lblPageSub });
+            // 2. Notifications Button
+            btnNotifications.Text      = string.Empty;
+            btnNotifications.Size      = new System.Drawing.Size(36, 36);
+            btnNotifications.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            btnNotifications.FlatAppearance.BorderSize = 0;
+            btnNotifications.Cursor    = System.Windows.Forms.Cursors.Hand;
 
-            // Dedicated Window Chrome Panel (Dock = Right, Width = 116, safe from corner arc)
-            pnlWindowChrome.Dock      = System.Windows.Forms.DockStyle.Right;
-            pnlWindowChrome.Width     = 116;
-            pnlWindowChrome.BackColor = System.Drawing.Color.Transparent;
-            pnlWindowChrome.Margin    = System.Windows.Forms.Padding.Empty;
-            pnlWindowChrome.Padding   = System.Windows.Forms.Padding.Empty;
-
-            btnMinimize.Location = new System.Drawing.Point(4, 18);
-            btnMinimize.Size     = new System.Drawing.Size(32, 32);
-            btnMaximize.Location = new System.Drawing.Point(40, 18);
-            btnMaximize.Size     = new System.Drawing.Size(32, 32);
-            btnClose.Location    = new System.Drawing.Point(76, 18);
-            btnClose.Size        = new System.Drawing.Size(32, 32);
-
-            pnlWindowChrome.Controls.AddRange(new System.Windows.Forms.Control[] { btnMinimize, btnMaximize, btnClose });
-
-            // Header Toolbar Actions (Dock = Right, adjacent to Chrome, RightToLeft order)
-            flowHeaderActions.Dock          = System.Windows.Forms.DockStyle.Right;
-            flowHeaderActions.AutoSize      = true;
-            flowHeaderActions.AutoSizeMode  = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            flowHeaderActions.BackColor     = System.Drawing.Color.Transparent;
-            flowHeaderActions.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
-            flowHeaderActions.WrapContents  = false;
-            flowHeaderActions.Margin        = System.Windows.Forms.Padding.Empty;
-            flowHeaderActions.Padding       = new System.Windows.Forms.Padding(0, 0, 8, 0);
-
-            // Controls ordered Right-to-Left:
-            // 1. New Invoice Button (Width = 136 guarantees full text visibility without clipping)
-            btnTopAddProduct.Text      = string.Empty;
-            btnTopAddProduct.Size      = new System.Drawing.Size(136, 36);
-            btnTopAddProduct.Font      = new System.Drawing.Font("Segoe UI", 9.5f, System.Drawing.FontStyle.Bold);
-            btnTopAddProduct.ForeColor = System.Drawing.Color.White;
-            btnTopAddProduct.BackColor = System.Drawing.Color.FromArgb(65, 105, 245);
-            btnTopAddProduct.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            btnTopAddProduct.FlatAppearance.BorderSize = 0;
-            btnTopAddProduct.Cursor    = System.Windows.Forms.Cursors.Hand;
-            btnTopAddProduct.Margin    = new System.Windows.Forms.Padding(6, 16, 8, 16);
-            flowHeaderActions.Controls.Add(btnTopAddProduct);
-
-            // 2. Theme Toggle Button
+            // 3. Theme Toggle Button
             btnThemeToggle.Size        = new System.Drawing.Size(62, 32);
             btnThemeToggle.FlatStyle   = System.Windows.Forms.FlatStyle.Flat;
             btnThemeToggle.FlatAppearance.BorderSize = 0;
             btnThemeToggle.BackColor   = System.Drawing.Color.Transparent;
             btnThemeToggle.Cursor      = System.Windows.Forms.Cursors.Hand;
             btnThemeToggle.TabStop     = false;
-            btnThemeToggle.Margin      = new System.Windows.Forms.Padding(6, 18, 6, 18);
-            flowHeaderActions.Controls.Add(btnThemeToggle);
 
-            // 3. Notifications
-            btnNotifications.Text      = string.Empty;
-            btnNotifications.Size      = new System.Drawing.Size(36, 36);
-            btnNotifications.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            btnNotifications.FlatAppearance.BorderSize = 0;
-            btnNotifications.Cursor    = System.Windows.Forms.Cursors.Hand;
-            btnNotifications.Margin    = new System.Windows.Forms.Padding(4, 16, 4, 16);
-            flowHeaderActions.Controls.Add(btnNotifications);
+            // 4. New Invoice Pill Button (Custom Framework: Anti-aliased pill, vector icon, zero corner bleed)
+            btnTopAddProduct.Size         = new System.Drawing.Size(138, 36);
+            btnTopAddProduct.BorderRadius = 10;
+            btnTopAddProduct.Text         = "New Invoice";
+            btnTopAddProduct.Icon         = PROJECT_SBV1.Services.ReiconRenderer.IconType.Plus;
+            btnTopAddProduct.IconSize     = 14;
+            btnTopAddProduct.FillColor    = System.Drawing.Color.FromArgb(65, 105, 245);
+            btnTopAddProduct.HoverColor   = System.Drawing.Color.FromArgb(50, 85, 220);
+            btnTopAddProduct.TextColor    = System.Drawing.Color.White;
+            btnTopAddProduct.Cursor       = System.Windows.Forms.Cursors.Hand;
 
-            // 4. Search Box
-            pnlSearchBox.BackColor     = System.Drawing.Color.FromArgb(30, 32, 43);
-            pnlSearchBox.Size          = new System.Drawing.Size(190, 36);
-            pnlSearchBox.Margin        = new System.Windows.Forms.Padding(6, 16, 6, 16);
-            txtSearch.BorderStyle      = System.Windows.Forms.BorderStyle.None;
-            txtSearch.BackColor        = System.Drawing.Color.FromArgb(30, 32, 43);
-            txtSearch.Font             = new System.Drawing.Font("Segoe UI", 9.5f);
-            txtSearch.ForeColor        = System.Drawing.Color.FromArgb(203, 213, 225);
-            txtSearch.PlaceholderText  = "Search bills, items...";
-            txtSearch.Location         = new System.Drawing.Point(32, 8);
-            txtSearch.Size             = new System.Drawing.Size(150, 20);
-            pnlSearchBox.Controls.Add(txtSearch);
-            flowHeaderActions.Controls.Add(pnlSearchBox);
+            // 5. Vertical Hairline Divider
+            chromeDivider.Size = new System.Drawing.Size(1, 26);
 
-            // Assemble TopBar with strict z-order:
-            // pnlWindowChrome at bottom of z-order docks to outermost right.
-            // flowHeaderActions at top of z-order docks to the left of pnlWindowChrome.
-            // pnlTitleSection docks to the left.
-            pnlTopBar.Controls.Add(flowHeaderActions);
-            pnlTopBar.Controls.Add(pnlWindowChrome);
-            pnlTopBar.Controls.Add(pnlTitleSection);
-            pnlTitleSection.SendToBack();
-            pnlWindowChrome.SendToBack();
-            flowHeaderActions.BringToFront();
+            // 6. Window Chrome Controls (Minimize, Maximize, Close)
+            winChrome.Size = new System.Drawing.Size(108, 32);
+
+            pnlHeaderRight.Controls.AddRange(new System.Windows.Forms.Control[] {
+                pnlSearchBox,
+                btnNotifications,
+                btnThemeToggle,
+                btnTopAddProduct,
+                chromeDivider,
+                winChrome
+            });
+
+            pnlTopBar.Controls.Add(pnlHeaderRight);
+            pnlTopBar.Controls.Add(headerTitle);
 
             // Content Host Panel (Row 1)
             pnlContentHost.Dock      = System.Windows.Forms.DockStyle.Fill;

@@ -150,9 +150,7 @@ namespace PROJECT_SBV1.Forms
             _toolTip.SetToolTip(btnNotifications, "Unread Notifications");
             _toolTip.SetToolTip(btnThemeToggle, "Toggle Light / Dark Mode");
             _toolTip.SetToolTip(btnTopAddProduct, "Create New Sales Tax Invoice");
-            _toolTip.SetToolTip(btnClose, "Close Application");
-            _toolTip.SetToolTip(btnMaximize, "Maximize / Restore");
-            _toolTip.SetToolTip(btnMinimize, "Minimize Window");
+            _toolTip.SetToolTip(winChrome, "Window Controls (Minimize, Maximize, Close)");
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -217,21 +215,9 @@ namespace PROJECT_SBV1.Forms
             pnlTopBar.MouseMove += onMove;
             pnlTopBar.MouseUp += onUp;
 
-            pnlTitleSection.MouseDown += onDown;
-            pnlTitleSection.MouseMove += onMove;
-            pnlTitleSection.MouseUp += onUp;
-
-            lblPageTitle.MouseDown += onDown;
-            lblPageTitle.MouseMove += onMove;
-            lblPageTitle.MouseUp += onUp;
-
-            lblPageSub.MouseDown += onDown;
-            lblPageSub.MouseMove += onMove;
-            lblPageSub.MouseUp += onUp;
-
-            pnlWindowChrome.MouseDown += onDown;
-            pnlWindowChrome.MouseMove += onMove;
-            pnlWindowChrome.MouseUp += onUp;
+            pnlHeaderRight.MouseDown += onDown;
+            pnlHeaderRight.MouseMove += onMove;
+            pnlHeaderRight.MouseUp += onUp;
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -331,48 +317,45 @@ namespace PROJECT_SBV1.Forms
                 g.FillEllipse(dotBrush, btnNotifications.Width - 14, 7, 6, 6);
             };
 
-            // New Invoice button with rounded corners, hover effect and Reicon Plus icon
-            bool isNewInvoiceHovered = false;
-            btnTopAddProduct.MouseEnter += (s, e) => { isNewInvoiceHovered = true; btnTopAddProduct.Invalidate(); };
-            btnTopAddProduct.MouseLeave += (s, e) => { isNewInvoiceHovered = false; btnTopAddProduct.Invalidate(); };
-            btnTopAddProduct.Text = string.Empty;
-            btnTopAddProduct.Paint += (s, e) =>
-            {
-                var g = e.Graphics;
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
-
-                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, btnTopAddProduct.Width - 1, btnTopAddProduct.Height - 1, 8);
-                using var bg = new SolidBrush(isNewInvoiceHovered ? Color.FromArgb(50, 85, 220) : C_Blue);
-                g.FillPath(bg, path);
-
-                ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Plus, new Rectangle(14, (btnTopAddProduct.Height - 14) / 2, 14, 14), Color.White, 2.0f);
-                using var f = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-                using var tb = new SolidBrush(Color.White);
-                g.DrawString("New Invoice", f, tb, 34, (btnTopAddProduct.Height - 18) / 2);
-            };
-
+            // New Invoice button click navigation (Custom Framework: Anti-aliased pill, built-in vector icon)
             btnTopAddProduct.Click += (s, e) => ShowPage("Sales");
 
-            // Dynamic header layout resizing so search box never overlaps title or actions
+            // Dynamic header layout resizing for mathematical alignment and zero overlap
             pnlTopBar.Resize += (s, e) => UpdateHeaderLayout();
-            flowHeaderActions.Resize += (s, e) => UpdateHeaderLayout();
+            pnlHeaderRight.Resize += (s, e) => UpdateHeaderLayout();
             UpdateHeaderLayout();
         }
 
         private void UpdateHeaderLayout()
         {
-            if (pnlTopBar == null || pnlSearchBox == null || pnlTitleSection == null || flowHeaderActions == null || pnlWindowChrome == null) return;
+            if (pnlHeaderRight == null || winChrome == null || btnTopAddProduct == null ||
+                btnThemeToggle == null || btnNotifications == null || pnlSearchBox == null || chromeDivider == null) return;
 
-            int maxAllowedActionsWidth = pnlTopBar.ClientSize.Width - pnlTitleSection.Width - pnlWindowChrome.Width - pnlTopBar.Padding.Horizontal - 20;
-            int fixedControlsWidth = 270;
-            int targetSearchWidth = Math.Clamp(maxAllowedActionsWidth - fixedControlsWidth, 140, 220);
+            int rightEdge = pnlHeaderRight.ClientSize.Width - 6;
 
-            if (pnlSearchBox.Width != targetSearchWidth)
-            {
-                pnlSearchBox.Width = targetSearchWidth;
-                txtSearch.Width = Math.Max(50, targetSearchWidth - 38);
-            }
+            // 1. Window Chrome (Far right) - Centered at Y = 18 in 68px topbar (Center Y = 34)
+            winChrome.Location = new Point(rightEdge - winChrome.Width, (pnlHeaderRight.Height - winChrome.Height) / 2);
+
+            // 2. Vertical Divider (12px to left of chrome)
+            chromeDivider.Location = new Point(winChrome.Left - 12 - chromeDivider.Width, (pnlHeaderRight.Height - chromeDivider.Height) / 2);
+
+            // 3. New Invoice Button (12px to left of divider)
+            btnTopAddProduct.Location = new Point(chromeDivider.Left - 12 - btnTopAddProduct.Width, (pnlHeaderRight.Height - btnTopAddProduct.Height) / 2);
+
+            // 4. Theme Toggle Switch (12px to left of New Invoice)
+            btnThemeToggle.Location = new Point(btnTopAddProduct.Left - 12 - btnThemeToggle.Width, (pnlHeaderRight.Height - btnThemeToggle.Height) / 2);
+
+            // 5. Notifications Bell (10px to left of Theme Toggle)
+            btnNotifications.Location = new Point(btnThemeToggle.Left - 10 - btnNotifications.Width, (pnlHeaderRight.Height - btnNotifications.Height) / 2);
+
+            // 6. Search Box (10px to left of Notifications, responsive width)
+            int minLeft = 16;
+            int availableWidth = btnNotifications.Left - 10 - minLeft;
+            int targetSearchWidth = Math.Clamp(availableWidth, 110, 190);
+
+            pnlSearchBox.Size = new Size(targetSearchWidth, 36);
+            pnlSearchBox.Location = new Point(btnNotifications.Left - 10 - targetSearchWidth, (pnlHeaderRight.Height - pnlSearchBox.Height) / 2);
+            txtSearch.Width = Math.Max(50, targetSearchWidth - 38);
         }
 
         private void PaintThemeToggle(Graphics g)
@@ -427,8 +410,8 @@ namespace PROJECT_SBV1.Forms
             pnlContentHost.BackColor   = C_PageBg;
             pnlOverview.BackColor      = C_PageBg;
 
-            lblPageTitle.ForeColor    = C_TextDark;
-            lblPageSub.ForeColor      = C_TextMid;
+            headerTitle.TitleColor    = C_TextDark;
+            headerTitle.SubtitleColor = C_TextMid;
             lblSidebarBrand.ForeColor = C_TextDark;
             lblSidebarSub.ForeColor   = C_TextMid;
             lblSidebarUser.ForeColor  = C_TextDark;
@@ -438,13 +421,20 @@ namespace PROJECT_SBV1.Forms
             txtSearch.BackColor     = C_SearchBg;
             txtSearch.ForeColor     = C_TextDark;
 
-            btnClose.ForeColor         = C_TextMid;
-            btnMaximize.ForeColor      = C_TextMid;
-            btnMinimize.ForeColor      = C_TextMid;
+            winChrome.IconColor        = C_TextMid;
+            winChrome.HoverBg          = ThemeManager.IsDarkMode ? Color.FromArgb(40, 43, 56) : Color.FromArgb(226, 232, 240);
+            chromeDivider.DividerColor = C_Border;
             btnNotifications.ForeColor = C_TextDark;
+
+            btnTopAddProduct.FillColor  = C_Blue;
+            btnTopAddProduct.HoverColor = ThemeManager.IsDarkMode ? Color.FromArgb(124, 155, 255) : Color.FromArgb(50, 85, 209);
+
             pnlSearchBox.Invalidate();
             btnNotifications.Invalidate();
             btnTopAddProduct.Invalidate();
+            winChrome.Invalidate();
+            chromeDivider.Invalidate();
+            headerTitle.Invalidate();
 
             // Invalidate cards and tables once on theme change
             tlpCards.Invalidate(true);
@@ -966,7 +956,7 @@ namespace PROJECT_SBV1.Forms
             pnlProducts.Visible = (page == "Products");
             pnlTransPage.Visible = (page == "Transactions");
 
-            lblPageTitle.Text = page switch
+            headerTitle.Title = page switch
             {
                 "Overview" => "Dashboard",
                 "Sales" => "Sales & Tax Invoice (POS)",
@@ -978,6 +968,16 @@ namespace PROJECT_SBV1.Forms
                 "Suppliers" => "Suppliers & Vendors",
                 "Settings" => "System Settings",
                 _ => page
+            };
+
+            headerTitle.Subtitle = page switch
+            {
+                "Overview" => "Real-time business performance overview",
+                "Sales" => "Rapid POS billing, barcode & receipt printing",
+                "Customers" => "Customer ledger, balances & directories",
+                "Products" => "Product catalog stock & inventory valuation",
+                "Transactions" => "Audit log of receipts and vendor payouts",
+                _ => "Manage and monitor your business operations"
             };
 
             pnlSidebar.Invalidate(true);
