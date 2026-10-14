@@ -254,7 +254,7 @@ namespace PROJECT_SBV1.Forms
                     lblStatus.Text = "✓ Login successful! Opening dashboard...";
                     btnSignIn.Enabled = false;
 
-                    var successTimer = new System.Windows.Forms.Timer { Interval = 500 };
+                    var successTimer = new System.Windows.Forms.Timer { Interval = 120 };
                     successTimer.Tick += (st, ev) =>
                     {
                         successTimer.Stop();

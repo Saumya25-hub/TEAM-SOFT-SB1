@@ -105,6 +105,42 @@ namespace PROJECT_SBV1.Forms
             Invalidate();
         }
 
+        private System.Windows.Forms.Timer? _exitFadeTimer;
+        private float _exitFadeProgress = 1.0f;
+
+        /// <summary>
+        /// Executes a silky-smooth exit fade animation and closes the form upon completion.
+        /// </summary>
+        public void FadeOutAndClose(Action? onComplete = null)
+        {
+            _entryFadeTimer?.Stop();
+            _exitFadeTimer?.Stop();
+            _exitFadeTimer?.Dispose();
+
+            _exitFadeProgress = 1.0f;
+            _exitFadeTimer = new System.Windows.Forms.Timer { Interval = 16 };
+            _exitFadeTimer.Tick += (s, e) =>
+            {
+                _exitFadeProgress -= 0.08f;
+                if (_exitFadeProgress <= 0f)
+                {
+                    _exitFadeProgress = 0f;
+                    Opacity = 0.0;
+                    _exitFadeTimer.Stop();
+                    _exitFadeTimer.Dispose();
+                    onComplete?.Invoke();
+                    Close();
+                }
+                else
+                {
+                    // Smooth quadratic fade out
+                    float t = _exitFadeProgress;
+                    Opacity = Math.Clamp(t * t, 0.0, 1.0);
+                }
+            };
+            _exitFadeTimer.Start();
+        }
+
         private void SetupWindowDrag()
         {
             MouseDown += (s, e) =>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.Windows.Forms;
 using PROJECT_SBV1.Services;
@@ -29,6 +30,10 @@ namespace PROJECT_SBV1.Forms
         // Entrance animation
         private float _entranceProgress = 0f;
         private readonly System.Windows.Forms.Timer _entranceTimer = new() { Interval = 16 };
+
+        // Theme cross-dissolve transition overlay
+        private ThemeFadeOverlay? _fadeOverlay;
+        private bool _isThemeTransitioning = false;
 
         // Micro-interaction states
         private string? _hoveredNavPage = null;
@@ -100,6 +105,9 @@ namespace PROJECT_SBV1.Forms
             // Load data immediately — NEVER delay data loading for animation!
             PopulateSampleData();
 
+            _fadeOverlay = new ThemeFadeOverlay(this);
+            this.Controls.Add(_fadeOverlay);
+
             InitTooltips();
             InitThemeToggle();
             InitEntranceAnimation();
@@ -115,34 +123,50 @@ namespace PROJECT_SBV1.Forms
             ThemeManager.ThemeChanged += () =>
             {
                 _targetAnimProgress = ThemeManager.IsDarkMode ? 1.0f : 0.0f;
-                ApplyThemeFast();
+                if (!_isThemeTransitioning)
+                {
+                    ApplyThemeFast();
+                }
                 _animTimer.Start();
             };
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
-        //  ENTRANCE ANIMATION (180–240ms Subtle Fade & Staggered Cards)
+        //  ENTRANCE ANIMATION (Smooth 200ms Quadratic Ease-Out Fade-In)
         // ═══════════════════════════════════════════════════════════════════════════
         private void InitEntranceAnimation()
         {
-            this.Opacity = 0.88;
+            this.Opacity = 0.0;
             _entranceProgress = 0f;
 
+            _entranceTimer.Interval = 16;
             _entranceTimer.Tick += (s, e) =>
             {
-                _entranceProgress += 0.14f;
-                this.Opacity = Math.Min(1.0, 0.88 + (0.12 * _entranceProgress));
-
+                _entranceProgress += 0.065f;
                 if (_entranceProgress >= 1f)
                 {
                     _entranceProgress = 1f;
                     this.Opacity = 1.0;
                     _entranceTimer.Stop();
-                    _entranceTimer.Dispose();
                 }
-
-                tlpCards.Invalidate(true);
+                else
+                {
+                    // Smooth quadratic ease-out: t * (2 - t)
+                    float t = _entranceProgress;
+                    this.Opacity = Math.Clamp(t * (2f - t), 0.0, 1.0);
+                }
             };
+        }
+
+        /// <summary>
+        /// Smoothly fades in the dashboard when transitioning from the login form.
+        /// </summary>
+        public void FadeIn()
+        {
+            this.Opacity = 0.0;
+            _entranceProgress = 0f;
+            _entranceTimer.Stop();
+            _entranceTimer.Start();
         }
 
         private void InitTooltips()
@@ -161,7 +185,7 @@ namespace PROJECT_SBV1.Forms
             base.OnLoad(e);
             ApplyRoundedRegion(16);
             ApplyThemeFast();
-            _entranceTimer.Start();
+            FadeIn();
         }
 
         protected override void OnResize(EventArgs e)
@@ -171,6 +195,10 @@ namespace PROJECT_SBV1.Forms
             else ApplyRoundedRegion(16);
             AdaptCardsLayout();
             UpdateHeaderLayout();
+            if (_fadeOverlay != null && _fadeOverlay.Visible)
+            {
+                _fadeOverlay.Bounds = new Rectangle(0, 0, ClientSize.Width, ClientSize.Height);
+            }
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -243,13 +271,19 @@ namespace PROJECT_SBV1.Forms
                     _toggleAnimProgress += Math.Sign(diff) * step;
                 }
 
-                // Only invalidate toggle button during thumb slide to prevent heavy repainting
-                btnThemeToggle.Invalidate();
+                if (_fadeOverlay != null && _fadeOverlay.Visible)
+                {
+                    _fadeOverlay.Invalidate();
+                }
+                else
+                {
+                    btnThemeToggle.Invalidate();
+                }
             };
 
             btnThemeToggle.Click += (s, e) =>
             {
-                ThemeManager.ToggleTheme();
+                ExecuteSmoothThemeTransition();
             };
 
             pnlBrandHeader.Paint += (s, e) =>
@@ -1185,6 +1219,185 @@ namespace PROJECT_SBV1.Forms
 
             pnlTransPage.Controls.AddRange(new Control[] { txtTransSearch, dgvAllTransactions });
             pnlContentHost.Controls.Add(pnlTransPage);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  SMOOTH THEME TRANSITION LOGIC & OVERLAY
+        // ═══════════════════════════════════════════════════════════════════════════
+        private void ExecuteSmoothThemeTransition()
+        {
+            if (_isThemeTransitioning) return;
+            _isThemeTransitioning = true;
+
+            Bitmap? oldSnapshot = null;
+            try
+            {
+                oldSnapshot = new Bitmap(ClientSize.Width, ClientSize.Height, PixelFormat.Format32bppPArgb);
+                using var g = Graphics.FromImage(oldSnapshot);
+                g.CopyFromScreen(PointToScreen(Point.Empty), Point.Empty, ClientSize);
+            }
+            catch
+            {
+                oldSnapshot?.Dispose();
+                oldSnapshot = null;
+            }
+
+            // Switch theme state
+            ThemeManager.ToggleTheme();
+            ApplyThemeFast();
+            this.Refresh();
+
+            if (oldSnapshot != null)
+            {
+                Bitmap? newSnapshot = null;
+                try
+                {
+                    newSnapshot = new Bitmap(ClientSize.Width, ClientSize.Height, PixelFormat.Format32bppPArgb);
+                    using var g = Graphics.FromImage(newSnapshot);
+                    g.CopyFromScreen(PointToScreen(Point.Empty), Point.Empty, ClientSize);
+                }
+                catch
+                {
+                    newSnapshot?.Dispose();
+                    newSnapshot = null;
+                }
+
+                if (newSnapshot != null && _fadeOverlay != null)
+                {
+                    _fadeOverlay.StartFade(oldSnapshot, newSnapshot, () =>
+                    {
+                        _isThemeTransitioning = false;
+                    });
+                    return;
+                }
+                else
+                {
+                    oldSnapshot.Dispose();
+                }
+            }
+
+            _isThemeTransitioning = false;
+        }
+
+        internal void RenderToggleOnOverlay(Graphics g)
+        {
+            if (btnThemeToggle == null || !btnThemeToggle.IsHandleCreated) return;
+
+            try
+            {
+                Point screenPt = btnThemeToggle.PointToScreen(Point.Empty);
+                Point formPt = this.PointToClient(screenPt);
+
+                var state = g.Save();
+                g.TranslateTransform(formPt.X, formPt.Y);
+                PaintThemeToggle(g);
+                g.Restore(state);
+            }
+            catch
+            {
+                // Fallback for edge cases
+            }
+        }
+
+        /// <summary>
+        /// Dedicated double-buffered overlay control that executes a cinematic
+        /// cross-dissolve fade between previous and next theme snapshots.
+        /// </summary>
+        private sealed class ThemeFadeOverlay : Control
+        {
+            private Bitmap? _oldBmp;
+            private Bitmap? _newBmp;
+            private float _crossFadeProgress = 0f;
+            private System.Windows.Forms.Timer? _fadeTimer;
+            private Action? _onCompleted;
+            private readonly DashboardForm _parent;
+
+            public ThemeFadeOverlay(DashboardForm parent)
+            {
+                _parent = parent;
+                SetStyle(ControlStyles.AllPaintingInWmPaint |
+                         ControlStyles.UserPaint |
+                         ControlStyles.OptimizedDoubleBuffer |
+                         ControlStyles.Opaque, true);
+                Visible = false;
+                TabStop = false;
+            }
+
+            public void StartFade(Bitmap oldBmp, Bitmap newBmp, Action onCompleted)
+            {
+                _oldBmp?.Dispose();
+                _newBmp?.Dispose();
+                _oldBmp = oldBmp;
+                _newBmp = newBmp;
+                _onCompleted = onCompleted;
+                _crossFadeProgress = 0f;
+
+                Bounds = new Rectangle(0, 0, _parent.ClientSize.Width, _parent.ClientSize.Height);
+                Visible = true;
+                BringToFront();
+
+                _fadeTimer?.Stop();
+                _fadeTimer?.Dispose();
+                _fadeTimer = new System.Windows.Forms.Timer { Interval = 16 };
+                _fadeTimer.Tick += (s, e) =>
+                {
+                    _crossFadeProgress += 0.085f; // ~12 frames (~180ms)
+                    if (_crossFadeProgress >= 1.0f)
+                    {
+                        _crossFadeProgress = 1.0f;
+                        _fadeTimer.Stop();
+                        _fadeTimer.Dispose();
+                        Visible = false;
+                        _oldBmp?.Dispose();
+                        _newBmp?.Dispose();
+                        _oldBmp = null;
+                        _newBmp = null;
+                        _onCompleted?.Invoke();
+                    }
+                    Invalidate();
+                };
+                _fadeTimer.Start();
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                var g = e.Graphics;
+                g.InterpolationMode = InterpolationMode.NearestNeighbor;
+
+                // 1. Draw new theme base
+                if (_newBmp != null)
+                {
+                    g.DrawImageUnscaled(_newBmp, 0, 0);
+                }
+
+                // 2. Cross-dissolve old theme on top with decreasing alpha
+                if (_oldBmp != null && _crossFadeProgress < 1.0f)
+                {
+                    float oldAlpha = Math.Clamp(1.0f - _crossFadeProgress, 0f, 1f);
+                    using var ia = new ImageAttributes();
+                    var cm = new ColorMatrix { Matrix33 = oldAlpha };
+                    ia.SetColorMatrix(cm, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
+
+                    g.DrawImage(_oldBmp,
+                        new Rectangle(0, 0, Width, Height),
+                        0, 0, _oldBmp.Width, _oldBmp.Height,
+                        GraphicsUnit.Pixel, ia);
+                }
+
+                // 3. Draw theme toggle switch with active sliding knob on top
+                _parent.RenderToggleOnOverlay(g);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    _fadeTimer?.Dispose();
+                    _oldBmp?.Dispose();
+                    _newBmp?.Dispose();
+                }
+                base.Dispose(disposing);
+            }
         }
     }
 }
