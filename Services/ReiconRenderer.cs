@@ -44,6 +44,25 @@ namespace PROJECT_SBV1.Services
             Maximize
         }
 
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<long, Pen> s_penCache = new();
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, SolidBrush> s_brushCache = new();
+
+        private static Pen GetPen(Color color, float width)
+        {
+            long key = ((long)color.ToArgb() << 32) | (uint)(int)(width * 100f);
+            return s_penCache.GetOrAdd(key, _ => new Pen(color, width)
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round,
+                LineJoin = LineJoin.Round
+            });
+        }
+
+        private static SolidBrush GetBrush(Color color)
+        {
+            return s_brushCache.GetOrAdd(color.ToArgb(), _ => new SolidBrush(color));
+        }
+
         /// <summary>
         /// Draws a Reicon vector icon cleanly inside the target rectangle with the specified color.
         /// </summary>
@@ -66,14 +85,8 @@ namespace PROJECT_SBV1.Services
             g.TranslateTransform(offsetX, offsetY);
             g.ScaleTransform(scale, scale);
 
-            using var pen = new Pen(color, strokeWidth / scale)
-            {
-                StartCap = LineCap.Round,
-                EndCap = LineCap.Round,
-                LineJoin = LineJoin.Round
-            };
-
-            using var brush = new SolidBrush(color);
+            var pen = GetPen(color, strokeWidth / scale);
+            var brush = GetBrush(color);
 
             switch (icon)
             {

@@ -240,6 +240,8 @@ namespace PROJECT_SBV1.Forms
             this.btnSignIn.UseVisualStyleBackColor = false;
             this.btnSignIn.Click += (s, e) =>
             {
+                if (_isAuthenticating) return;
+
                 string username = txtUser.Text.Trim();
                 string password = txtPass.Text;
 
@@ -250,18 +252,12 @@ namespace PROJECT_SBV1.Forms
 
                 if (isValid)
                 {
+                    _isAuthenticating = true;
+                    btnSignIn.Enabled = false;
                     lblStatus.ForeColor = System.Drawing.Color.FromArgb(16, 185, 129);
                     lblStatus.Text = "✓ Login successful! Opening dashboard...";
-                    btnSignIn.Enabled = false;
 
-                    var successTimer = new System.Windows.Forms.Timer { Interval = 120 };
-                    successTimer.Tick += (st, ev) =>
-                    {
-                        successTimer.Stop();
-                        successTimer.Dispose();
-                        LoginSucceeded?.Invoke(this, System.EventArgs.Empty);
-                    };
-                    successTimer.Start();
+                    LoginSucceeded?.Invoke(this, System.EventArgs.Empty);
                 }
                 else
                 {

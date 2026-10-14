@@ -23,18 +23,20 @@ namespace PROJECT_SBV1.Forms
         // ═══════════════════════════════════════════════════════════════════════════
         //  THEME ANIMATION & PALETTE ACCESSORS
         // ═══════════════════════════════════════════════════════════════════════════
-        private float _toggleAnimProgress = 0f; // 0.0f = Light, 1.0f = Dark
-        private float _targetAnimProgress = 0f;
-        private readonly System.Windows.Forms.Timer _animTimer = new() { Interval = 16 };
+        // Independent, lightweight toggle slider animation (140–180ms ease-out)
+        private float _toggleSliderProgress = 0f; // 0.0f = Light, 1.0f = Dark
+        private float _sliderStartVal = 0f;
+        private float _sliderTargetVal = 0f;
+        private long _sliderStartTime = 0;
+        private const int SliderAnimDurationMs = 160;
+        private readonly System.Windows.Forms.Timer _toggleSliderTimer = new() { Interval = 16 };
 
-        // Entrance animation
+        // Entrance animation (180–240ms subtle fade & container slide upward)
         private float _entranceProgress = 0f;
         private readonly System.Windows.Forms.Timer _entranceTimer = new() { Interval = 16 };
 
-        // Theme interpolated smooth animation
-        private float _startAnimProgress = 0f;
-        private float _themeAnimElapsed = 0f;
-        private bool _isThemeTransitioning = false;
+        // Lifecycle Events
+        public event EventHandler? LogoutRequested;
 
         // Micro-interaction states
         private string? _hoveredNavPage = null;
@@ -42,27 +44,47 @@ namespace PROJECT_SBV1.Forms
         private bool _isSearchFocused = false;
         private readonly ToolTip _toolTip = new();
 
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  CACHED GDI FONTS (Zero allocations during paint loops)
+        // ═══════════════════════════════════════════════════════════════════════════
+        private static readonly Font s_fontStatTitle   = new("Segoe UI", 8.5f);
+        private static readonly Font s_fontStatVal     = new("Segoe UI", 13f, FontStyle.Bold);
+        private static readonly Font s_fontStatSub     = new("Segoe UI", 7.5f);
+        private static readonly Font s_fontChartTitle  = new("Segoe UI", 11f, FontStyle.Bold);
+        private static readonly Font s_fontLegend      = new("Segoe UI", 8.5f);
+        private static readonly Font s_fontMonthLbl    = new("Segoe UI", 7.5f);
+        private static readonly Font s_fontCenterSmall = new("Segoe UI", 7.5f);
+        private static readonly Font s_fontCenterBold  = new("Segoe UI", 10f, FontStyle.Bold);
+        private static readonly Font s_fontLegendList  = new("Segoe UI", 8f);
+        private static readonly Font s_fontNav         = new("Segoe UI", 9f);
+        private static readonly Font s_fontNavActive   = new("Segoe UI", 9f, FontStyle.Bold);
+        private static readonly Font s_fontGrid        = new("Segoe UI", 9f);
+        private static readonly Font s_fontGridHeader  = new("Segoe UI", 9f, FontStyle.Bold);
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  THEME PALETTE ACCESSORS (Instant delegation, zero float math)
+        // ═══════════════════════════════════════════════════════════════════════════
         private static Color C_Blue       => ThemeManager.PrimaryAccent;
         private static Color C_Positive   => ThemeManager.StatusPositive;
         private static Color C_Warning    => ThemeManager.StatusWarning;
         private static Color C_Negative   => ThemeManager.StatusNegative;
 
-        private Color C_SidebarBg  => BlendColor(Color.White, Color.FromArgb(25, 26, 35), _toggleAnimProgress);
-        private Color C_NavHover   => BlendColor(Color.FromArgb(240, 243, 252), Color.FromArgb(37, 40, 54), _toggleAnimProgress);
-        private Color C_NavActive  => BlendColor(Color.FromArgb(233, 239, 255), Color.FromArgb(42, 51, 88), _toggleAnimProgress);
-        private Color C_NavText    => BlendColor(Color.FromArgb(123, 129, 144), Color.FromArgb(161, 165, 179), _toggleAnimProgress);
-        private Color C_NavTextOn  => BlendColor(Color.FromArgb(32, 35, 43), Color.White, _toggleAnimProgress);
+        private static Color C_SidebarBg  => ThemeManager.SidebarBackground;
+        private static Color C_NavHover   => ThemeManager.NavHover;
+        private static Color C_NavActive  => ThemeManager.NavActive;
+        private static Color C_NavText    => ThemeManager.NavText;
+        private static Color C_NavTextOn  => ThemeManager.NavTextOn;
 
-        private Color C_PageBg     => BlendColor(Color.FromArgb(245, 246, 250), Color.FromArgb(17, 18, 24), _toggleAnimProgress);
-        private Color C_CardBg     => BlendColor(Color.White, Color.FromArgb(30, 32, 43), _toggleAnimProgress);
-        private Color C_Border     => BlendColor(Color.FromArgb(231, 233, 239), Color.FromArgb(48, 50, 62), _toggleAnimProgress);
-        private Color C_TopBarBg   => BlendColor(Color.White, Color.FromArgb(25, 26, 35), _toggleAnimProgress);
-        private Color C_SearchBg   => BlendColor(Color.FromArgb(245, 246, 250), Color.FromArgb(30, 32, 43), _toggleAnimProgress);
-        private Color C_SearchBdr  => _isSearchFocused ? C_Blue : BlendColor(Color.FromArgb(226, 232, 240), Color.FromArgb(55, 58, 73), _toggleAnimProgress);
+        private static Color C_PageBg     => ThemeManager.PageBackground;
+        private static Color C_CardBg     => ThemeManager.CardBackground;
+        private static Color C_Border     => ThemeManager.BorderHairline;
+        private static Color C_TopBarBg   => ThemeManager.TopBarBackground;
+        private static Color C_SearchBg   => ThemeManager.SearchBoxBackground;
+        private Color C_SearchBdr         => _isSearchFocused ? C_Blue : ThemeManager.InputBorder;
 
-        private Color C_TextDark   => BlendColor(Color.FromArgb(32, 35, 43), Color.FromArgb(244, 245, 248), _toggleAnimProgress);
-        private Color C_TextMid    => BlendColor(Color.FromArgb(123, 129, 144), Color.FromArgb(161, 165, 179), _toggleAnimProgress);
-        private Color C_TextLight  => BlendColor(Color.FromArgb(148, 163, 184), Color.FromArgb(100, 116, 139), _toggleAnimProgress);
+        private static Color C_TextDark   => ThemeManager.TextPrimary;
+        private static Color C_TextMid    => ThemeManager.TextSecondary;
+        private static Color C_TextLight  => ThemeManager.IsDarkMode ? Color.FromArgb(100, 116, 139) : Color.FromArgb(148, 163, 184);
 
         private static Color BlendColor(Color c1, Color c2, float t)
         {
@@ -100,8 +122,8 @@ namespace PROJECT_SBV1.Forms
         public DashboardForm()
         {
             InitializeComponent();
-            _toggleAnimProgress = ThemeManager.IsDarkMode ? 1.0f : 0.0f;
-            _targetAnimProgress = _toggleAnimProgress;
+            _toggleSliderProgress = ThemeManager.IsDarkMode ? 1.0f : 0.0f;
+            _sliderTargetVal = _toggleSliderProgress;
 
             // Load data immediately — NEVER delay data loading for animation!
             PopulateSampleData();
@@ -120,17 +142,11 @@ namespace PROJECT_SBV1.Forms
             SetupWindowDrag();
             ShowPage("Overview");
 
-            ThemeManager.ThemeChanged += () =>
-            {
-                if (!_isThemeTransitioning)
-                {
-                    ApplyThemeFast();
-                }
-            };
+            ThemeManager.ThemeChanged += ApplyDashboardTheme;
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
-        //  ENTRANCE ANIMATION (Smooth 200ms Quadratic Ease-Out Fade-In)
+        //  ENTRANCE ANIMATION (Subtle 220ms Quadratic Ease-Out Fade & Upward Slide)
         // ═══════════════════════════════════════════════════════════════════════════
         private void InitEntranceAnimation()
         {
@@ -140,32 +156,44 @@ namespace PROJECT_SBV1.Forms
             _entranceTimer.Interval = 16;
             _entranceTimer.Tick += (s, e) =>
             {
-                _entranceProgress += 0.065f;
+                _entranceProgress += 0.07f; // ~14 frames (~220ms)
                 if (_entranceProgress >= 1f)
                 {
                     _entranceProgress = 1f;
                     this.Opacity = 1.0;
+                    pnlContentHost.Padding = new Padding(16, 12, 16, 12);
                     _entranceTimer.Stop();
+                    tlpCards.Invalidate(true);
                 }
                 else
                 {
-                    // Smooth quadratic ease-out: t * (2 - t)
+                    // Smooth quadratic ease-out: 1 - (1 - t)^2
                     float t = _entranceProgress;
-                    this.Opacity = Math.Clamp(t * (2f - t), 0.0, 1.0);
+                    float eased = 1f - (1f - t) * (1f - t);
+                    this.Opacity = Math.Clamp(eased, 0.0, 1.0);
+
+                    // 10px subtle upward slide at container level
+                    int yShift = (int)((1f - eased) * 10f);
+                    pnlContentHost.Padding = new Padding(16, 12 + yShift, 16, 12);
+
+                    tlpCards.Invalidate(true);
                 }
             };
         }
 
         /// <summary>
-        /// Smoothly fades in the dashboard when transitioning from the login form.
+        /// Subtle, fast container-level entrance animation (220ms ease-out, 10px upward slide, card stagger).
         /// </summary>
-        public void FadeIn()
+        public void StartEntranceAnimation()
         {
             this.Opacity = 0.0;
             _entranceProgress = 0f;
+            pnlContentHost.Padding = new Padding(16, 22, 16, 12);
             _entranceTimer.Stop();
             _entranceTimer.Start();
         }
+
+        public void FadeIn() => StartEntranceAnimation();
 
         private void InitTooltips()
         {
@@ -182,8 +210,15 @@ namespace PROJECT_SBV1.Forms
         {
             base.OnLoad(e);
             ApplyRoundedRegion(16);
-            ApplyThemeFast();
-            FadeIn();
+            ApplyDashboardTheme();
+            StartEntranceAnimation();
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            base.OnFormClosed(e);
+            _toggleSliderTimer.Stop();
+            _entranceTimer.Stop();
         }
 
         protected override void OnResize(EventArgs e)
@@ -243,41 +278,40 @@ namespace PROJECT_SBV1.Forms
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
-        //  FAST THEME TOGGLE (<100ms response, zero blocking loops)
+        //  INDEPENDENT TOGGLE SLIDER ANIMATION & FAST DASHBOARD THEME
         // ═══════════════════════════════════════════════════════════════════════════
         private void InitThemeToggle()
         {
+            _toggleSliderProgress = ThemeManager.IsDarkMode ? 1.0f : 0.0f;
+            _sliderTargetVal = _toggleSliderProgress;
+
             btnThemeToggle.Paint += (s, e) => PaintThemeToggle(e.Graphics);
 
-            // Silky-smooth 60 FPS interpolated theme transition (~180ms)
-            _animTimer.Interval = 16;
-            _animTimer.Tick += (s, e) =>
+            // Lightweight, independent 60 FPS slider animation (160ms ease-out)
+            _toggleSliderTimer.Interval = 16;
+            _toggleSliderTimer.Tick += (s, e) =>
             {
-                _themeAnimElapsed += 0.085f; // ~12 frames
-                if (_themeAnimElapsed >= 1.0f)
-                {
-                    _themeAnimElapsed = 1.0f;
-                    _toggleAnimProgress = _targetAnimProgress;
-                    _animTimer.Stop();
-                    _isThemeTransitioning = false;
+                long elapsed = Environment.TickCount64 - _sliderStartTime;
+                float t = Math.Clamp((float)elapsed / SliderAnimDurationMs, 0f, 1f);
 
-                    ApplyThemeColors();
-                    StyleDataGridView(dgvInvoices);
-                    StyleDataGridView(dgvLowStock);
-                }
-                else
+                // Smooth quadratic ease-out
+                float eased = 1f - (1f - t) * (1f - t);
+                _toggleSliderProgress = _sliderStartVal + (_sliderTargetVal - _sliderStartVal) * eased;
+
+                // ONLY invalidate the toggle button itself — NEVER block or force dashboard repaints!
+                btnThemeToggle.Invalidate();
+
+                if (t >= 1.0f)
                 {
-                    // Smooth sinusoidal ease in-out
-                    float t = _themeAnimElapsed;
-                    float eased = (float)(0.5 - 0.5 * Math.Cos(t * Math.PI));
-                    _toggleAnimProgress = _startAnimProgress + (_targetAnimProgress - _startAnimProgress) * eased;
-                    ApplyThemeColors();
+                    _toggleSliderProgress = _sliderTargetVal;
+                    _toggleSliderTimer.Stop();
+                    btnThemeToggle.Invalidate();
                 }
             };
 
             btnThemeToggle.Click += (s, e) =>
             {
-                StartThemeTransition();
+                ToggleThemeWithImmediateSlider();
             };
 
             pnlBrandHeader.Paint += (s, e) =>
@@ -290,9 +324,9 @@ namespace PROJECT_SBV1.Forms
                 int petalR = 8;
                 int offset = 6;
 
-                Color logoAccent = BlendColor(Color.FromArgb(65, 105, 245), Color.FromArgb(102, 135, 255), _toggleAnimProgress);
+                Color logoAccent = ThemeManager.IsDarkMode ? Color.FromArgb(102, 135, 255) : Color.FromArgb(65, 105, 245);
                 using var brush1 = new SolidBrush(logoAccent);
-                using var brush2 = new SolidBrush(BlendColor(Color.FromArgb(99, 102, 241), Color.FromArgb(129, 140, 248), _toggleAnimProgress));
+                using var brush2 = new SolidBrush(ThemeManager.IsDarkMode ? Color.FromArgb(129, 140, 248) : Color.FromArgb(99, 102, 241));
 
                 g.FillEllipse(brush1, cx - offset - petalR, cy - petalR, petalR * 2, petalR * 2);
                 g.FillEllipse(brush1, cx + offset - petalR, cy - petalR, petalR * 2, petalR * 2);
@@ -391,12 +425,13 @@ namespace PROJECT_SBV1.Forms
             g.SmoothingMode = SmoothingMode.AntiAlias;
             int w = btnThemeToggle.Width;
             int h = btnThemeToggle.Height;
+            if (w <= 0 || h <= 0) return;
 
             int radius = (h - 2) / 2;
             using var trackPath = GraphicsExtensions.CreateRoundedRectanglePath(1, 1, w - 3, h - 3, radius * 2);
 
-            Color trackBg = BlendColor(Color.FromArgb(226, 232, 240), Color.FromArgb(30, 32, 48), _toggleAnimProgress);
-            Color trackBorder = BlendColor(Color.FromArgb(203, 213, 225), Color.FromArgb(99, 102, 241), _toggleAnimProgress);
+            Color trackBg = BlendColor(Color.FromArgb(226, 232, 240), Color.FromArgb(30, 32, 48), _toggleSliderProgress);
+            Color trackBorder = BlendColor(Color.FromArgb(203, 213, 225), Color.FromArgb(99, 102, 241), _toggleSliderProgress);
 
             using var trackBrush = new SolidBrush(trackBg);
             g.FillPath(trackBrush, trackPath);
@@ -405,74 +440,105 @@ namespace PROJECT_SBV1.Forms
             g.DrawPath(trackPen, trackPath);
 
             // Reicon Sun (Left) & Moon (Right) Vector Icons with smooth color cross-fade
-            Color sunColor = BlendColor(Color.FromArgb(245, 158, 11), Color.FromArgb(100, 116, 139), _toggleAnimProgress);
+            Color sunColor = BlendColor(Color.FromArgb(245, 158, 11), Color.FromArgb(100, 116, 139), _toggleSliderProgress);
             ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Sun, new Rectangle(6, (h - 16) / 2, 16, 16), sunColor, 1.5f);
 
-            Color moonColor = BlendColor(Color.FromArgb(148, 163, 184), Color.FromArgb(165, 180, 252), _toggleAnimProgress);
+            Color moonColor = BlendColor(Color.FromArgb(148, 163, 184), Color.FromArgb(165, 180, 252), _toggleSliderProgress);
             ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Moon, new Rectangle(w - 22, (h - 16) / 2, 16, 16), moonColor, 1.5f);
 
-            // Moving Thumb Knob with smooth color & position transition
+            // Moving Thumb Knob with smooth ease-out position
             int knobD = h - 6;
             int knobMinX = 3;
             int knobMaxX = w - knobD - 3;
-            float knobX = knobMinX + (knobMaxX - knobMinX) * _toggleAnimProgress;
+            float knobX = knobMinX + (knobMaxX - knobMinX) * _toggleSliderProgress;
             float knobY = 3;
 
             using var knobPath = GraphicsExtensions.CreateRoundedRectanglePath((int)knobX, (int)knobY, knobD, knobD, knobD);
-            Color knobColor = BlendColor(Color.White, Color.FromArgb(99, 102, 241), _toggleAnimProgress);
+            Color knobColor = BlendColor(Color.White, Color.FromArgb(99, 102, 241), _toggleSliderProgress);
             using var knobBrush = new SolidBrush(knobColor);
             g.FillPath(knobBrush, knobPath);
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
-        //  THEME APPLICATION (INSTANT & SMOOTH 60 FPS COLOR INTERPOLATION)
+        //  THEME APPLICATION (INSTANT <15ms BATCHED UPDATE, ZERO BLOCKING)
         // ═══════════════════════════════════════════════════════════════════════════
-        private void StartThemeTransition()
+        private void ToggleThemeWithImmediateSlider()
         {
-            // Reverse target or start transition
-            bool targetIsDark = (_targetAnimProgress < 0.5f);
+            // 1. Immediately toggle the theme state
+            bool targetIsDark = !ThemeManager.IsDarkMode;
             ThemeManager.IsDarkMode = targetIsDark;
 
-            _startAnimProgress = _toggleAnimProgress;
-            _targetAnimProgress = targetIsDark ? 1.0f : 0.0f;
-            _themeAnimElapsed = 0f;
-            _isThemeTransitioning = true;
+            // 2. Start the slider animation immediately — zero wait!
+            _sliderStartVal = _toggleSliderProgress;
+            _sliderTargetVal = targetIsDark ? 1.0f : 0.0f;
+            _sliderStartTime = Environment.TickCount64;
+            _toggleSliderTimer.Stop();
+            _toggleSliderTimer.Start();
+            btnThemeToggle.Invalidate();
 
-            _animTimer.Stop();
-            _animTimer.Start();
+            // 3. Apply dashboard theme in a single, fast, batched pass
+            ApplyDashboardTheme();
         }
 
-        private void ApplyThemeColors()
+        private void ApplyDashboardTheme()
         {
-            BackColor                = C_PageBg;
-            pnlSidebar.BackColor     = C_SidebarBg;
-            tblMainLayout.BackColor  = C_PageBg;
-            pnlTopBar.BackColor      = C_TopBarBg;
-            pnlContentHost.BackColor = C_PageBg;
-            pnlOverview.BackColor    = C_PageBg;
+            // Batch layout and color assignments
+            this.SuspendLayout();
+            pnlSidebar.SuspendLayout();
+            pnlTopBar.SuspendLayout();
+            pnlContentHost.SuspendLayout();
+            pnlOverview.SuspendLayout();
+            try
+            {
+                Color pageBg = ThemeManager.PageBackground;
+                Color sidebarBg = ThemeManager.SidebarBackground;
+                Color cardBg = ThemeManager.CardBackground;
+                Color borderCol = ThemeManager.BorderHairline;
+                Color topBarBg = ThemeManager.TopBarBackground;
+                Color textDark = ThemeManager.TextPrimary;
+                Color textMid = ThemeManager.TextSecondary;
 
-            headerTitle.TitleColor    = C_TextDark;
-            headerTitle.SubtitleColor = C_TextMid;
-            lblSidebarBrand.ForeColor = C_TextDark;
-            lblSidebarSub.ForeColor   = C_TextMid;
-            lblSidebarUser.ForeColor  = C_TextDark;
-            lblSidebarRole.ForeColor  = C_TextMid;
+                BackColor                = pageBg;
+                pnlSidebar.BackColor     = sidebarBg;
+                tblMainLayout.BackColor  = pageBg;
+                pnlTopBar.BackColor      = topBarBg;
+                pnlContentHost.BackColor = pageBg;
+                pnlOverview.BackColor    = pageBg;
 
-            pnlSearchBox.BackColor  = C_SearchBg;
-            txtSearch.BackColor     = C_SearchBg;
-            txtSearch.ForeColor     = C_TextDark;
+                headerTitle.TitleColor    = textDark;
+                headerTitle.SubtitleColor = textMid;
+                lblSidebarBrand.ForeColor = textDark;
+                lblSidebarSub.ForeColor   = textMid;
+                lblSidebarUser.ForeColor  = textDark;
+                lblSidebarRole.ForeColor  = textMid;
 
-            winChrome.IconColor        = C_TextMid;
-            winChrome.HoverBg          = BlendColor(Color.FromArgb(226, 232, 240), Color.FromArgb(40, 43, 56), _toggleAnimProgress);
-            chromeDivider.DividerColor = C_Border;
-            btnNotifications.ForeColor = C_TextDark;
+                pnlSearchBox.BackColor = ThemeManager.SearchBoxBackground;
+                txtSearch.BackColor    = ThemeManager.SearchBoxBackground;
+                txtSearch.ForeColor    = textDark;
 
-            btnTopAddProduct.FillColor  = C_Blue;
-            btnTopAddProduct.HoverColor = BlendColor(Color.FromArgb(50, 85, 209), Color.FromArgb(124, 155, 255), _toggleAnimProgress);
+                winChrome.IconColor        = textMid;
+                winChrome.HoverBg          = ThemeManager.IsDarkMode ? Color.FromArgb(40, 43, 56) : Color.FromArgb(226, 232, 240);
+                chromeDivider.DividerColor = borderCol;
+                btnNotifications.ForeColor = textDark;
 
-            btnThemeToggle.Invalidate();
+                btnTopAddProduct.FillColor  = C_Blue;
+                btnTopAddProduct.HoverColor = ThemeManager.AccentHover;
+
+                StyleDataGridView(dgvInvoices);
+                StyleDataGridView(dgvLowStock);
+            }
+            finally
+            {
+                pnlOverview.ResumeLayout(false);
+                pnlContentHost.ResumeLayout(false);
+                pnlTopBar.ResumeLayout(false);
+                pnlSidebar.ResumeLayout(false);
+                this.ResumeLayout(false);
+            }
+
+            // Invalidate visible content region
             pnlBrandHeader.Invalidate();
-            pnlSidebar.Invalidate();
+            pnlSidebar.Invalidate(true);
             headerTitle.Invalidate();
             pnlSearchBox.Invalidate();
             btnNotifications.Invalidate();
@@ -480,40 +546,26 @@ namespace PROJECT_SBV1.Forms
             winChrome.Invalidate();
             chromeDivider.Invalidate();
 
-            pnlCardSalesToday.Invalidate();
-            pnlCardSalesMonth.Invalidate();
-            pnlCardReceivables.Invalidate();
-            pnlCardPayables.Invalidate();
-            pnlCardTotalProducts.Invalidate();
-            pnlCardLowStock.Invalidate();
-
-            pnlSalesDynamicsCard.Invalidate();
-            pnlCategoryDonutCard.Invalidate();
-            pnlRecentInvoicesCard.Invalidate();
-            pnlLowStockCard.Invalidate();
+            if (_activePage == "Overview")
+            {
+                pnlOverview.Invalidate(true);
+            }
+            else
+            {
+                pnlContentHost.Invalidate(true);
+            }
         }
 
-        private void ApplyThemeFast()
-        {
-            _toggleAnimProgress = ThemeManager.IsDarkMode ? 1.0f : 0.0f;
-            _targetAnimProgress = _toggleAnimProgress;
-            ApplyThemeColors();
-            StyleDataGridView(dgvInvoices);
-            StyleDataGridView(dgvLowStock);
-        }
+        private void ApplyThemeFast() => ApplyDashboardTheme();
 
         private void StyleDataGridView(DataGridView dgv)
         {
             if (dgv == null) return;
-            dgv.BackgroundColor           = C_CardBg;
-            dgv.GridColor                 = C_Border;
-            dgv.BorderStyle               = BorderStyle.None;
-            dgv.CellBorderStyle           = DataGridViewCellBorderStyle.SingleHorizontal;
-            dgv.EnableHeadersVisualStyles = false;
+            dgv.BackgroundColor = C_CardBg;
+            dgv.GridColor       = C_Border;
 
             dgv.ColumnHeadersDefaultCellStyle.BackColor = C_CardBg;
             dgv.ColumnHeadersDefaultCellStyle.ForeColor = C_TextMid;
-            dgv.ColumnHeadersDefaultCellStyle.Font      = new Font("Segoe UI", 9f, FontStyle.Bold);
             dgv.ColumnHeadersDefaultCellStyle.SelectionBackColor = C_CardBg;
             dgv.ColumnHeadersDefaultCellStyle.SelectionForeColor = C_TextMid;
 
@@ -521,7 +573,6 @@ namespace PROJECT_SBV1.Forms
             dgv.DefaultCellStyle.ForeColor          = C_TextDark;
             dgv.DefaultCellStyle.SelectionBackColor = C_NavHover;
             dgv.DefaultCellStyle.SelectionForeColor = C_TextDark;
-            dgv.DefaultCellStyle.Font               = new Font("Segoe UI", 9f);
 
             dgv.AlternatingRowsDefaultCellStyle.BackColor = ThemeManager.GridRowAlternate;
             dgv.AlternatingRowsDefaultCellStyle.ForeColor = C_TextDark;
@@ -616,9 +667,10 @@ namespace PROJECT_SBV1.Forms
                 int h = pnl.Height;
                 if (w <= 0 || h <= 0) return;
 
-                // Subtle Entrance Y-Stagger
-                float cardStagger = Math.Clamp(_entranceProgress * 1.5f - (cardIndex * 0.08f), 0f, 1f);
-                int yOffset = (int)((1f - cardStagger) * 10);
+                // Subtle Entrance Y-Stagger (~20-30ms stagger between cards)
+                float cardProgress = Math.Clamp((_entranceProgress * 1.35f) - (cardIndex * 0.05f), 0f, 1f);
+                float cardEased = 1f - (1f - cardProgress) * (1f - cardProgress);
+                int yOffset = (int)((1f - cardEased) * 6);
 
                 bool isHovered = (_hoveredCardIndex == cardIndex);
 
@@ -633,17 +685,13 @@ namespace PROJECT_SBV1.Forms
                 // Reicon Vector Icon (Clean 20x20 Vector, No Emojis!)
                 ReiconRenderer.DrawIcon(g, iconType, new Rectangle(12, 10 + yOffset, 18, 18), statusCol, 1.8f);
 
-                using var fTitle = new Font("Segoe UI", 8.5f);
-                using var fVal   = new Font("Segoe UI", 13f, FontStyle.Bold);
-                using var fSub   = new Font("Segoe UI", 7.5f);
-
                 using var bTitle = new SolidBrush(C_TextMid);
                 using var bVal   = new SolidBrush(C_TextDark);
                 using var bSub   = new SolidBrush(statusCol);
 
-                g.DrawString(title, fTitle, bTitle, 36, 11 + yOffset);
-                g.DrawString(val, fVal, bVal, 12, 34 + yOffset);
-                g.DrawString(sub, fSub, bSub, 12, 64 + yOffset);
+                g.DrawString(title, s_fontStatTitle, bTitle, 36, 11 + yOffset);
+                g.DrawString(val, s_fontStatVal, bVal, 12, 34 + yOffset);
+                g.DrawString(sub, s_fontStatSub, bSub, 12, 64 + yOffset);
             };
         }
 
@@ -669,22 +717,21 @@ namespace PROJECT_SBV1.Forms
                 using var bdr = new Pen(C_Border, 1.2f);
                 g.DrawPath(bdr, path);
 
-                using var fTitle = new Font("Segoe UI", 11f, FontStyle.Bold);
-                using var fLegend = new Font("Segoe UI", 8.5f);
                 using var bTitle = new SolidBrush(C_TextDark);
                 using var bSales = new SolidBrush(C_Blue);
-                using var bPurch = new SolidBrush(BlendColor(Color.FromArgb(99, 102, 241), Color.FromArgb(165, 180, 252), _toggleAnimProgress));
+                Color purchCol = ThemeManager.IsDarkMode ? Color.FromArgb(165, 180, 252) : Color.FromArgb(99, 102, 241);
+                using var bPurch = new SolidBrush(purchCol);
 
-                g.DrawString("Sales Dynamics (12 Months)", fTitle, bTitle, 16, 12);
+                g.DrawString("Sales Dynamics (12 Months)", s_fontChartTitle, bTitle, 16, 12);
 
                 int legX = w - 180;
                 if (legX > 200)
                 {
                     g.FillEllipse(bSales, legX, 16, 8, 8);
-                    g.DrawString("Sales", fLegend, bTitle, legX + 12, 12);
+                    g.DrawString("Sales", s_fontLegend, bTitle, legX + 12, 12);
 
                     g.FillEllipse(bPurch, legX + 70, 16, 8, 8);
-                    g.DrawString("Purchases", fLegend, bTitle, legX + 82, 12);
+                    g.DrawString("Purchases", s_fontLegend, bTitle, legX + 82, 12);
                 }
             };
 
@@ -707,6 +754,12 @@ namespace PROJECT_SBV1.Forms
                 float barW = Math.Max(5, slotW * 0.32f);
 
                 int maxVal = 160;
+                Color purchCol = ThemeManager.IsDarkMode ? Color.FromArgb(165, 180, 252) : Color.FromArgb(99, 102, 241);
+
+                using var sBrush = new SolidBrush(C_Blue);
+                using var pBrush = new SolidBrush(purchCol);
+                using var bLbl = new SolidBrush(C_TextMid);
+                using var sf = new StringFormat { Alignment = StringAlignment.Center };
 
                 for (int i = 0; i < n; i++)
                 {
@@ -722,19 +775,14 @@ namespace PROJECT_SBV1.Forms
 
                     // Sales Bar
                     using var sPath = GraphicsExtensions.CreateRoundedRectanglePath((int)(cx - barW - 2), (int)sY, (int)barW, (int)sH, 4);
-                    using var sBrush = new SolidBrush(C_Blue);
                     g.FillPath(sBrush, sPath);
 
                     // Purchase Bar
                     using var pPath = GraphicsExtensions.CreateRoundedRectanglePath((int)(cx + 2), (int)pY, (int)barW, (int)pH, 4);
-                    using var pBrush = new SolidBrush(BlendColor(Color.FromArgb(99, 102, 241), Color.FromArgb(165, 180, 252), _toggleAnimProgress));
                     g.FillPath(pBrush, pPath);
 
                     // Month Label
-                    using var fLbl = new Font("Segoe UI", 7.5f);
-                    using var bLbl = new SolidBrush(C_TextMid);
-                    var sf = new StringFormat { Alignment = StringAlignment.Center };
-                    g.DrawString(_monthLabels[i], fLbl, bLbl, cx, topY + chartH + 6, sf);
+                    g.DrawString(_monthLabels[i], s_fontMonthLbl, bLbl, cx, topY + chartH + 6, sf);
                 }
             };
         }
@@ -758,9 +806,8 @@ namespace PROJECT_SBV1.Forms
                 using var bdr = new Pen(C_Border, 1.2f);
                 g.DrawPath(bdr, path);
 
-                using var fTitle = new Font("Segoe UI", 11f, FontStyle.Bold);
                 using var bTitle = new SolidBrush(C_TextDark);
-                g.DrawString("Category Revenue", fTitle, bTitle, 16, 12);
+                g.DrawString("Category Revenue", s_fontChartTitle, bTitle, 16, 12);
             };
 
             pnlDonutChartCanvas.Paint += (s, e) =>
@@ -797,24 +844,21 @@ namespace PROJECT_SBV1.Forms
                 g.FillEllipse(holeBrush, holeRect);
 
                 // Center Total Text
-                using var fC1 = new Font("Segoe UI", 7.5f);
-                using var fC2 = new Font("Segoe UI", 10f, FontStyle.Bold);
                 using var bC1 = new SolidBrush(C_TextMid);
                 using var bC2 = new SolidBrush(C_TextDark);
-                var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                g.DrawString("TOTAL", fC1, bC1, cx, cy - 8, sf);
-                g.DrawString("₹8.4L", fC2, bC2, cx, cy + 10, sf);
+                using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                g.DrawString("TOTAL", s_fontCenterSmall, bC1, cx, cy - 8, sf);
+                g.DrawString("₹8.4L", s_fontCenterBold, bC2, cx, cy + 10, sf);
 
                 // Legend List on the right
                 int legX = cx + d / 2 + 16;
                 int legY = 50;
-                using var fLeg = new Font("Segoe UI", 8f);
                 for (int i = 0; i < cats.Length; i++)
                 {
                     using var bDot = new SolidBrush(colors[i]);
                     using var bTxt = new SolidBrush(C_TextDark);
                     g.FillEllipse(bDot, legX, legY + i * 24 + 3, 8, 8);
-                    g.DrawString(cats[i], fLeg, bTxt, legX + 14, legY + i * 24);
+                    g.DrawString(cats[i], s_fontLegendList, bTxt, legX + 14, legY + i * 24);
                 }
             };
         }
@@ -827,6 +871,12 @@ namespace PROJECT_SBV1.Forms
             pnlRecentInvoicesCard.Controls.Add(dgvInvoices);
             dgvInvoices.Dock = DockStyle.Fill;
             dgvInvoices.BringToFront();
+
+            dgvInvoices.BorderStyle               = BorderStyle.None;
+            dgvInvoices.CellBorderStyle           = DataGridViewCellBorderStyle.SingleHorizontal;
+            dgvInvoices.EnableHeadersVisualStyles = false;
+            dgvInvoices.ColumnHeadersDefaultCellStyle.Font = s_fontGridHeader;
+            dgvInvoices.DefaultCellStyle.Font              = s_fontGrid;
 
             dgvInvoices.Columns.Add("InvoiceNo", "Invoice No");
             dgvInvoices.Columns.Add("Customer", "Customer");
@@ -849,6 +899,12 @@ namespace PROJECT_SBV1.Forms
             pnlLowStockCard.Controls.Add(dgvLowStock);
             dgvLowStock.Dock = DockStyle.Fill;
             dgvLowStock.BringToFront();
+
+            dgvLowStock.BorderStyle               = BorderStyle.None;
+            dgvLowStock.CellBorderStyle           = DataGridViewCellBorderStyle.SingleHorizontal;
+            dgvLowStock.EnableHeadersVisualStyles = false;
+            dgvLowStock.ColumnHeadersDefaultCellStyle.Font = s_fontGridHeader;
+            dgvLowStock.DefaultCellStyle.Font              = s_fontGrid;
 
             dgvLowStock.Columns.Add("ItemName", "Item / Product");
             dgvLowStock.Columns.Add("Stock", "In Stock");
@@ -951,6 +1007,7 @@ namespace PROJECT_SBV1.Forms
                     if (MessageBox.Show("Are you sure you want to log out of TEAM SOFT?", "Logout",
                         MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
                     {
+                        LogoutRequested?.Invoke(this, EventArgs.Empty);
                         this.Close();
                     }
                     return;
@@ -990,9 +1047,8 @@ namespace PROJECT_SBV1.Forms
                 // Draw Reicon Vector Icon (Clean 20x20 Vector)
                 ReiconRenderer.DrawIcon(g, iconType, new Rectangle(14, (h - 18) / 2, 18, 18), iconColor, 1.7f);
 
-                using var fText = new Font("Segoe UI", 9f, isActive ? FontStyle.Bold : FontStyle.Regular);
                 using var bText = new SolidBrush(textColor);
-                g.DrawString(label, fText, bText, 42, (h - 18) / 2);
+                g.DrawString(label, isActive ? s_fontNavActive : s_fontNav, bText, 42, (h - 18) / 2);
             };
         }
 

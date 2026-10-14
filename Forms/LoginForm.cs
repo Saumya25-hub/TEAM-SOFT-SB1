@@ -22,8 +22,24 @@ namespace PROJECT_SBV1.Forms
         private Point _dragCursorPoint;
         private Point _dragFormPoint;
         private bool _isEyeHovered = false;
+        private bool _isAuthenticating = false;
 
         public event EventHandler? LoginSucceeded;
+
+        /// <summary>
+        /// Resets the login form state for subsequent logins after user logouts.
+        /// </summary>
+        public void ResetState()
+        {
+            _isAuthenticating = false;
+            _fadeProgress = 0f;
+            _slideOffsetY = 15;
+            Opacity = 0.0;
+            if (txtPass != null) txtPass.Text = string.Empty;
+            if (btnSignIn != null) btnSignIn.Enabled = true;
+            if (lblStatus != null) lblStatus.Text = string.Empty;
+            _entryFadeTimer?.Start();
+        }
 
         public LoginForm()
         {

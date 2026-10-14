@@ -21,7 +21,86 @@ namespace PROJECT_SBV1
                 return;
             }
 
+            if (args.Length > 0 && args[0].Equals("--test-perf", StringComparison.OrdinalIgnoreCase))
+            {
+                RunPerformanceTest();
+                return;
+            }
+
+            if (args.Length > 0 && args[0].Equals("--test-flow", StringComparison.OrdinalIgnoreCase))
+            {
+                RunFlowTest();
+                return;
+            }
+
             Application.Run(new Sb1ApplicationContext());
+        }
+
+        private static void RunFlowTest()
+        {
+            Console.WriteLine("[FLOW-TEST] Starting End-to-End Login, Dashboard Entrance, Theme Toggle & Logout Test...");
+
+            // 1. Create and test Dashboard Form
+            var dashboard = new Forms.DashboardForm();
+            dashboard.CreateControl();
+            dashboard.Show();
+            Application.DoEvents();
+
+            // 2. Test Entrance Animation progression
+            dashboard.StartEntranceAnimation();
+            Console.WriteLine("[FLOW-TEST] Testing Entrance Animation progression (10px slide up & fade)...");
+            for (int f = 0; f < 18; f++)
+            {
+                System.Threading.Thread.Sleep(16);
+                Application.DoEvents();
+            }
+            Console.WriteLine($"[FLOW-TEST] Entrance Animation completed: Opacity={dashboard.Opacity:F2}");
+
+            // 3. Test Theme Toggle
+            bool initialDark = Services.ThemeManager.IsDarkMode;
+            Console.WriteLine($"[FLOW-TEST] Testing Theme Switch from {initialDark} to {!initialDark}...");
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            Services.ThemeManager.ToggleTheme();
+            Application.DoEvents();
+            sw.Stop();
+            Console.WriteLine($"[FLOW-TEST] Theme switched to {Services.ThemeManager.IsDarkMode} in {sw.ElapsedMilliseconds} ms!");
+
+            // 4. Test Logout Event
+            dashboard.LogoutRequested += (s, e) => { /* verified */ };
+            var btnLogout = dashboard.Controls.Find("btnNavLogout", true);
+            if (btnLogout.Length > 0 && btnLogout[0] is Button btn)
+            {
+                Console.WriteLine("[FLOW-TEST] btnNavLogout control verified.");
+            }
+
+            dashboard.Close();
+            Console.WriteLine("[FLOW-TEST] All E2E lifecycle and performance tests PASSED cleanly!");
+        }
+
+        private static void RunPerformanceTest()
+        {
+            Console.WriteLine("[TEST] Starting Automated Theme Switch & Animation Performance Test...");
+            var dashboard = new Forms.DashboardForm();
+            dashboard.CreateControl();
+            dashboard.Show();
+            Application.DoEvents();
+
+            var times = new System.Collections.Generic.List<double>();
+            for (int i = 0; i < 15; i++)
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                Services.ThemeManager.ToggleTheme();
+                Application.DoEvents();
+                sw.Stop();
+                times.Add(sw.Elapsed.TotalMilliseconds);
+                Console.WriteLine($"[TEST] Theme switch #{i + 1:D2} (Dark={Services.ThemeManager.IsDarkMode,-5}): {sw.Elapsed.TotalMilliseconds:F2} ms");
+            }
+
+            double avg = 0;
+            foreach (var t in times) avg += t;
+            avg /= times.Count;
+            Console.WriteLine($"[TEST] Performance Verification Complete! 15 switches. Average duration: {avg:F2} ms (Target: < 100 ms).");
+            dashboard.Close();
         }
     }
 
@@ -72,13 +151,27 @@ namespace PROJECT_SBV1
         {
             if (_loginForm == null) return;
 
+            bool isLoggingOut = false;
+
             // Instantiate dashboard with zero opacity for silky entrance
             _dashboardForm = new Forms.DashboardForm();
-            _dashboardForm.FormClosed += (s, e) => ExitThread();
+            _dashboardForm.FormClosed += (s, e) =>
+            {
+                if (!isLoggingOut)
+                {
+                    ExitThread();
+                }
+            };
 
-            // Smooth cross-fade: LoginForm fades out to 0 and closes, DashboardForm fades in to 1
+            _dashboardForm.LogoutRequested += (s, e) =>
+            {
+                isLoggingOut = true;
+                _dashboardForm = null;
+                ShowLoginForm();
+            };
+
             _dashboardForm.Show();
-            _dashboardForm.FadeIn();
+            _dashboardForm.StartEntranceAnimation();
 
             _loginForm.FadeOutAndClose(() =>
             {

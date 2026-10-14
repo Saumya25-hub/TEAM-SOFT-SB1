@@ -86,9 +86,13 @@ namespace PROJECT_SBV1.Services
             ? Color.FromArgb(17, 18, 24)
             : Color.FromArgb(245, 246, 250);
 
+        public static Color PageBackground => WindowBackground;
+
         public static Color SidebarBackground => _isDarkMode
             ? Color.FromArgb(25, 26, 35)
             : Color.FromArgb(255, 255, 255);
+
+        public static Color TopBarBackground => SidebarBackground;
 
         public static Color CardBackground => _isDarkMode
             ? Color.FromArgb(30, 32, 43)
@@ -97,6 +101,12 @@ namespace PROJECT_SBV1.Services
         public static Color CardBorder => _isDarkMode
             ? Color.FromArgb(48, 50, 62)
             : Color.FromArgb(231, 233, 239);
+
+        public static Color BorderHairline => CardBorder;
+
+        public static Color SearchBoxBackground => _isDarkMode
+            ? Color.FromArgb(30, 32, 43)
+            : Color.FromArgb(245, 246, 250);
 
         public static Color TextPrimary => _isDarkMode
             ? Color.FromArgb(244, 245, 248)
@@ -121,6 +131,14 @@ namespace PROJECT_SBV1.Services
         public static Color NavActive => _isDarkMode
             ? Color.FromArgb(42, 51, 88)
             : Color.FromArgb(233, 239, 255);
+
+        public static Color NavText => _isDarkMode
+            ? Color.FromArgb(161, 165, 179)
+            : Color.FromArgb(123, 129, 144);
+
+        public static Color NavTextOn => _isDarkMode
+            ? Color.White
+            : Color.FromArgb(32, 35, 43);
 
         public static Color StatusPositive => _isDarkMode
             ? Color.FromArgb(53, 201, 135)

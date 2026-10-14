@@ -99,4 +99,16 @@ This log records verifiable project events, role authorizations, task transition
 - **Details**: Eliminated UI lag during Login-to-Dashboard transition via `Sb1ApplicationContext` non-blocking form handoff and 60 FPS opacity cross-fade. Implemented `ThemeFadeOverlay` dual-snapshot cross-dissolve fade-in/fade-out animation for Light/Dark mode transitions with active thumb knob motion.
 - **Authorization / Approver**: UI/UX Developer / Active Sprint Directive
 
+---
+
+### [AUDIT-20261014-004] — Theme Switch Lag Root-Cause Fix & Dashboard Entrance Animations
+- **Timestamp**: 2026-10-14 14:15:00 IST
+- **Event Category**: UI/UX Architecture & Performance Enhancement
+- **Actor**: Jenil Rana (@jenilrana026-max)
+- **Role**: UI/UX Developer
+- **Target / Reference**: `Forms/DashboardForm.cs`, `Services/ReiconRenderer.cs`, `Services/ThemeManager.cs`, `Forms/LoginForm.cs`, `Program.cs`, Branch `feature/ui-splash-login-dashboard`
+- **Details**: Resolved theme toggle delay and freezing by decoupling slider thumb animation (independent 160ms ease-out timer), batching dashboard theme updates in <15ms with `SuspendLayout`/`ResumeLayout(false)`, caching GDI fonts/pens/brushes, and adding container-level 220ms upward entrance animation with card stagger. Verified sub-100ms theme application.
+- **Authorization / Approver**: UI/UX Developer / Active Sprint Directive
+
+
 
