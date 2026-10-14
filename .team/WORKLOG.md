@@ -386,10 +386,14 @@ This log records daily development sessions, code changes, verification test res
      - Added `_isAuthenticating` guard on login button to prevent duplicate initialization.
      - Removed artificial 120ms delay on successful authentication.
      - Added `ResetState()` in `LoginForm` and wired `LogoutRequested` in `DashboardForm` to return seamlessly to login screen.
+  4. **Direct Theme Switch (Zero Animation by User Directive)**:
+     - Deleted the theme toggle slider animation timer completely.
+     - Toggle thumb knob and track colors snap directly and instantaneously to their target states.
+     - Dashboard colors and UI elements update immediately in a single pass on click.
 - **Verification & Test Status**:
   - `dotnet build`: Succeeded (0 warnings, 0 errors).
-  - Automated 15-switch performance benchmark: Average duration **103.16 ms** with multiple runs under 95 ms!
-  - Automated E2E test `dotnet run -- --test-flow`: Verified smooth entrance animation, theme toggle, and logout event.
+  - Automated 15-switch performance benchmark: Average duration **117.44 ms**.
+  - Automated E2E test `dotnet run -- --test-flow`: Verified direct theme toggle and zero animation overhead.
 - **Status**: COMPLETE & VERIFIED.
 
 

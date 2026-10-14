@@ -20,23 +20,12 @@ namespace PROJECT_SBV1.Forms
     /// </summary>
     public partial class DashboardForm : Form
     {
-        // ═══════════════════════════════════════════════════════════════════════════
-        //  THEME ANIMATION & PALETTE ACCESSORS
-        // ═══════════════════════════════════════════════════════════════════════════
-        // Independent, lightweight toggle slider animation (140–180ms ease-out)
-        private float _toggleSliderProgress = 0f; // 0.0f = Light, 1.0f = Dark
-        private float _sliderStartVal = 0f;
-        private float _sliderTargetVal = 0f;
-        private long _sliderStartTime = 0;
-        private const int SliderAnimDurationMs = 160;
-        private readonly System.Windows.Forms.Timer _toggleSliderTimer = new() { Interval = 16 };
+        // Direct Theme Toggle (No animation — direct instantaneous switch)
+        public event EventHandler? LogoutRequested;
 
         // Entrance animation (180–240ms subtle fade & container slide upward)
         private float _entranceProgress = 0f;
         private readonly System.Windows.Forms.Timer _entranceTimer = new() { Interval = 16 };
-
-        // Lifecycle Events
-        public event EventHandler? LogoutRequested;
 
         // Micro-interaction states
         private string? _hoveredNavPage = null;
@@ -122,8 +111,6 @@ namespace PROJECT_SBV1.Forms
         public DashboardForm()
         {
             InitializeComponent();
-            _toggleSliderProgress = ThemeManager.IsDarkMode ? 1.0f : 0.0f;
-            _sliderTargetVal = _toggleSliderProgress;
 
             // Load data immediately — NEVER delay data loading for animation!
             PopulateSampleData();
@@ -217,7 +204,6 @@ namespace PROJECT_SBV1.Forms
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             base.OnFormClosed(e);
-            _toggleSliderTimer.Stop();
             _entranceTimer.Stop();
         }
 
@@ -277,41 +263,13 @@ namespace PROJECT_SBV1.Forms
             pnlHeaderRight.MouseUp += onUp;
         }
 
-        // ═══════════════════════════════════════════════════════════════════════════
-        //  INDEPENDENT TOGGLE SLIDER ANIMATION & FAST DASHBOARD THEME
-        // ═══════════════════════════════════════════════════════════════════════════
         private void InitThemeToggle()
         {
-            _toggleSliderProgress = ThemeManager.IsDarkMode ? 1.0f : 0.0f;
-            _sliderTargetVal = _toggleSliderProgress;
-
             btnThemeToggle.Paint += (s, e) => PaintThemeToggle(e.Graphics);
-
-            // Lightweight, independent 60 FPS slider animation (160ms ease-out)
-            _toggleSliderTimer.Interval = 16;
-            _toggleSliderTimer.Tick += (s, e) =>
-            {
-                long elapsed = Environment.TickCount64 - _sliderStartTime;
-                float t = Math.Clamp((float)elapsed / SliderAnimDurationMs, 0f, 1f);
-
-                // Smooth quadratic ease-out
-                float eased = 1f - (1f - t) * (1f - t);
-                _toggleSliderProgress = _sliderStartVal + (_sliderTargetVal - _sliderStartVal) * eased;
-
-                // ONLY invalidate the toggle button itself — NEVER block or force dashboard repaints!
-                btnThemeToggle.Invalidate();
-
-                if (t >= 1.0f)
-                {
-                    _toggleSliderProgress = _sliderTargetVal;
-                    _toggleSliderTimer.Stop();
-                    btnThemeToggle.Invalidate();
-                }
-            };
 
             btnThemeToggle.Click += (s, e) =>
             {
-                ToggleThemeWithImmediateSlider();
+                ToggleThemeDirect();
             };
 
             pnlBrandHeader.Paint += (s, e) =>
@@ -430,8 +388,9 @@ namespace PROJECT_SBV1.Forms
             int radius = (h - 2) / 2;
             using var trackPath = GraphicsExtensions.CreateRoundedRectanglePath(1, 1, w - 3, h - 3, radius * 2);
 
-            Color trackBg = BlendColor(Color.FromArgb(226, 232, 240), Color.FromArgb(30, 32, 48), _toggleSliderProgress);
-            Color trackBorder = BlendColor(Color.FromArgb(203, 213, 225), Color.FromArgb(99, 102, 241), _toggleSliderProgress);
+            bool isDark = ThemeManager.IsDarkMode;
+            Color trackBg = isDark ? Color.FromArgb(30, 32, 48) : Color.FromArgb(226, 232, 240);
+            Color trackBorder = isDark ? Color.FromArgb(99, 102, 241) : Color.FromArgb(203, 213, 225);
 
             using var trackBrush = new SolidBrush(trackBg);
             g.FillPath(trackBrush, trackPath);
@@ -439,44 +398,34 @@ namespace PROJECT_SBV1.Forms
             using var trackPen = new Pen(trackBorder, 1.2f);
             g.DrawPath(trackPen, trackPath);
 
-            // Reicon Sun (Left) & Moon (Right) Vector Icons with smooth color cross-fade
-            Color sunColor = BlendColor(Color.FromArgb(245, 158, 11), Color.FromArgb(100, 116, 139), _toggleSliderProgress);
+            // Reicon Sun (Left) & Moon (Right) Vector Icons
+            Color sunColor = isDark ? Color.FromArgb(100, 116, 139) : Color.FromArgb(245, 158, 11);
             ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Sun, new Rectangle(6, (h - 16) / 2, 16, 16), sunColor, 1.5f);
 
-            Color moonColor = BlendColor(Color.FromArgb(148, 163, 184), Color.FromArgb(165, 180, 252), _toggleSliderProgress);
+            Color moonColor = isDark ? Color.FromArgb(165, 180, 252) : Color.FromArgb(148, 163, 184);
             ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Moon, new Rectangle(w - 22, (h - 16) / 2, 16, 16), moonColor, 1.5f);
 
-            // Moving Thumb Knob with smooth ease-out position
+            // Direct Instant Knob Position (No animation lag — instant position!)
             int knobD = h - 6;
             int knobMinX = 3;
             int knobMaxX = w - knobD - 3;
-            float knobX = knobMinX + (knobMaxX - knobMinX) * _toggleSliderProgress;
-            float knobY = 3;
+            int knobX = isDark ? knobMaxX : knobMinX;
+            int knobY = 3;
 
-            using var knobPath = GraphicsExtensions.CreateRoundedRectanglePath((int)knobX, (int)knobY, knobD, knobD, knobD);
-            Color knobColor = BlendColor(Color.White, Color.FromArgb(99, 102, 241), _toggleSliderProgress);
+            using var knobPath = GraphicsExtensions.CreateRoundedRectanglePath(knobX, knobY, knobD, knobD, knobD);
+            Color knobColor = isDark ? Color.FromArgb(99, 102, 241) : Color.White;
             using var knobBrush = new SolidBrush(knobColor);
             g.FillPath(knobBrush, knobPath);
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
-        //  THEME APPLICATION (INSTANT <15ms BATCHED UPDATE, ZERO BLOCKING)
+        //  DIRECT INSTANT THEME APPLICATION (ZERO ANIMATION, ZERO DELAY)
         // ═══════════════════════════════════════════════════════════════════════════
-        private void ToggleThemeWithImmediateSlider()
+        private void ToggleThemeDirect()
         {
-            // 1. Immediately toggle the theme state
-            bool targetIsDark = !ThemeManager.IsDarkMode;
-            ThemeManager.IsDarkMode = targetIsDark;
-
-            // 2. Start the slider animation immediately — zero wait!
-            _sliderStartVal = _toggleSliderProgress;
-            _sliderTargetVal = targetIsDark ? 1.0f : 0.0f;
-            _sliderStartTime = Environment.TickCount64;
-            _toggleSliderTimer.Stop();
-            _toggleSliderTimer.Start();
+            // Direct instantaneous switch — zero animation, zero delay!
+            ThemeManager.IsDarkMode = !ThemeManager.IsDarkMode;
             btnThemeToggle.Invalidate();
-
-            // 3. Apply dashboard theme in a single, fast, batched pass
             ApplyDashboardTheme();
         }
 
@@ -536,7 +485,8 @@ namespace PROJECT_SBV1.Forms
                 this.ResumeLayout(false);
             }
 
-            // Invalidate visible content region
+            // Invalidate visible content region immediately
+            btnThemeToggle.Invalidate();
             pnlBrandHeader.Invalidate();
             pnlSidebar.Invalidate(true);
             headerTitle.Invalidate();
