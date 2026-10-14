@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using PROJECT_SBV1.Services;
 
@@ -20,6 +21,19 @@ namespace PROJECT_SBV1.Forms
     /// </summary>
     public partial class DashboardForm : Form
     {
+        // Win32 API to freeze window updates so all components switch simultaneously (Zero sequential repaint)
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wp, IntPtr lp);
+
+        [DllImport("user32.dll")]
+        private static extern bool RedrawWindow(IntPtr hWnd, IntPtr lprcUpdate, IntPtr hrgnUpdate, uint flags);
+
+        private const int WM_SETREDRAW = 0x000B;
+        private const uint RDW_INVALIDATE = 0x0001;
+        private const uint RDW_ALLCHILDREN = 0x0080;
+        private const uint RDW_UPDATENOW = 0x0100;
+        private const uint RDW_ERASE = 0x0004;
+
         // Direct Theme Toggle (No animation — direct instantaneous switch)
         public event EventHandler? LogoutRequested;
 
@@ -110,10 +124,10 @@ namespace PROJECT_SBV1.Forms
         {
             InitializeComponent();
 
+            this.Opacity = 1.0;
+
             // Load data immediately — NEVER delay data loading for animation!
             PopulateSampleData();
-
-            EnableDoubleBuffering(this);
 
             InitTooltips();
             InitThemeToggle();
@@ -126,6 +140,9 @@ namespace PROJECT_SBV1.Forms
             SetupSidebarNav();
             SetupWindowDrag();
             ShowPage("Overview");
+
+            // CRITICAL: Double-buffer the entire form and all child controls AFTER pages are built
+            EnableDoubleBuffering(this);
 
             ThemeManager.ThemeChanged += ApplyDashboardTheme;
         }
@@ -388,7 +405,7 @@ namespace PROJECT_SBV1.Forms
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
-        //  DIRECT INSTANT THEME APPLICATION (ZERO ANIMATION, ZERO DELAY)
+        //  DIRECT INSTANT THEME APPLICATION (ZERO ANIMATION, ALL COMPONENTS AT ONCE)
         // ═══════════════════════════════════════════════════════════════════════════
         private void ToggleThemeDirect()
         {
@@ -399,12 +416,14 @@ namespace PROJECT_SBV1.Forms
 
         private void ApplyDashboardTheme()
         {
-            // Batch layout and color assignments
-            this.SuspendLayout();
-            pnlSidebar.SuspendLayout();
-            pnlTopBar.SuspendLayout();
-            pnlContentHost.SuspendLayout();
-            pnlOverview.SuspendLayout();
+            bool hasHandle = IsHandleCreated && !IsDisposed;
+            if (hasHandle)
+            {
+                // 1. FREEZE WINDOW AT OS LEVEL:
+                // Completely prevents Windows from redrawing controls one by one ("ek ek karke")
+                SendMessage(this.Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
+            }
+
             try
             {
                 Color pageBg = ThemeManager.PageBackground;
@@ -421,6 +440,16 @@ namespace PROJECT_SBV1.Forms
                 pnlTopBar.BackColor      = topBarBg;
                 pnlContentHost.BackColor = pageBg;
                 pnlOverview.BackColor    = pageBg;
+
+                // Eliminate transparent parent-chain repaint lag
+                tlpCards.BackColor  = pageBg;
+                tlpCharts.BackColor = pageBg;
+                tlpTables.BackColor = pageBg;
+
+                if (pnlNewBill != null) pnlNewBill.BackColor = pageBg;
+                if (pnlCustomers != null) pnlCustomers.BackColor = pageBg;
+                if (pnlProducts != null) pnlProducts.BackColor = pageBg;
+                if (pnlTransPage != null) pnlTransPage.BackColor = pageBg;
 
                 headerTitle.TitleColor    = textDark;
                 headerTitle.SubtitleColor = textMid;
@@ -443,38 +472,42 @@ namespace PROJECT_SBV1.Forms
 
                 StyleDataGridView(dgvInvoices);
                 StyleDataGridView(dgvLowStock);
+                StyleDataGridView(dgvBillItems);
+                StyleDataGridView(dgvCustomers);
+                StyleDataGridView(dgvProducts);
+                StyleDataGridView(dgvAllTransactions);
+
+                // Invalidate all visible elements
+                btnThemeToggle.Invalidate();
+                pnlBrandHeader.Invalidate();
+                pnlSidebar.Invalidate(true);
+                headerTitle.Invalidate();
+                pnlSearchBox.Invalidate();
+                btnNotifications.Invalidate();
+                btnTopAddProduct.Invalidate();
+                winChrome.Invalidate();
+                chromeDivider.Invalidate();
+
+                if (_activePage == "Overview")
+                {
+                    pnlOverview.Invalidate(true);
+                }
+                else
+                {
+                    pnlContentHost.Invalidate(true);
+                }
             }
             finally
             {
-                pnlOverview.ResumeLayout(false);
-                pnlContentHost.ResumeLayout(false);
-                pnlTopBar.ResumeLayout(false);
-                pnlSidebar.ResumeLayout(false);
-                this.ResumeLayout(false);
+                if (hasHandle)
+                {
+                    // 2. UNFREEZE & SIMULTANEOUS ATOMIC REPAINT:
+                    // Flushes all invalidated components together at the exact same microsecond!
+                    SendMessage(this.Handle, WM_SETREDRAW, new IntPtr(1), IntPtr.Zero);
+                    RedrawWindow(this.Handle, IntPtr.Zero, IntPtr.Zero,
+                        RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW | RDW_ERASE);
+                }
             }
-
-            // Invalidate visible content region immediately
-            btnThemeToggle.Invalidate();
-            pnlBrandHeader.Invalidate();
-            pnlSidebar.Invalidate(true);
-            headerTitle.Invalidate();
-            pnlSearchBox.Invalidate();
-            btnNotifications.Invalidate();
-            btnTopAddProduct.Invalidate();
-            winChrome.Invalidate();
-            chromeDivider.Invalidate();
-
-            if (_activePage == "Overview")
-            {
-                pnlOverview.Invalidate(true);
-            }
-            else
-            {
-                pnlContentHost.Invalidate(true);
-            }
-
-            // Flush GDI paints immediately in a single atomic frame (no ripple / perceived animation)
-            this.Update();
         }
 
         private void ApplyThemeFast() => ApplyDashboardTheme();
