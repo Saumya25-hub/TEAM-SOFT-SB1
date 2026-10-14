@@ -86,16 +86,16 @@ Allowed Statuses:
 ---
 
 ### [ ] `TASK-SPRINT-001`: UI Presentation — Splash, Login & Dashboard Forms
-- **Owner**: UI/UX Developer
+- **Owner**: Jenil Rana
 - **Role**: UI/UX Developer
 - **Description**: Design and implement WinForms presentation views, controls, and styling for Splash Screen, Login Screen, and Dashboard Screen. The developer guides the styling and Antigravity collaborates on the implementation without imposing direct code assumptions.
 - **Acceptance Criteria**:
   1. Splash Form displays branding and initiates smooth startup transition.
   2. Login Form provides username/password controls, error labels, and submit buttons.
   3. Dashboard Form renders main application layout and placeholder panels.
-  4. Completed on a feature branch (e.g. `feature/ui-splash-login-dashboard`), verified with `dotnet build`, and pushed to GitHub.
-- **Status**: Not Started
-- **Verification Evidence**: None yet.
+  4. Completed on a feature branch (`feature/ui-splash-login-dashboard`), verified with `dotnet build`, and pushed to GitHub.
+- **Status**: In Progress
+- **Verification Evidence**: Feature branch `feature/ui-splash-login-dashboard` created and active.
 - **Blockers**: None.
 
 ---

@@ -112,12 +112,122 @@ dotnet test
 
 ---
 
-## 4. Team Workflow & Contribution Rules
+---
 
-All team members must follow the standards defined in [TEAM_RULES.md](file:///d:/TEAM%20LEAD%20SOFFWATRE/PROJECT-SBV1/TEAM_RULES.md):
-- **Feature Branches**: Never commit directly to `main`. Create feature branches like `feature/ui-form1-redesign` or `feature/engine-calc`.
-- **Clean Architecture**: Adhere strictly to layer separation (UI does not query databases; Engine does not manipulate UI components).
+## 4. Key Application Features
+
+| Screen | Core Capabilities | Highlights |
+| :--- | :--- | :--- |
+| **Splash Screen** (`SplashForm.cs`) | Startup branding, progress initialization, smooth transition | Custom GDI+ anti-aliased rendering, `animate__zoomIn` bounce reveal, glowing aura, rounded border region. |
+| **Login Screen** (`LoginForm.cs`) | Secure authentication gateway, user credential entry | Pure modern white theme, vector SVG eye toggle (show/hide password), error badges, default credentials. |
+| **Dashboard Screen** (`DashboardForm.cs`) | Comprehensive POS billing and business management | Left sidebar navigation, 4 KPI summary cards (Sales, Revenue, Pending, Customers), New Bill line-item calculator, searchable Bills History, Customer & Product directories. |
+
+### 🔑 Default Login Credentials
+For testing and initial evaluation:
+- **Username**: `admin`
+- **Password**: `admin123`
+
+---
+
+## 5. Prerequisites & Environment Setup
+
+- **Operating System**: Windows 10 (Build 19041+) or Windows 11 (x64)
+- **.NET SDK**: [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or higher (`dotnet --version` should return `8.0.xxx` or `10.0.xxx`)
+- **IDE** *(Optional)*: Visual Studio 2022 (with .NET desktop development workload), VS Code with C# Dev Kit, or Antigravity IDE
+- **Version Control**: Git for Windows
+
+---
+
+## 6. Installation & How to Run
+
+### Step 1: Clone the Repository
+```powershell
+git clone https://github.com/Saumya25-hub/TEAM-SOFT-SB1.git
+cd TEAM-SOFT-SB1
+```
+
+### Step 2: Restore & Build
+```powershell
+dotnet restore
+dotnet build
+```
+*(Verify clean compilation with `0 Warning(s)`, `0 Error(s)`).*
+
+### Step 3: Run the Application
+```powershell
+dotnet run
+```
+The application will launch the Splash Screen, transition smoothly to the Login Screen, and open the SB1 Billing Dashboard upon authentication.
+
+---
+
+## 7. Troubleshooting
+
+| Issue | Cause | Solution |
+| :--- | :--- | :--- |
+| `'dotnet' is not recognized` | .NET SDK is not in system PATH | Install [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) and restart your terminal. |
+| `Cannot find PROJECT-SBV1.csproj` | Command run outside repository root | Ensure current working directory is the project root (`cd C:\SBV1`). |
+| `File locked / CS2012 error` | Previous app instance still running | Close the running app or run `Stop-Process -Name PROJECT-SBV1 -Force` in PowerShell. |
+| Blurry fonts on High-DPI screens | Windows DPI virtualization | High DPI scaling is enabled via `ApplicationConfiguration.Initialize()` in `Program.cs`. Ensure display scaling is set to 100%, 125%, or 150%. |
+
+---
+
+---
+
+## 9. Windows Desktop Inventory & Billing Suite (Electron + React + Node.js Backend)
+
+This project has been expanded into a full-scale, multi-tenant Windows Desktop Inventory, Billing & Transaction Management Suite with 10 core business modules matching the reference dashboard UI:
+
+### 🧩 10 Core Application Modules
+1. **Overview Dashboard**: Metric KPI cards (Net Income, Sales, Returns), 7-month interactive revenue bar chart, category donut breakdown, recent transactions, low-stock warnings, and fast theme toggle.
+2. **Statistics & Reports**: Financial intelligence, product margins, inventory valuation, and CSV export.
+3. **Customers**: Customer database, contact cards, bill history, and credit balance tracking.
+4. **Suppliers**: Wholesale supplier directory, procurement logs, and payable accounts.
+5. **Products & Inventory**: SKU codes, barcode scanner integration, category organization, and manual stock adjustment modal with audit trail.
+6. **Purchase Management**: Purchase order generation, receiving items, and automatic stock increment.
+7. **Sales Billing & POS Invoices**: Rapid Point-of-Sale checkout, barcode lookup, line discounts, configurable taxes, Cash/Bank/UPI payment modes, and **Printable Tax Invoice Modal**.
+8. **Messages & Notifications**: Operational warnings, threshold breaches, and backup notices.
+9. **Transactions & Receipts**: Real-time financial ledger across Cash, Bank Transfer, UPI, and Card receipts.
+10. **Settings & Security**: Multi-tenant business switcher, legal profile, tax rules, and immutable audit logs.
+
+### 🚀 How to Run the Suite
+1. **Start Central Backend API**:
+   ```powershell
+   cd backend
+   npm run dev
+   ```
+   *(Server starts at `http://localhost:5000` with automatic database connection & mock seeding).*
+2. **Start Desktop Client**:
+   ```powershell
+   cd desktop
+   npm run dev
+   # Or launch inside Electron:
+   npm run electron:dev
+   ```
+3. **One-Click Master Launcher**:
+   - Double click `start-all.bat` in the project root to launch both backend and desktop client concurrently.
+
+### 📦 Building Windows x64 Installer
+To generate a standalone branded Windows x64 NSIS installer (`release/SimpleBilling-Setup-1.0.0.exe`):
+```powershell
+cd desktop
+npm run electron:build
+```
+
+---
+
+## 10. Multi-Developer Contribution Guidelines
+
+All team members must follow the engineering standards in [TEAM_RULES.md](file:///d:/TEAM%20LEAD%20SOFFWATRE/PROJECT-SBV1/TEAM_RULES.md):
+- **Feature Branches**: Never commit directly to `main`. Create feature branches (`feature/<task-name>`).
+- **Clean Architecture**: Keep UI presentation strictly separate from Core domain models and Engine services.
 - **Session Logging**: Update [docs/TASKS.md](file:///d:/TEAM%20LEAD%20SOFFWATRE/PROJECT-SBV1/docs/TASKS.md) and [.team/WORKLOG.md](file:///d:/TEAM%20LEAD%20SOFFWATRE/PROJECT-SBV1/.team/WORKLOG.md) before concluding each work session.
 - **Verification First**: Never mark a task `Done` without build/test verification proof in [docs/TEST_REPORT.md](file:///d:/TEAM%20LEAD%20SOFFWATRE/PROJECT-SBV1/docs/TEST_REPORT.md).
+
+---
+
+## 11. License
+
+This project is licensed under the **MIT License**. See `LICENSE` for details.
 
 

@@ -47,7 +47,7 @@ The project owner role is **Vision**. Vision is a project governance role, not a
 | Contributor Name | GitHub Username / Handle | Assigned Role | Status | Approved Date | Authorized By |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Saumya Chaudhari** | `@Saumya25-hub` | `Vision` | Active | 2026-10-09 | Project Owner |
-| *(Pending Developer)* | *(Pending GitHub)* | `UI/UX Developer` | Open Slot | — | Awaiting Onboarding |
+| **Jenil Rana** | `@jenilrana026-max` | `UI/UX Developer` | Active | 2026-10-10 | Vision & Sprint Directive |
 | *(Pending Developer)* | *(Pending GitHub)* | `Engine Developer` | Open Slot | — | Awaiting Onboarding |
 | *(Pending Developer)* | *(Pending GitHub)* | `PM/Tester` | Open Slot | — | Awaiting Onboarding |
 

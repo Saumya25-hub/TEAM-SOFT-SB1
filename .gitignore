@@ -58,3 +58,18 @@ local_profile.json
 .team/profile.md
 .team/*.local.md
 
+
+push.bat
+push_upstream.bat
+publish.bat
+
+# Node.js, Electron & Build Artifacts
+node_modules/
+dist/
+dist-electron/
+release/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
