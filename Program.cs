@@ -153,8 +153,8 @@ namespace PROJECT_SBV1
 
             bool isLoggingOut = false;
 
-            // Instantiate dashboard with zero opacity for silky entrance
             _dashboardForm = new Forms.DashboardForm();
+            _dashboardForm.Opacity = 1.0;
             _dashboardForm.FormClosed += (s, e) =>
             {
                 if (!isLoggingOut)
@@ -171,12 +171,10 @@ namespace PROJECT_SBV1
             };
 
             _dashboardForm.Show();
-            _dashboardForm.StartEntranceAnimation();
 
-            _loginForm.FadeOutAndClose(() =>
-            {
-                _loginForm = null;
-            });
+            _loginForm.Close();
+            _loginForm.Dispose();
+            _loginForm = null;
         }
     }
 }

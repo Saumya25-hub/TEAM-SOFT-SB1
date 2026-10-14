@@ -23,8 +23,6 @@ namespace PROJECT_SBV1.Forms
         // Direct Theme Toggle (No animation — direct instantaneous switch)
         public event EventHandler? LogoutRequested;
 
-        // Entrance animation (180–240ms subtle fade & container slide upward)
-        private float _entranceProgress = 0f;
         private readonly System.Windows.Forms.Timer _entranceTimer = new() { Interval = 16 };
 
         // Micro-interaction states
@@ -133,51 +131,22 @@ namespace PROJECT_SBV1.Forms
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
-        //  ENTRANCE ANIMATION (Subtle 220ms Quadratic Ease-Out Fade & Upward Slide)
+        //  DIRECT INSTANT ENTRANCE (NO ANIMATION / DIRECT RENDER)
         // ═══════════════════════════════════════════════════════════════════════════
         private void InitEntranceAnimation()
         {
-            this.Opacity = 0.0;
-            _entranceProgress = 0f;
-
-            _entranceTimer.Interval = 16;
-            _entranceTimer.Tick += (s, e) =>
-            {
-                _entranceProgress += 0.07f; // ~14 frames (~220ms)
-                if (_entranceProgress >= 1f)
-                {
-                    _entranceProgress = 1f;
-                    this.Opacity = 1.0;
-                    pnlContentHost.Padding = new Padding(16, 12, 16, 12);
-                    _entranceTimer.Stop();
-                    tlpCards.Invalidate(true);
-                }
-                else
-                {
-                    // Smooth quadratic ease-out: 1 - (1 - t)^2
-                    float t = _entranceProgress;
-                    float eased = 1f - (1f - t) * (1f - t);
-                    this.Opacity = Math.Clamp(eased, 0.0, 1.0);
-
-                    // 10px subtle upward slide at container level
-                    int yShift = (int)((1f - eased) * 10f);
-                    pnlContentHost.Padding = new Padding(16, 12 + yShift, 16, 12);
-
-                    tlpCards.Invalidate(true);
-                }
-            };
+            this.Opacity = 1.0;
+            pnlContentHost.Padding = new Padding(16, 12, 16, 12);
         }
 
         /// <summary>
-        /// Subtle, fast container-level entrance animation (220ms ease-out, 10px upward slide, card stagger).
+        /// Direct instant entrance (Zero animation, zero opacity fade).
         /// </summary>
         public void StartEntranceAnimation()
         {
-            this.Opacity = 0.0;
-            _entranceProgress = 0f;
-            pnlContentHost.Padding = new Padding(16, 22, 16, 12);
+            this.Opacity = 1.0;
+            pnlContentHost.Padding = new Padding(16, 12, 16, 12);
             _entranceTimer.Stop();
-            _entranceTimer.Start();
         }
 
         public void FadeIn() => StartEntranceAnimation();
@@ -196,9 +165,9 @@ namespace PROJECT_SBV1.Forms
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
+            this.Opacity = 1.0;
             ApplyRoundedRegion(16);
             ApplyDashboardTheme();
-            StartEntranceAnimation();
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
@@ -424,9 +393,8 @@ namespace PROJECT_SBV1.Forms
         private void ToggleThemeDirect()
         {
             // Direct instantaneous switch — zero animation, zero delay!
+            // Changing ThemeManager.IsDarkMode triggers ThemeChanged event which invokes ApplyDashboardTheme()
             ThemeManager.IsDarkMode = !ThemeManager.IsDarkMode;
-            btnThemeToggle.Invalidate();
-            ApplyDashboardTheme();
         }
 
         private void ApplyDashboardTheme()
@@ -504,6 +472,9 @@ namespace PROJECT_SBV1.Forms
             {
                 pnlContentHost.Invalidate(true);
             }
+
+            // Flush GDI paints immediately in a single atomic frame (no ripple / perceived animation)
+            this.Update();
         }
 
         private void ApplyThemeFast() => ApplyDashboardTheme();
@@ -617,14 +588,9 @@ namespace PROJECT_SBV1.Forms
                 int h = pnl.Height;
                 if (w <= 0 || h <= 0) return;
 
-                // Subtle Entrance Y-Stagger (~20-30ms stagger between cards)
-                float cardProgress = Math.Clamp((_entranceProgress * 1.35f) - (cardIndex * 0.05f), 0f, 1f);
-                float cardEased = 1f - (1f - cardProgress) * (1f - cardProgress);
-                int yOffset = (int)((1f - cardEased) * 6);
-
                 bool isHovered = (_hoveredCardIndex == cardIndex);
 
-                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, yOffset, w - 1, h - 1 - yOffset, 10);
+                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, w - 1, h - 1, 10);
                 using var bgBrush = new SolidBrush(C_CardBg);
                 g.FillPath(bgBrush, path);
 
@@ -633,15 +599,15 @@ namespace PROJECT_SBV1.Forms
                 g.DrawPath(borderPen, path);
 
                 // Reicon Vector Icon (Clean 20x20 Vector, No Emojis!)
-                ReiconRenderer.DrawIcon(g, iconType, new Rectangle(12, 10 + yOffset, 18, 18), statusCol, 1.8f);
+                ReiconRenderer.DrawIcon(g, iconType, new Rectangle(12, 10, 18, 18), statusCol, 1.8f);
 
                 using var bTitle = new SolidBrush(C_TextMid);
                 using var bVal   = new SolidBrush(C_TextDark);
                 using var bSub   = new SolidBrush(statusCol);
 
-                g.DrawString(title, s_fontStatTitle, bTitle, 36, 11 + yOffset);
-                g.DrawString(val, s_fontStatVal, bVal, 12, 34 + yOffset);
-                g.DrawString(sub, s_fontStatSub, bSub, 12, 64 + yOffset);
+                g.DrawString(title, s_fontStatTitle, bTitle, 36, 11);
+                g.DrawString(val, s_fontStatVal, bVal, 12, 34);
+                g.DrawString(sub, s_fontStatSub, bSub, 12, 64);
             };
         }
 
