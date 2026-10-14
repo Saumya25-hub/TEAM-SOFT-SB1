@@ -41,7 +41,11 @@ namespace PROJECT_SBV1.Services
             Receipt,
             Close,
             Minimize,
-            Maximize
+            Maximize,
+            Check,
+            Printer,
+            Eye,
+            Document
         }
 
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<long, Pen> s_penCache = new();
@@ -353,6 +357,37 @@ namespace PROJECT_SBV1.Services
 
                 case IconType.Maximize:
                     DrawRoundedRect(g, pen, 5, 5, 14, 14, 2);
+                    break;
+
+                case IconType.Check:
+                    g.DrawLine(pen, 5, 12, 10, 17);
+                    g.DrawLine(pen, 10, 17, 19, 7);
+                    break;
+
+                case IconType.Printer:
+                    DrawRoundedRect(g, pen, 4, 9, 16, 9, 2);
+                    DrawRoundedRect(g, pen, 7, 4, 10, 5, 1.5f);
+                    DrawRoundedRect(g, pen, 7, 13, 10, 5, 1.5f);
+                    g.DrawLine(pen, 7, 12, 17, 12);
+                    break;
+
+                case IconType.Eye:
+                    g.DrawArc(pen, 3, 5, 18, 14, 0, 180);
+                    g.DrawArc(pen, 3, 5, 18, 14, 180, 180);
+                    g.DrawEllipse(pen, 9.5f, 9.5f, 5, 5);
+                    break;
+
+                case IconType.Document:
+                    using (var p = new GraphicsPath())
+                    {
+                        p.AddLine(5, 3, 14, 3);
+                        p.AddLine(19, 8, 19, 21);
+                        p.AddLine(19, 21, 5, 21);
+                        p.CloseFigure();
+                        g.DrawPath(pen, p);
+                    }
+                    g.DrawLine(pen, 14, 3, 14, 8);
+                    g.DrawLine(pen, 14, 8, 19, 8);
                     break;
             }
 

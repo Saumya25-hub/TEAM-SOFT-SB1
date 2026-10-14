@@ -305,7 +305,7 @@ namespace PROJECT_SBV1.Forms
 
             // Header Title & Subtitle (Custom Framework: Zero clipping of descenders, generous bounds)
             headerTitle.Dock     = System.Windows.Forms.DockStyle.Left;
-            headerTitle.Width    = 340;
+            headerTitle.Width    = 460;
             headerTitle.Title    = "Dashboard";
             headerTitle.Subtitle = "Real-time business performance overview";
 

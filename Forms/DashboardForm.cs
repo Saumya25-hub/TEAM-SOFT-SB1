@@ -1110,9 +1110,9 @@ namespace PROJECT_SBV1.Forms
 
             headerTitle.Title = page switch
             {
-                "Overview" => "Dashboard",
-                "Sales" => "Sales & Tax Invoice (POS)",
-                "Customers" => "Customer Directory",
+                "Overview" => "Dashboard Overview",
+                "Sales" => "Sales & Billing Management",
+                "Customers" => "Customer Accounts & Ledgers",
                 "Products" => "Products & Inventory",
                 "Transactions" => "Financial Transactions Ledger",
                 "Statistics" => "Statistics & Analytics",
@@ -1126,7 +1126,7 @@ namespace PROJECT_SBV1.Forms
             {
                 "Overview" => "Real-time business performance overview",
                 "Sales" => "Service invoicing, tax computations, A4 printing & PDF export",
-                "Customers" => "Customer ledger, balances & directories",
+                "Customers" => "Client directory, contact details & balance ledgers",
                 "Products" => "Product catalog stock & inventory valuation",
                 "Transactions" => "Audit log of receipts and vendor payouts",
                 _ => "Manage and monitor your business operations"

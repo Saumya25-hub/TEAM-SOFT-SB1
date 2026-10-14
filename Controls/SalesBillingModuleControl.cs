@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Text;
 using System.Linq;
 using System.Windows.Forms;
 using PROJECT_SBV1.Forms;
@@ -11,18 +13,23 @@ namespace PROJECT_SBV1.Controls
 {
     /// <summary>
     /// Master Sales & Billing Module for TEAM SOFT Windows Desktop (.NET 8 WinForms).
-    /// Houses Sales Dashboard, Create Invoice Engine, Invoices Directory, and Customer Management.
+    /// Modern, high-end SaaS aesthetic (Linear / Stripe / Windows 11 Fluent 2.0).
     /// Features:
-    /// - 100% SQLite Database Driven (Zero fake/demo data)
-    /// - Real-time Decimal Calculations for Subtotal, Discounts, CGST/SGST/IGST, and Balance
+    /// - Sleek Segmented Capsule Navigation Tab Bar (Zero Emojis, pure SVG vector icons)
+    /// - High-End Elevated KPI Cards with Icon Badges, Trend Tags & Hover Elevation
+    /// - Custom DataGridView Table Rendering with Rounded Status Pill Badges
+    /// - Multi-Card Structured Create Invoice Form with Clean Grouping & Zero Underscores
+    /// - 100% SQLite Database Driven with Parameterized Queries & ACID Transactions
+    /// - Strict Decimal Precision Math for Subtotal, Discounts, CGST/SGST/IGST & Balance Due
     /// - Vector GDI+ PrintPreview, Native Printing, and Standalone PDF Export
-    /// - Partial & Full Payment Recording with Transaction Ledger
-    /// - High-contrast Light/Dark mode responsiveness
     /// </summary>
     public class SalesBillingModuleControl : UserControl
     {
-        // Navigation Sub-tabs
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  NAVIGATION SUB-TABS (SEGMENTED CAPSULE TRACK)
+        // ═══════════════════════════════════════════════════════════════════════════
         private readonly Panel pnlNavHeader = new();
+        private readonly Panel pnlNavPillTrack = new();
         private readonly Button btnTabDashboard = new();
         private readonly Button btnTabCreateInvoice = new();
         private readonly Button btnTabInvoices = new();
@@ -52,6 +59,18 @@ namespace PROJECT_SBV1.Controls
         private readonly Panel pnlCardUnpaidInvoices = new();
         private readonly Panel pnlCardOutstanding = new();
         private readonly Panel pnlCardTodaySales = new();
+
+        private struct MetricCardData
+        {
+            public string Title;
+            public string Value;
+            public string Badge;
+            public Color AccentColor;
+            public ReiconRenderer.IconType Icon;
+            public bool IsHovered;
+        }
+
+        private readonly MetricCardData[] _cardsData = new MetricCardData[6];
 
         private readonly DataGridView dgvRecentSales = new();
         private readonly TeamPillButton btnQuickNewInv = new();
@@ -143,6 +162,7 @@ namespace PROJECT_SBV1.Controls
 
             Dock = DockStyle.Fill;
 
+            InitMetricCardsData();
             BuildModuleLayout();
             ApplyTheme();
             SwitchTab("Dashboard");
@@ -150,23 +170,56 @@ namespace PROJECT_SBV1.Controls
             ThemeManager.ThemeChanged += ApplyTheme;
         }
 
+        private void InitMetricCardsData()
+        {
+            _cardsData[0] = new MetricCardData { Title = "TOTAL SALES", Value = "₹0.00", Badge = "● All-Time", AccentColor = Color.FromArgb(79, 70, 229), Icon = ReiconRenderer.IconType.TrendingUp };
+            _cardsData[1] = new MetricCardData { Title = "TOTAL INVOICES", Value = "0", Badge = "● Recorded", AccentColor = Color.FromArgb(2, 132, 199), Icon = ReiconRenderer.IconType.Receipt };
+            _cardsData[2] = new MetricCardData { Title = "PAID INVOICES", Value = "0", Badge = "● Settled", AccentColor = Color.FromArgb(16, 185, 129), Icon = ReiconRenderer.IconType.Check };
+            _cardsData[3] = new MetricCardData { Title = "UNPAID INVOICES", Value = "0", Badge = "● Due", AccentColor = Color.FromArgb(245, 158, 11), Icon = ReiconRenderer.IconType.Warning };
+            _cardsData[4] = new MetricCardData { Title = "OUTSTANDING DUE", Value = "₹0.00", Badge = "● Receivables", AccentColor = Color.FromArgb(225, 29, 72), Icon = ReiconRenderer.IconType.Wallet };
+            _cardsData[5] = new MetricCardData { Title = "TODAY'S BILLINGS", Value = "₹0.00", Badge = "● Live Volume", AccentColor = Color.FromArgb(139, 92, 246), Icon = ReiconRenderer.IconType.Coins };
+        }
+
         private void BuildModuleLayout()
         {
             Controls.Clear();
 
-            // 1. Top Sub-Navigation Bar
+            // 1. Top Sub-Navigation Bar (Segmented Capsule)
             pnlNavHeader.Dock = DockStyle.Top;
-            pnlNavHeader.Height = 44;
-            pnlNavHeader.Padding = new Padding(16, 4, 16, 4);
+            pnlNavHeader.Height = 54;
+            pnlNavHeader.Padding = new Padding(18, 6, 18, 6);
 
-            SetupTabButton(btnTabDashboard, "📊 Sales Overview", "Dashboard");
-            SetupTabButton(btnTabCreateInvoice, "➕ Create Invoice", "CreateInvoice");
-            SetupTabButton(btnTabInvoices, "📋 Invoices Directory", "Invoices");
-            SetupTabButton(btnTabCustomers, "👥 Customers", "Customers");
+            pnlNavPillTrack.Dock = DockStyle.Left;
+            pnlNavPillTrack.Width = 660;
+            pnlNavPillTrack.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                int w = pnlNavPillTrack.Width;
+                int h = pnlNavPillTrack.Height;
+                if (w <= 0 || h <= 0) return;
 
-            pnlNavHeader.Controls.AddRange(new Control[] {
+                bool isDark = ThemeManager.IsDarkMode;
+                Color trackBg = isDark ? Color.FromArgb(26, 29, 43) : Color.FromArgb(241, 245, 249);
+                Color trackBdr = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+
+                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, w - 1, h - 1, 10);
+                using var b = new SolidBrush(trackBg);
+                using var p = new Pen(trackBdr, 1.2f);
+                g.FillPath(b, path);
+                g.DrawPath(p, path);
+            };
+
+            SetupTabButton(btnTabDashboard, "Sales Overview", "Dashboard", ReiconRenderer.IconType.Dashboard, 155);
+            SetupTabButton(btnTabCreateInvoice, "Create Invoice", "CreateInvoice", ReiconRenderer.IconType.Plus, 155);
+            SetupTabButton(btnTabInvoices, "Invoices Directory", "Invoices", ReiconRenderer.IconType.Receipt, 175);
+            SetupTabButton(btnTabCustomers, "Customers Directory", "Customers", ReiconRenderer.IconType.Customers, 175);
+
+            pnlNavPillTrack.Controls.AddRange(new Control[] {
                 btnTabCustomers, btnTabInvoices, btnTabCreateInvoice, btnTabDashboard
             });
+
+            pnlNavHeader.Controls.Add(pnlNavPillTrack);
 
             // 2. Main View Deck
             pnlViewDeck.Dock = DockStyle.Fill;
@@ -183,17 +236,77 @@ namespace PROJECT_SBV1.Controls
             BuildCustomersView();
         }
 
-        private void SetupTabButton(Button btn, string text, string tabKey)
+        private void SetupTabButton(Button btn, string text, string tabKey, ReiconRenderer.IconType icon, int width)
         {
-            btn.Text = text;
+            btn.Text = string.Empty;
             btn.Dock = DockStyle.Left;
-            btn.Width = 150;
+            btn.Width = width;
             btn.FlatStyle = FlatStyle.Flat;
             btn.FlatAppearance.BorderSize = 0;
-            btn.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            btn.BackColor = Color.Transparent;
             btn.Cursor = Cursors.Hand;
             btn.Tag = tabKey;
+
+            bool isHovered = false;
+            btn.MouseEnter += (s, e) => { isHovered = true; btn.Invalidate(); };
+            btn.MouseLeave += (s, e) => { isHovered = false; btn.Invalidate(); };
             btn.Click += (s, e) => SwitchTab(tabKey);
+
+            btn.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+
+                int w = btn.Width;
+                int h = btn.Height;
+                if (w <= 0 || h <= 0) return;
+
+                bool isActive = (_currentTab == tabKey);
+                bool isDark = ThemeManager.IsDarkMode;
+
+                int pad = 3;
+                var pillRect = new Rectangle(pad, pad, w - pad * 2, h - pad * 2);
+
+                if (isActive)
+                {
+                    Color activeBg = isDark ? Color.FromArgb(36, 42, 64) : Color.White;
+                    Color activeBdr = isDark ? Color.FromArgb(79, 70, 229) : Color.FromArgb(203, 213, 225);
+
+                    using var path = GraphicsExtensions.CreateRoundedRectanglePath(pillRect.X, pillRect.Y, pillRect.Width, pillRect.Height, 8);
+                    using var b = new SolidBrush(activeBg);
+                    using var p = new Pen(activeBdr, 1.2f);
+                    g.FillPath(b, path);
+                    g.DrawPath(p, path);
+                }
+                else if (isHovered)
+                {
+                    Color hoverBg = isDark ? Color.FromArgb(32, 37, 54) : Color.FromArgb(226, 232, 240);
+                    using var path = GraphicsExtensions.CreateRoundedRectanglePath(pillRect.X, pillRect.Y, pillRect.Width, pillRect.Height, 8);
+                    using var b = new SolidBrush(hoverBg);
+                    g.FillPath(b, path);
+                }
+
+                Color iconColor = isActive
+                    ? (isDark ? Color.FromArgb(129, 140, 248) : Color.FromArgb(79, 70, 229))
+                    : (isDark ? Color.FromArgb(148, 163, 184) : Color.FromArgb(100, 116, 139));
+
+                Color textColor = isActive
+                    ? (isDark ? Color.White : Color.FromArgb(15, 23, 42))
+                    : (isDark ? Color.FromArgb(148, 163, 184) : Color.FromArgb(71, 85, 105));
+
+                // Draw Icon
+                int iconD = 16;
+                int iconX = pad + 14;
+                int iconY = (h - iconD) / 2;
+                ReiconRenderer.DrawIcon(g, icon, new Rectangle(iconX, iconY, iconD, iconD), iconColor, 1.6f);
+
+                // Draw Text
+                using var font = new Font("Segoe UI", 9f, isActive ? FontStyle.Bold : FontStyle.Regular);
+                using var textBrush = new SolidBrush(textColor);
+                using var sf = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center };
+                g.DrawString(text, font, textBrush, new RectangleF(iconX + iconD + 8, 0, w - (iconX + iconD + 8), h), sf);
+            };
         }
 
         public void SwitchTab(string tabKey)
@@ -205,7 +318,7 @@ namespace PROJECT_SBV1.Controls
             pnlInvoicesListView.Visible = (tabKey == "Invoices");
             pnlCustomersView.Visible = (tabKey == "Customers");
 
-            UpdateTabButtonStyles();
+            pnlNavPillTrack.Invalidate(true);
 
             if (tabKey == "Dashboard") LoadDashboardData();
             else if (tabKey == "CreateInvoice") PrepareNewInvoiceForm();
@@ -213,38 +326,19 @@ namespace PROJECT_SBV1.Controls
             else if (tabKey == "Customers") RefreshCustomersGrid();
         }
 
-        private void UpdateTabButtonStyles()
-        {
-            bool isDark = ThemeManager.IsDarkMode;
-            Color activeBg = ThemeManager.PrimaryAccent;
-            Color inactiveBg = Color.Transparent;
-            Color activeText = Color.White;
-            Color inactiveText = ThemeManager.TextSecondary;
-
-            foreach (Control c in pnlNavHeader.Controls)
-            {
-                if (c is Button btn && btn.Tag is string key)
-                {
-                    bool isActive = (key == _currentTab);
-                    btn.BackColor = isActive ? activeBg : inactiveBg;
-                    btn.ForeColor = isActive ? activeText : inactiveText;
-                }
-            }
-        }
-
         // ═══════════════════════════════════════════════════════════════════════════
-        //  BUILD TAB 1: SALES DASHBOARD VIEW
+        //  BUILD TAB 1: SALES DASHBOARD VIEW (PRO AESTHETICS)
         // ═══════════════════════════════════════════════════════════════════════════
         private void BuildDashboardView()
         {
             pnlDashboardView.Dock = DockStyle.Fill;
             pnlDashboardView.AutoScroll = true;
-            pnlDashboardView.Padding = new Padding(16);
+            pnlDashboardView.Padding = new Padding(18);
 
             // Row 1: KPI Metrics Cards
             pnlDashCardsHost.Dock = DockStyle.Top;
-            pnlDashCardsHost.Height = 90;
-            pnlDashCardsHost.Padding = new Padding(0, 0, 0, 10);
+            pnlDashCardsHost.Height = 114;
+            pnlDashCardsHost.Padding = new Padding(0, 0, 0, 12);
 
             var tlp = new TableLayoutPanel
             {
@@ -253,70 +347,95 @@ namespace PROJECT_SBV1.Controls
                 RowCount = 1
             };
             for (int i = 0; i < 6; i++)
-                tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16.66f));
+                tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16.666f));
 
-            tlp.Controls.Add(pnlCardTotalSales, 0, 0);
-            tlp.Controls.Add(pnlCardTotalInvoices, 1, 0);
-            tlp.Controls.Add(pnlCardPaidInvoices, 2, 0);
-            tlp.Controls.Add(pnlCardUnpaidInvoices, 3, 0);
-            tlp.Controls.Add(pnlCardOutstanding, 4, 0);
-            tlp.Controls.Add(pnlCardTodaySales, 5, 0);
+            Panel[] cardPanels = { pnlCardTotalSales, pnlCardTotalInvoices, pnlCardPaidInvoices, pnlCardUnpaidInvoices, pnlCardOutstanding, pnlCardTodaySales };
+            for (int i = 0; i < 6; i++)
+            {
+                int cardIdx = i;
+                var pnl = cardPanels[i];
+                pnl.Dock = DockStyle.Fill;
+                pnl.Margin = new Padding(4);
+                pnl.MouseEnter += (s, e) => { _cardsData[cardIdx].IsHovered = true; pnl.Invalidate(); };
+                pnl.MouseLeave += (s, e) => { _cardsData[cardIdx].IsHovered = false; pnl.Invalidate(); };
+                pnl.Paint += (s, e) => PaintMetricCard(e.Graphics, pnl, _cardsData[cardIdx]);
+                tlp.Controls.Add(pnl, i, 0);
+            }
 
             pnlDashCardsHost.Controls.Add(tlp);
 
-            // Row 2: Quick Action Bar
-            var pnlActions = new Panel
+            // Row 2: Recent Invoices Action Bar
+            var pnlActionBar = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 50,
-                Padding = new Padding(0, 4, 0, 8)
+                Height = 52,
+                Padding = new Padding(0, 8, 0, 8)
             };
 
-            btnQuickNewInv.Text = "Create New Invoice";
-            btnQuickNewInv.Icon = ReiconRenderer.IconType.Plus;
-            btnQuickNewInv.FillColor = ThemeManager.PrimaryAccent;
-            btnQuickNewInv.SetBounds(0, 4, 180, 38);
-            btnQuickNewInv.Click += (s, e) => SwitchTab("CreateInvoice");
+            var lblRecentTitle = new Label
+            {
+                Text = "Recent Sales Invoices & Transactions",
+                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                Dock = DockStyle.Left,
+                AutoSize = true,
+                Padding = new Padding(0, 6, 0, 0),
+                UseMnemonic = false
+            };
 
-            btnQuickViewInvs.Text = "View Invoices Directory";
-            btnQuickViewInvs.Icon = ReiconRenderer.IconType.Receipt;
-            btnQuickViewInvs.FillColor = Color.FromArgb(79, 70, 229);
-            btnQuickViewInvs.SetBounds(190, 4, 190, 38);
-            btnQuickViewInvs.Click += (s, e) => SwitchTab("Invoices");
+            var pnlBtnsRight = new Panel
+            {
+                Dock = DockStyle.Right,
+                Width = 500
+            };
 
-            btnQuickCustomers.Text = "Manage Customers";
+            btnQuickCustomers.Text = "Manage Clients";
             btnQuickCustomers.Icon = ReiconRenderer.IconType.Customers;
-            btnQuickCustomers.FillColor = Color.FromArgb(16, 185, 129);
-            btnQuickCustomers.SetBounds(390, 4, 180, 38);
+            btnQuickCustomers.BorderColor = Color.FromArgb(203, 213, 225);
+            btnQuickCustomers.BorderWidth = 1.2f;
+            btnQuickCustomers.FillColor = Color.White;
+            btnQuickCustomers.TextColor = Color.FromArgb(30, 41, 59);
+            btnQuickCustomers.HoverColor = Color.FromArgb(241, 245, 249);
+            btnQuickCustomers.SetBounds(350, 0, 145, 36);
             btnQuickCustomers.Click += (s, e) => SwitchTab("Customers");
 
-            pnlActions.Controls.AddRange(new Control[] { btnQuickNewInv, btnQuickViewInvs, btnQuickCustomers });
+            btnQuickViewInvs.Text = "All Invoices";
+            btnQuickViewInvs.Icon = ReiconRenderer.IconType.Receipt;
+            btnQuickViewInvs.BorderColor = Color.FromArgb(203, 213, 225);
+            btnQuickViewInvs.BorderWidth = 1.2f;
+            btnQuickViewInvs.FillColor = Color.White;
+            btnQuickViewInvs.TextColor = Color.FromArgb(30, 41, 59);
+            btnQuickViewInvs.HoverColor = Color.FromArgb(241, 245, 249);
+            btnQuickViewInvs.SetBounds(210, 0, 130, 36);
+            btnQuickViewInvs.Click += (s, e) => SwitchTab("Invoices");
 
-            // Row 3: Recent Sales Header & Grid
-            var lblRecentHeader = new Label
-            {
-                Text = "Recent Sales Invoices (Live Database)",
-                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
-                Dock = DockStyle.Top,
-                Height = 32
-            };
+            btnQuickNewInv.Text = "+ New Invoice";
+            btnQuickNewInv.Icon = ReiconRenderer.IconType.Plus;
+            btnQuickNewInv.FillColor = Color.FromArgb(79, 70, 229);
+            btnQuickNewInv.HoverColor = Color.FromArgb(67, 56, 202);
+            btnQuickNewInv.TextColor = Color.White;
+            btnQuickNewInv.SetBounds(60, 0, 140, 36);
+            btnQuickNewInv.Click += (s, e) => SwitchTab("CreateInvoice");
 
+            pnlBtnsRight.Controls.AddRange(new Control[] { btnQuickNewInv, btnQuickViewInvs, btnQuickCustomers });
+            pnlActionBar.Controls.Add(lblRecentTitle);
+            pnlActionBar.Controls.Add(pnlBtnsRight);
+
+            // Row 3: Modern Recent Sales Grid
+            FormatModernTable(dgvRecentSales);
             dgvRecentSales.Dock = DockStyle.Fill;
-            dgvRecentSales.BorderStyle = BorderStyle.None;
-            dgvRecentSales.RowHeadersVisible = false;
-            dgvRecentSales.AllowUserToAddRows = false;
-            dgvRecentSales.ReadOnly = true;
-            dgvRecentSales.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvRecentSales.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
 
-            dgvRecentSales.Columns.Add("InvNum", "Invoice #");
-            dgvRecentSales.Columns.Add("Customer", "Customer Name");
-            dgvRecentSales.Columns.Add("Date", "Invoice Date");
-            dgvRecentSales.Columns.Add("Due", "Due Date");
-            dgvRecentSales.Columns.Add("Total", "Grand Total (₹)");
-            dgvRecentSales.Columns.Add("Paid", "Amount Paid (₹)");
-            dgvRecentSales.Columns.Add("Balance", "Balance Due (₹)");
-            dgvRecentSales.Columns.Add("Status", "Status");
+            dgvRecentSales.Columns.Add("InvNum", "INVOICE #");
+            dgvRecentSales.Columns.Add("Customer", "CUSTOMER / CLIENT");
+            dgvRecentSales.Columns.Add("Date", "INVOICE DATE");
+            dgvRecentSales.Columns.Add("Due", "DUE DATE");
+            dgvRecentSales.Columns.Add("Total", "GRAND TOTAL (₹)");
+            dgvRecentSales.Columns.Add("Paid", "AMOUNT PAID (₹)");
+            dgvRecentSales.Columns.Add("Balance", "BALANCE DUE (₹)");
+            dgvRecentSales.Columns.Add("Status", "STATUS");
+
+            dgvRecentSales.Columns["Total"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvRecentSales.Columns["Paid"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvRecentSales.Columns["Balance"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
 
             dgvRecentSales.CellDoubleClick += (s, e) =>
             {
@@ -330,21 +449,72 @@ namespace PROJECT_SBV1.Controls
             };
 
             pnlDashboardView.Controls.Add(dgvRecentSales);
-            pnlDashboardView.Controls.Add(lblRecentHeader);
-            pnlDashboardView.Controls.Add(pnlActions);
+            pnlDashboardView.Controls.Add(pnlActionBar);
             pnlDashboardView.Controls.Add(pnlDashCardsHost);
+        }
+
+        private static void PaintMetricCard(Graphics g, Panel pnl, MetricCardData data)
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+
+            int w = pnl.Width;
+            int h = pnl.Height;
+            if (w <= 0 || h <= 0) return;
+
+            bool isDark = ThemeManager.IsDarkMode;
+            Color cardBg = isDark ? Color.FromArgb(23, 26, 38) : Color.White;
+            Color borderCol = data.IsHovered ? data.AccentColor : (isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240));
+
+            using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, w - 1, h - 1, 12);
+            using var bg = new SolidBrush(cardBg);
+            using var pen = new Pen(borderCol, data.IsHovered ? 1.5f : 1.2f);
+            g.FillPath(bg, path);
+            g.DrawPath(pen, path);
+
+            // Icon Badge (30x30 with 15% opacity tint)
+            int badgeSize = 30;
+            int badgeX = 14;
+            int badgeY = 12;
+            Color badgeBg = Color.FromArgb(30, data.AccentColor);
+            using var badgePath = GraphicsExtensions.CreateRoundedRectanglePath(badgeX, badgeY, badgeSize, badgeSize, 8);
+            using var badgeBrush = new SolidBrush(badgeBg);
+            g.FillPath(badgeBrush, badgePath);
+
+            ReiconRenderer.DrawIcon(g, data.Icon, new Rectangle(badgeX + 6, badgeY + 6, 18, 18), data.AccentColor, 1.8f);
+
+            // Pill tag on top right
+            using var fBadge = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+            using var bBadge = new SolidBrush(data.AccentColor);
+            using var sfRight = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
+            g.DrawString(data.Badge, fBadge, bBadge, new RectangleF(0, badgeY, w - 14, badgeSize), sfRight);
+
+            // Title
+            using var fTitle = new Font("Segoe UI", 8.2f, FontStyle.Bold);
+            Color textSec = isDark ? Color.FromArgb(148, 163, 184) : Color.FromArgb(100, 116, 139);
+            using var bTitle = new SolidBrush(textSec);
+            g.DrawString(data.Title, fTitle, bTitle, 14, 52);
+
+            // Main Value
+            using var fVal = new Font("Segoe UI", 14f, FontStyle.Bold);
+            Color textPri = isDark ? Color.White : Color.FromArgb(15, 23, 42);
+            using var bVal = new SolidBrush(textPri);
+            g.DrawString(data.Value, fVal, bVal, 12, 72);
         }
 
         private void LoadDashboardData()
         {
             var m = DatabaseService.GetSalesDashboardMetrics();
 
-            ConfigureKpiCard(pnlCardTotalSales, "Total Sales", $"₹{m.TotalSales:N2}", "Lifetime Revenue", ThemeManager.PrimaryAccent);
-            ConfigureKpiCard(pnlCardTotalInvoices, "Total Invoices", $"{m.TotalInvoicesCount}", "Recorded Invoices", ThemeManager.TextPrimary);
-            ConfigureKpiCard(pnlCardPaidInvoices, "Paid Invoices", $"{m.PaidInvoicesCount}", "Fully Cleared", ThemeManager.StatusPositive);
-            ConfigureKpiCard(pnlCardUnpaidInvoices, "Unpaid Invoices", $"{m.UnpaidInvoicesCount}", $"{m.OverdueInvoicesCount} Overdue", ThemeManager.StatusWarning);
-            ConfigureKpiCard(pnlCardOutstanding, "Outstanding Due", $"₹{m.OutstandingBalance:N2}", "Receivables", ThemeManager.StatusNegative);
-            ConfigureKpiCard(pnlCardTodaySales, "Today's Sales", $"₹{m.TodaySales:N2}", $"Month: ₹{m.ThisMonthSales:N2}", ThemeManager.PrimaryAccent);
+            _cardsData[0].Value = $"₹{m.TotalSales:N2}";
+            _cardsData[1].Value = $"{m.TotalInvoicesCount}";
+            _cardsData[2].Value = $"{m.PaidInvoicesCount}";
+            _cardsData[3].Value = $"{m.UnpaidInvoicesCount}";
+            _cardsData[3].Badge = m.OverdueInvoicesCount > 0 ? $"● {m.OverdueInvoicesCount} Overdue" : "● 0 Overdue";
+            _cardsData[4].Value = $"₹{m.OutstandingBalance:N2}";
+            _cardsData[5].Value = $"₹{m.TodaySales:N2}";
+
+            pnlDashCardsHost.Invalidate(true);
 
             dgvRecentSales.Rows.Clear();
             foreach (var inv in m.RecentInvoices)
@@ -358,108 +528,65 @@ namespace PROJECT_SBV1.Controls
             }
         }
 
-        private void ConfigureKpiCard(Panel pnl, string title, string val, string sub, Color accent)
-        {
-            pnl.Controls.Clear();
-            pnl.Dock = DockStyle.Fill;
-            pnl.Margin = new Padding(3);
-            pnl.Paint += (s, e) =>
-            {
-                var g = e.Graphics;
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                int w = pnl.Width;
-                int h = pnl.Height;
-                if (w <= 0 || h <= 0) return;
-
-                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, w - 1, h - 1, 10);
-                using var bg = new SolidBrush(ThemeManager.CardBackground);
-                g.FillPath(bg, path);
-
-                using var pen = new Pen(ThemeManager.BorderHairline, 1.2f);
-                g.DrawPath(pen, path);
-
-                using var bTitle = new SolidBrush(ThemeManager.TextSecondary);
-                using var bVal = new SolidBrush(ThemeManager.TextPrimary);
-                using var bSub = new SolidBrush(accent);
-
-                using var fTitle = new Font("Segoe UI", 8f);
-                using var fVal = new Font("Segoe UI", 12f, FontStyle.Bold);
-                using var fSub = new Font("Segoe UI", 7.5f);
-
-                g.DrawString(title, fTitle, bTitle, 10, 8);
-                g.DrawString(val, fVal, bVal, 10, 26);
-                g.DrawString(sub, fSub, bSub, 10, 52);
-            };
-            pnl.Invalidate();
-        }
-
         // ═══════════════════════════════════════════════════════════════════════════
-        //  BUILD TAB 2: CREATE INVOICE VIEW
+        //  BUILD TAB 2: CREATE INVOICE VIEW (STRUCTURED CARDS, PRO FINISH)
         // ═══════════════════════════════════════════════════════════════════════════
         private void BuildCreateInvoiceView()
         {
             pnlCreateInvoiceView.Dock = DockStyle.Fill;
             pnlCreateInvoiceView.AutoScroll = true;
-            pnlCreateInvoiceView.Padding = new Padding(16);
+            pnlCreateInvoiceView.Padding = new Padding(18);
 
-            int y = 8;
-            int col1 = 0;
-            int col2 = 270;
-            int col3 = 540;
-            int col4 = 780;
+            int y = 6;
+            int cardW = 980;
 
-            // Section 1: Top Invoice Meta
-            var lblSec1 = new Label
-            {
-                Text = "1. INVOICE META & TAX SCHEME",
-                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
-                Bounds = new Rectangle(col1, y, 500, 24)
-            };
-            pnlCreateInvoiceView.Controls.Add(lblSec1);
-            y += 28;
+            // ─────────────────────────────────────────────────────────────────────────
+            // CARD 1: INVOICE SETTINGS & CLIENT DETAILS
+            // ─────────────────────────────────────────────────────────────────────────
+            var pnlCard1 = CreateStyledCardPanel(0, y, cardW, 195, "1. Invoice Settings & Client Information", ReiconRenderer.IconType.Receipt);
+            pnlCreateInvoiceView.Controls.Add(pnlCard1);
 
-            AddLabelAndControl(pnlCreateInvoiceView, "Invoice Number (Auto Unique)", txtInvNumber, col1, y, 240);
+            int subCol1 = 20;
+            int subCol2 = 250;
+            int subCol3 = 510;
+            int subCol4 = 750;
+            int row1Y = 46;
+
+            // Left: Invoice Metadata
+            AddModernField(pnlCard1, "Invoice Number (Auto Unique)", txtInvNumber, subCol1, row1Y, 210);
             txtInvNumber.ReadOnly = true;
+            txtInvNumber.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
 
-            AddLabelAndControl(pnlCreateInvoiceView, "Invoice Date", dtpInvDate, col2, y, 240);
+            AddModernField(pnlCard1, "Invoice Date", dtpInvDate, subCol2, row1Y, 230);
             dtpInvDate.Format = DateTimePickerFormat.Short;
 
-            AddLabelAndControl(pnlCreateInvoiceView, "Payment Due Date", dtpDueDate, col3, y, 210);
+            int row2Y = row1Y + 54;
+            AddModernField(pnlCard1, "Payment Due Date", dtpDueDate, subCol1, row2Y, 210);
             dtpDueDate.Format = DateTimePickerFormat.Short;
 
             cmbPaymentTerms.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbPaymentTerms.Items.Clear();
             cmbPaymentTerms.Items.AddRange(new object[] { "Due on Receipt", "Net 15", "Net 30", "Net 60" });
             cmbPaymentTerms.SelectedIndex = 1;
-            AddLabelAndControl(pnlCreateInvoiceView, "Payment Terms", cmbPaymentTerms, col4, y, 170);
+            AddModernField(pnlCard1, "Payment Terms", cmbPaymentTerms, subCol2, row2Y, 230);
 
-            y += 56;
-
+            int row3Y = row2Y + 54;
             cmbTaxScheme.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbTaxScheme.Items.AddRange(new object[] { "Intra-State GST (CGST + SGST)", "Inter-State GST (IGST)", "Zero Tax / SEZ / Export" });
+            cmbTaxScheme.Items.Clear();
+            cmbTaxScheme.Items.AddRange(new object[] { "Intra-State GST (CGST 9% + SGST 9%)", "Inter-State GST (IGST 18%)", "Zero Tax / Export / SEZ" });
             cmbTaxScheme.SelectedIndex = 0;
             cmbTaxScheme.SelectedIndexChanged += (s, e) => RecalculateBill();
-            AddLabelAndControl(pnlCreateInvoiceView, "GST Tax Scheme", cmbTaxScheme, col1, y, 320);
+            AddModernField(pnlCard1, "GST Tax Policy Scheme", cmbTaxScheme, subCol1, row3Y, 460);
 
-            y += 64;
-
-            // Section 2: Customer Details
-            var lblSec2 = new Label
-            {
-                Text = "2. CUSTOMER & BILLING INFORMATION",
-                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
-                Bounds = new Rectangle(col1, y, 500, 24)
-            };
-            pnlCreateInvoiceView.Controls.Add(lblSec2);
-            y += 28;
-
+            // Right: Customer Selection & Details
             cmbCustomerSelect.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbCustomerSelect.SelectedIndexChanged += (s, e) => OnCustomerSelected();
-            AddLabelAndControl(pnlCreateInvoiceView, "Select Existing Customer *", cmbCustomerSelect, col1, y, 320);
+            AddModernField(pnlCard1, "Select Existing Customer *", cmbCustomerSelect, subCol3, row1Y, 220);
 
-            btnAddNewCustomer.Text = "+ New Customer";
+            btnAddNewCustomer.Text = "+ New Client";
             btnAddNewCustomer.Icon = ReiconRenderer.IconType.Plus;
-            btnAddNewCustomer.FillColor = ThemeManager.PrimaryAccent;
-            btnAddNewCustomer.SetBounds(col1 + 330, y + 20, 140, 30);
+            btnAddNewCustomer.FillColor = Color.FromArgb(79, 70, 229);
+            btnAddNewCustomer.SetBounds(subCol3 + 230, row1Y + 20, 130, 28);
             btnAddNewCustomer.Click += (s, e) =>
             {
                 using var dlg = new CustomerDialog();
@@ -469,29 +596,24 @@ namespace PROJECT_SBV1.Controls
                     DataChanged?.Invoke(this, EventArgs.Empty);
                 }
             };
-            pnlCreateInvoiceView.Controls.Add(btnAddNewCustomer);
+            pnlCard1.Controls.Add(btnAddNewCustomer);
 
-            AddLabelAndControl(pnlCreateInvoiceView, "Company / Org Name", txtCustCompany, col3, y, 210);
-            AddLabelAndControl(pnlCreateInvoiceView, "Phone Number *", txtCustPhone, col4, y, 170);
+            AddModernField(pnlCard1, "Company / Org Name", txtCustCompany, subCol3, row2Y, 220);
+            AddModernField(pnlCard1, "Phone Number *", txtCustPhone, subCol4 + 30, row2Y, 170);
 
-            y += 56;
-            AddLabelAndControl(pnlCreateInvoiceView, "Email Address", txtCustEmail, col1, y, 260);
-            AddLabelAndControl(pnlCreateInvoiceView, "Billing Address", txtCustAddress, col2, y, 400);
-            AddLabelAndControl(pnlCreateInvoiceView, "GSTIN Number", txtCustGSTIN, col4, y, 170);
+            AddModernField(pnlCard1, "Email Address", txtCustEmail, subCol3, row3Y, 220);
+            AddModernField(pnlCard1, "Billing Address / Location", txtCustAddress, subCol4 + 30, row3Y, 170);
 
-            y += 66;
+            y += 210;
 
-            // Section 3: Line Items (Services & Subscriptions)
-            var lblSec3 = new Label
-            {
-                Text = "3. SERVICES, SUBSCRIPTIONS & LINE ITEMS",
-                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
-                Bounds = new Rectangle(col1, y, 500, 24)
-            };
-            pnlCreateInvoiceView.Controls.Add(lblSec3);
-            y += 28;
+            // ─────────────────────────────────────────────────────────────────────────
+            // CARD 2: SERVICES & BILLABLE LINE ITEMS
+            // ─────────────────────────────────────────────────────────────────────────
+            var pnlCard2 = CreateStyledCardPanel(0, y, cardW, 290, "2. Billable Services, Subscriptions & Products", ReiconRenderer.IconType.Package);
+            pnlCreateInvoiceView.Controls.Add(pnlCard2);
 
-            // Service Name Presets + Custom
+            int itemY = 46;
+            cmbServiceName.Items.Clear();
             cmbServiceName.Items.AddRange(new object[] {
                 "Enterprise Software License (Annual)",
                 "Cloud SaaS Subscription (Monthly)",
@@ -502,174 +624,265 @@ namespace PROJECT_SBV1.Controls
                 "Database Migration & Security Audit",
                 "Annual Maintenance Contract (AMC)"
             });
-            AddLabelAndControl(pnlCreateInvoiceView, "Service / Item Name *", cmbServiceName, col1, y, 260);
+            AddModernField(pnlCard2, "Service / Item Name *", cmbServiceName, 20, itemY, 260);
 
-            txtItemDesc.PlaceholderText = "Scope of work / spec details";
-            AddLabelAndControl(pnlCreateInvoiceView, "Description", txtItemDesc, col2, y, 220);
+            txtItemDesc.PlaceholderText = "Scope of work / deliverables";
+            AddModernField(pnlCard2, "Description / Scope", txtItemDesc, 290, itemY, 210);
 
             numItemQty.Minimum = 1;
             numItemQty.Maximum = 10000;
             numItemQty.Value = 1;
-            AddLabelAndControl(pnlCreateInvoiceView, "Qty *", numItemQty, 500, y, 60);
+            AddModernField(pnlCard2, "Qty *", numItemQty, 510, itemY, 60);
 
             txtItemPrice.PlaceholderText = "0.00";
-            AddLabelAndControl(pnlCreateInvoiceView, "Unit Price (₹) *", txtItemPrice, 570, y, 100);
+            AddModernField(pnlCard2, "Unit Rate (₹) *", txtItemPrice, 580, itemY, 100);
 
             txtItemDiscPct.PlaceholderText = "0%";
-            AddLabelAndControl(pnlCreateInvoiceView, "Disc %", txtItemDiscPct, 680, y, 60);
+            AddModernField(pnlCard2, "Disc %", txtItemDiscPct, 690, itemY, 60);
 
             cmbItemTaxPct.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbItemTaxPct.Items.Clear();
             cmbItemTaxPct.Items.AddRange(new object[] { "0%", "5%", "12%", "18%", "28%" });
             cmbItemTaxPct.SelectedItem = "18%";
-            AddLabelAndControl(pnlCreateInvoiceView, "GST %", cmbItemTaxPct, 750, y, 70);
+            AddModernField(pnlCard2, "GST %", cmbItemTaxPct, 760, itemY, 70);
 
-            btnAddLineItem.Text = "+ Add Item";
+            btnAddLineItem.Text = "+ Add Line";
             btnAddLineItem.Icon = ReiconRenderer.IconType.Plus;
-            btnAddLineItem.FillColor = ThemeManager.StatusPositive;
-            btnAddLineItem.SetBounds(830, y + 20, 110, 30);
+            btnAddLineItem.FillColor = Color.FromArgb(16, 185, 129);
+            btnAddLineItem.HoverColor = Color.FromArgb(5, 150, 105);
+            btnAddLineItem.SetBounds(840, itemY + 20, 115, 28);
             btnAddLineItem.Click += (s, e) => AddItemToInvoice();
-            pnlCreateInvoiceView.Controls.Add(btnAddLineItem);
+            pnlCard2.Controls.Add(btnAddLineItem);
 
-            y += 60;
-
-            // Invoice Items DataGridView
-            dgvInvoiceItems.SetBounds(col1, y, 950, 160);
-            dgvInvoiceItems.BorderStyle = BorderStyle.None;
-            dgvInvoiceItems.RowHeadersVisible = false;
-            dgvInvoiceItems.AllowUserToAddRows = false;
-            dgvInvoiceItems.ReadOnly = true;
-            dgvInvoiceItems.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvInvoiceItems.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-
-            dgvInvoiceItems.Columns.Add("Service", "Service / Product");
-            dgvInvoiceItems.Columns.Add("Desc", "Description");
-            dgvInvoiceItems.Columns.Add("Qty", "Qty");
-            dgvInvoiceItems.Columns.Add("Price", "Rate (₹)");
-            dgvInvoiceItems.Columns.Add("Disc", "Disc (₹)");
+            // Line items grid
+            FormatModernTable(dgvInvoiceItems);
+            dgvInvoiceItems.SetBounds(20, itemY + 58, 935, 140);
+            dgvInvoiceItems.Columns.Add("Service", "SERVICE / PRODUCT");
+            dgvInvoiceItems.Columns.Add("Desc", "SCOPE / DESCRIPTION");
+            dgvInvoiceItems.Columns.Add("Qty", "QTY");
+            dgvInvoiceItems.Columns.Add("Price", "RATE (₹)");
+            dgvInvoiceItems.Columns.Add("Disc", "DISC (₹)");
             dgvInvoiceItems.Columns.Add("Tax", "GST %");
-            dgvInvoiceItems.Columns.Add("Total", "Line Total (₹)");
+            dgvInvoiceItems.Columns.Add("Total", "LINE TOTAL (₹)");
 
-            btnRemoveLineItem.Text = "Remove Selected Item";
+            dgvInvoiceItems.Columns["Price"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvInvoiceItems.Columns["Disc"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvInvoiceItems.Columns["Total"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+
+            btnRemoveLineItem.Text = "Remove Item";
             btnRemoveLineItem.Icon = ReiconRenderer.IconType.Close;
-            btnRemoveLineItem.FillColor = ThemeManager.StatusNegative;
-            btnRemoveLineItem.SetBounds(col1, y + 165, 160, 28);
+            btnRemoveLineItem.BorderColor = Color.FromArgb(244, 63, 94);
+            btnRemoveLineItem.BorderWidth = 1.2f;
+            btnRemoveLineItem.FillColor = Color.White;
+            btnRemoveLineItem.TextColor = Color.FromArgb(225, 29, 72);
+            btnRemoveLineItem.HoverColor = Color.FromArgb(255, 241, 242);
+            btnRemoveLineItem.SetBounds(20, itemY + 204, 130, 28);
             btnRemoveLineItem.Click += (s, e) => RemoveSelectedItem();
 
-            pnlCreateInvoiceView.Controls.Add(dgvInvoiceItems);
-            pnlCreateInvoiceView.Controls.Add(btnRemoveLineItem);
+            pnlCard2.Controls.Add(dgvInvoiceItems);
+            pnlCard2.Controls.Add(btnRemoveLineItem);
 
-            y += 205;
+            y += 305;
 
-            // Section 4: Live Arithmetic Summary & Initial Payment Block
-            var pnlSummaryBox = new Panel
-            {
-                Bounds = new Rectangle(col1, y, 950, 170),
-                BackColor = Color.FromArgb(248, 250, 252)
-            };
-
-            int sumY = 12;
-            void AddSummaryLabel(string title, Label valLbl, int rx, int ry, bool bold = false)
-            {
-                var lblT = new Label { Text = title, Font = new Font("Segoe UI", 9f, bold ? FontStyle.Bold : FontStyle.Regular), Bounds = new Rectangle(rx, ry, 130, 20), AutoSize = false };
-                valLbl.SetBounds(rx + 130, ry, 120, 20);
-                valLbl.Font = new Font("Segoe UI", 9f, bold ? FontStyle.Bold : FontStyle.Regular);
-                valLbl.TextAlign = ContentAlignment.TopRight;
-                valLbl.Text = "₹0.00";
-                pnlSummaryBox.Controls.Add(lblT);
-                pnlSummaryBox.Controls.Add(valLbl);
-            }
+            // ─────────────────────────────────────────────────────────────────────────
+            // CARD 3: PAYMENT LEDGER & FINAL CALCULATION SUMMARY
+            // ─────────────────────────────────────────────────────────────────────────
+            var pnlCard3 = CreateStyledCardPanel(0, y, cardW, 215, "3. Payment Recording & Financial Summary", ReiconRenderer.IconType.Wallet);
+            pnlCreateInvoiceView.Controls.Add(pnlCard3);
 
             // Left side: Payment recording on save
-            var lblPayTitle = new Label { Text = "RECORD PAYMENT ON INVOICE CREATION (OPTIONAL)", Font = new Font("Segoe UI", 9f, FontStyle.Bold), Bounds = new Rectangle(16, sumY, 400, 20) };
-            pnlSummaryBox.Controls.Add(lblPayTitle);
-
-            AddLabelAndControl(pnlSummaryBox, "Amount Paid Now (₹)", txtInitialPaymentAmt, 16, sumY + 24, 150);
+            int payY = 46;
+            AddModernField(pnlCard3, "Amount Paid Now (₹)", txtInitialPaymentAmt, 20, payY, 150);
             txtInitialPaymentAmt.Text = "0.00";
             txtInitialPaymentAmt.TextChanged += (s, e) => RecalculateBill();
 
             cmbInitialPaymentMode.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbInitialPaymentMode.Items.Clear();
             cmbInitialPaymentMode.Items.AddRange(new object[] { "Bank Transfer", "UPI", "Cash", "Card", "Other" });
             cmbInitialPaymentMode.SelectedIndex = 0;
-            AddLabelAndControl(pnlSummaryBox, "Payment Mode", cmbInitialPaymentMode, 180, sumY + 24, 130);
+            AddModernField(pnlCard3, "Payment Method", cmbInitialPaymentMode, 185, payY, 140);
 
-            txtInitialPaymentRef.PlaceholderText = "Cheque / UTR / Txn #";
-            AddLabelAndControl(pnlSummaryBox, "Reference Number", txtInitialPaymentRef, 324, sumY + 24, 150);
+            txtInitialPaymentRef.PlaceholderText = "Cheque / UTR / Txn Ref";
+            AddModernField(pnlCard3, "Reference Number", txtInitialPaymentRef, 340, payY, 150);
 
-            // Right side: Financial breakdowns
-            int rX = 660;
-            AddSummaryLabel("Subtotal:", lblCalcSubtotal, rX, sumY);
-            AddSummaryLabel("Item Discounts:", lblCalcItemDisc, rX, sumY + 20);
+            // Right side: Financial receipt card
+            int sumRx = 650;
+            int sumY = 44;
 
-            var lblOvr = new Label { Text = "Overall Disc (₹):", Font = new Font("Segoe UI", 9f), Bounds = new Rectangle(rX, sumY + 42, 130, 20) };
-            txtOverallDisc.SetBounds(rX + 130, sumY + 40, 110, 22);
+            void AddReceiptRow(string title, Label valLbl, int ry, bool bold = false)
+            {
+                var lblT = new Label
+                {
+                    Text = title,
+                    Font = new Font("Segoe UI", 9f, bold ? FontStyle.Bold : FontStyle.Regular),
+                    Bounds = new Rectangle(sumRx, ry, 140, 20),
+                    AutoSize = false,
+                    UseMnemonic = false
+                };
+                valLbl.SetBounds(sumRx + 140, ry, 160, 20);
+                valLbl.Font = new Font("Segoe UI", 9.5f, bold ? FontStyle.Bold : FontStyle.Regular);
+                valLbl.TextAlign = ContentAlignment.TopRight;
+                valLbl.Text = "₹0.00";
+                pnlCard3.Controls.Add(lblT);
+                pnlCard3.Controls.Add(valLbl);
+            }
+
+            AddReceiptRow("Subtotal:", lblCalcSubtotal, sumY);
+            AddReceiptRow("Item Discounts:", lblCalcItemDisc, sumY + 22);
+
+            var lblOvr = new Label { Text = "Overall Discount (₹):", Font = new Font("Segoe UI", 9f), Bounds = new Rectangle(sumRx, sumY + 44, 140, 20), UseMnemonic = false };
+            txtOverallDisc.SetBounds(sumRx + 180, sumY + 43, 120, 22);
             txtOverallDisc.Text = "0.00";
             txtOverallDisc.TextAlign = HorizontalAlignment.Right;
             txtOverallDisc.TextChanged += (s, e) => RecalculateBill();
-            pnlSummaryBox.Controls.Add(lblOvr);
-            pnlSummaryBox.Controls.Add(txtOverallDisc);
+            pnlCard3.Controls.Add(lblOvr);
+            pnlCard3.Controls.Add(txtOverallDisc);
 
-            AddSummaryLabel("Taxable Amount:", lblCalcTaxable, rX, sumY + 66);
-            AddSummaryLabel("CGST Amount:", lblCalcCgst, rX, sumY + 86);
-            AddSummaryLabel("SGST Amount:", lblCalcSgst, rX, sumY + 106);
-            AddSummaryLabel("IGST Amount:", lblCalcIgst, rX, sumY + 106);
-            AddSummaryLabel("GRAND TOTAL:", lblCalcGrandTotal, rX, sumY + 128, true);
-            lblCalcGrandTotal.Font = new Font("Segoe UI", 11f, FontStyle.Bold);
-            lblCalcGrandTotal.ForeColor = ThemeManager.PrimaryAccent;
+            AddReceiptRow("Taxable Amount:", lblCalcTaxable, sumY + 68);
+            AddReceiptRow("CGST Amount:", lblCalcCgst, sumY + 88);
+            AddReceiptRow("SGST Amount:", lblCalcSgst, sumY + 108);
+            AddReceiptRow("IGST Amount:", lblCalcIgst, sumY + 108);
 
-            AddSummaryLabel("BALANCE DUE:", lblCalcBalanceDue, rX, sumY + 148, true);
+            // Hairline separator
+            var sep = new Panel { Bounds = new Rectangle(sumRx, sumY + 130, 305, 1), BackColor = Color.FromArgb(203, 213, 225) };
+            pnlCard3.Controls.Add(sep);
+
+            // Grand Total (Large Bold Callout)
+            var lblGtTitle = new Label { Text = "GRAND TOTAL:", Font = new Font("Segoe UI", 11f, FontStyle.Bold), Bounds = new Rectangle(sumRx, sumY + 136, 120, 24), UseMnemonic = false };
+            lblCalcGrandTotal.Bounds = new Rectangle(sumRx + 120, sumY + 134, 185, 26);
+            lblCalcGrandTotal.Font = new Font("Segoe UI", 15f, FontStyle.Bold);
+            lblCalcGrandTotal.ForeColor = Color.FromArgb(16, 185, 129);
+            lblCalcGrandTotal.TextAlign = ContentAlignment.TopRight;
+            lblCalcGrandTotal.Text = "₹0.00";
+            pnlCard3.Controls.Add(lblGtTitle);
+            pnlCard3.Controls.Add(lblCalcGrandTotal);
+
+            // Balance Due
+            var lblBdTitle = new Label { Text = "Balance Due:", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), Bounds = new Rectangle(sumRx, sumY + 162, 120, 22), UseMnemonic = false };
+            lblCalcBalanceDue.Bounds = new Rectangle(sumRx + 120, sumY + 162, 185, 22);
             lblCalcBalanceDue.Font = new Font("Segoe UI", 11f, FontStyle.Bold);
-            lblCalcBalanceDue.ForeColor = ThemeManager.StatusNegative;
+            lblCalcBalanceDue.ForeColor = Color.FromArgb(225, 29, 72);
+            lblCalcBalanceDue.TextAlign = ContentAlignment.TopRight;
+            lblCalcBalanceDue.Text = "₹0.00";
+            pnlCard3.Controls.Add(lblBdTitle);
+            pnlCard3.Controls.Add(lblCalcBalanceDue);
 
-            pnlCreateInvoiceView.Controls.Add(pnlSummaryBox);
+            y += 230;
 
-            y += 185;
+            // ─────────────────────────────────────────────────────────────────────────
+            // DOCKED ACTION FOOTER BAR
+            // ─────────────────────────────────────────────────────────────────────────
+            var pnlFooter = new Panel
+            {
+                Bounds = new Rectangle(0, y, cardW, 56),
+                Padding = new Padding(0, 8, 0, 8)
+            };
 
-            // Section 5: Bottom Working Buttons
-            btnSaveInvoice.Text = "💾 Save Invoice";
-            btnSaveInvoice.Icon = null;
-            btnSaveInvoice.FillColor = ThemeManager.PrimaryAccent;
-            btnSaveInvoice.SetBounds(col1, y, 140, 40);
+            btnSaveInvoice.Text = "Save Invoice";
+            btnSaveInvoice.Icon = ReiconRenderer.IconType.Check;
+            btnSaveInvoice.FillColor = Color.FromArgb(79, 70, 229);
+            btnSaveInvoice.HoverColor = Color.FromArgb(67, 56, 202);
+            btnSaveInvoice.SetBounds(0, 4, 150, 40);
             btnSaveInvoice.Click += (s, e) => SaveCurrentInvoice(andPrint: false);
 
-            btnSaveAndPrint.Text = "🖨️ Save & Print";
-            btnSaveAndPrint.Icon = null;
-            btnSaveAndPrint.FillColor = ThemeManager.StatusPositive;
-            btnSaveAndPrint.SetBounds(col1 + 150, y, 140, 40);
+            btnSaveAndPrint.Text = "Save & Print (A4)";
+            btnSaveAndPrint.Icon = ReiconRenderer.IconType.Printer;
+            btnSaveAndPrint.FillColor = Color.FromArgb(16, 185, 129);
+            btnSaveAndPrint.HoverColor = Color.FromArgb(5, 150, 105);
+            btnSaveAndPrint.SetBounds(160, 4, 165, 40);
             btnSaveAndPrint.Click += (s, e) => SaveCurrentInvoice(andPrint: true);
 
-            btnPreviewInvoice.Text = "👁️ Preview";
-            btnPreviewInvoice.Icon = null;
-            btnPreviewInvoice.FillColor = Color.FromArgb(79, 70, 229);
-            btnPreviewInvoice.SetBounds(col1 + 300, y, 120, 40);
+            btnPreviewInvoice.Text = "Print Preview";
+            btnPreviewInvoice.Icon = ReiconRenderer.IconType.Eye;
+            btnPreviewInvoice.BorderColor = Color.FromArgb(203, 213, 225);
+            btnPreviewInvoice.BorderWidth = 1.2f;
+            btnPreviewInvoice.FillColor = Color.White;
+            btnPreviewInvoice.TextColor = Color.FromArgb(30, 41, 59);
+            btnPreviewInvoice.HoverColor = Color.FromArgb(241, 245, 249);
+            btnPreviewInvoice.SetBounds(335, 4, 140, 40);
             btnPreviewInvoice.Click += (s, e) => PreviewCurrentInvoice();
 
-            btnExportPdf.Text = "📄 Export PDF";
-            btnExportPdf.Icon = null;
-            btnExportPdf.FillColor = Color.FromArgb(37, 99, 235);
-            btnExportPdf.SetBounds(col1 + 430, y, 130, 40);
+            btnExportPdf.Text = "Export PDF";
+            btnExportPdf.Icon = ReiconRenderer.IconType.Document;
+            btnExportPdf.BorderColor = Color.FromArgb(203, 213, 225);
+            btnExportPdf.BorderWidth = 1.2f;
+            btnExportPdf.FillColor = Color.White;
+            btnExportPdf.TextColor = Color.FromArgb(30, 41, 59);
+            btnExportPdf.HoverColor = Color.FromArgb(241, 245, 249);
+            btnExportPdf.SetBounds(485, 4, 135, 40);
             btnExportPdf.Click += (s, e) => ExportCurrentInvoicePdf();
 
             btnClearInvoice.Text = "Clear Form";
-            btnClearInvoice.Icon = null;
-            btnClearInvoice.FillColor = Color.FromArgb(148, 163, 184);
-            btnClearInvoice.SetBounds(col1 + 570, y, 110, 40);
+            btnClearInvoice.Icon = ReiconRenderer.IconType.Close;
+            btnClearInvoice.BorderColor = Color.FromArgb(226, 232, 240);
+            btnClearInvoice.BorderWidth = 1f;
+            btnClearInvoice.FillColor = Color.Transparent;
+            btnClearInvoice.TextColor = Color.FromArgb(100, 116, 139);
+            btnClearInvoice.HoverColor = Color.FromArgb(254, 226, 226);
+            btnClearInvoice.SetBounds(630, 4, 120, 40);
             btnClearInvoice.Click += (s, e) => PrepareNewInvoiceForm();
 
-            pnlCreateInvoiceView.Controls.AddRange(new Control[] {
+            pnlFooter.Controls.AddRange(new Control[] {
                 btnSaveInvoice, btnSaveAndPrint, btnPreviewInvoice, btnExportPdf, btnClearInvoice
             });
+
+            pnlCreateInvoiceView.Controls.Add(pnlFooter);
         }
 
-        private void AddLabelAndControl(Panel parent, string labelText, Control ctrl, int x, int y, int width)
+        private static Panel CreateStyledCardPanel(int x, int y, int w, int h, string sectionTitle, ReiconRenderer.IconType icon)
+        {
+            var pnl = new Panel
+            {
+                Bounds = new Rectangle(x, y, w, h),
+                Padding = new Padding(16)
+            };
+
+            pnl.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+
+                int pw = pnl.Width;
+                int ph = pnl.Height;
+                if (pw <= 0 || ph <= 0) return;
+
+                bool isDark = ThemeManager.IsDarkMode;
+                Color cardBg = isDark ? Color.FromArgb(23, 26, 38) : Color.White;
+                Color bdr = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+
+                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, pw - 1, ph - 1, 12);
+                using var bg = new SolidBrush(cardBg);
+                using var p = new Pen(bdr, 1.2f);
+                g.FillPath(bg, path);
+                g.DrawPath(p, path);
+
+                // Section Title & Icon
+                ReiconRenderer.DrawIcon(g, icon, new Rectangle(18, 14, 18, 18), Color.FromArgb(79, 70, 229), 1.8f);
+
+                using var font = new Font("Segoe UI", 10f, FontStyle.Bold);
+                using var brush = new SolidBrush(isDark ? Color.White : Color.FromArgb(15, 23, 42));
+                g.DrawString(sectionTitle, font, brush, 42, 13);
+
+                // Thin divider line under title
+                using var penDiv = new Pen(bdr, 1f);
+                g.DrawLine(penDiv, 16, 38, pw - 16, 38);
+            };
+
+            return pnl;
+        }
+
+        private static void AddModernField(Panel parent, string labelText, Control ctrl, int x, int y, int width)
         {
             var lbl = new Label
             {
                 Text = labelText,
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
                 Bounds = new Rectangle(x, y, width, 18),
-                ForeColor = ThemeManager.TextSecondary
+                ForeColor = ThemeManager.TextSecondary,
+                UseMnemonic = false
             };
-            ctrl.SetBounds(x, y + 20, width, 28);
+            ctrl.SetBounds(x, y + 20, width, 26);
             ctrl.Font = new Font("Segoe UI", 9.5f);
             parent.Controls.Add(lbl);
             parent.Controls.Add(ctrl);
@@ -683,21 +896,16 @@ namespace PROJECT_SBV1.Controls
             cmbPaymentTerms.SelectedIndex = 1;
             cmbTaxScheme.SelectedIndex = 0;
 
-            LoadCustomersIntoDropdown();
-
             _workingItems.Clear();
             dgvInvoiceItems.Rows.Clear();
-
             txtItemDesc.Clear();
-            numItemQty.Value = 1;
             txtItemPrice.Clear();
             txtItemDiscPct.Clear();
-            cmbItemTaxPct.SelectedItem = "18%";
-
             txtOverallDisc.Text = "0.00";
             txtInitialPaymentAmt.Text = "0.00";
             txtInitialPaymentRef.Clear();
 
+            LoadCustomersIntoDropdown();
             RecalculateBill();
         }
 
@@ -705,25 +913,26 @@ namespace PROJECT_SBV1.Controls
         {
             _allCustomers = DatabaseService.GetCustomers();
             cmbCustomerSelect.Items.Clear();
-            cmbCustomerSelect.Items.Add("-- Select Customer --");
+            cmbCustomerSelect.Items.Add("-- Select Existing Customer --");
 
-            int selectIndex = 0;
+            int targetIndex = 0;
             for (int i = 0; i < _allCustomers.Count; i++)
             {
                 var c = _allCustomers[i];
                 cmbCustomerSelect.Items.Add(c.DisplayName);
                 if (c.Id == selectCustomerId)
                 {
-                    selectIndex = i + 1;
+                    targetIndex = i + 1;
                 }
             }
-            cmbCustomerSelect.SelectedIndex = selectIndex;
+            cmbCustomerSelect.SelectedIndex = targetIndex;
+            if (targetIndex == 0) ClearCustomerFields();
         }
 
         private void OnCustomerSelected()
         {
             int idx = cmbCustomerSelect.SelectedIndex;
-            if (idx > 0 && idx <= _allCustomers.Count)
+            if (idx > 0 && idx - 1 < _allCustomers.Count)
             {
                 var c = _allCustomers[idx - 1];
                 txtCustCompany.Text = c.CompanyName;
@@ -734,65 +943,68 @@ namespace PROJECT_SBV1.Controls
             }
             else
             {
-                txtCustCompany.Clear();
-                txtCustPhone.Clear();
-                txtCustEmail.Clear();
-                txtCustAddress.Clear();
-                txtCustGSTIN.Clear();
+                ClearCustomerFields();
             }
+        }
+
+        private void ClearCustomerFields()
+        {
+            txtCustCompany.Clear();
+            txtCustPhone.Clear();
+            txtCustEmail.Clear();
+            txtCustAddress.Clear();
+            txtCustGSTIN.Clear();
         }
 
         private void AddItemToInvoice()
         {
-            string service = cmbServiceName.Text.Trim();
-            if (string.IsNullOrWhiteSpace(service))
+            string sName = cmbServiceName.Text.Trim();
+            if (string.IsNullOrWhiteSpace(sName))
             {
-                MessageBox.Show("Please enter or select a service name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Please enter or select a Service / Item name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 cmbServiceName.Focus();
                 return;
             }
 
-            if (!decimal.TryParse(txtItemPrice.Text.Trim(), out decimal rate) || rate <= 0)
+            if (!decimal.TryParse(txtItemPrice.Text.Replace("₹", "").Trim(), out decimal price) || price <= 0)
             {
-                MessageBox.Show("Please enter a valid unit rate / price.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Please enter a valid unit rate.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 txtItemPrice.Focus();
                 return;
             }
 
-            decimal discPct = 0m;
-            if (!string.IsNullOrWhiteSpace(txtItemDiscPct.Text))
-            {
-                decimal.TryParse(txtItemDiscPct.Text.Replace("%", "").Trim(), out discPct);
-            }
+            decimal qty = numItemQty.Value;
+            decimal.TryParse(txtItemDiscPct.Text.Replace("%", "").Trim(), out decimal discPct);
 
-            decimal taxPct = 18m;
-            if (cmbItemTaxPct.SelectedItem != null)
-            {
-                decimal.TryParse(cmbItemTaxPct.SelectedItem.ToString()!.Replace("%", ""), out taxPct);
-            }
+            string taxStr = cmbItemTaxPct.SelectedItem?.ToString()?.Replace("%", "") ?? "18";
+            decimal.TryParse(taxStr, out decimal taxPct);
 
             var item = new InvoiceItem
             {
-                ServiceName = service,
+                ServiceName = sName,
                 Description = txtItemDesc.Text.Trim(),
-                Quantity = numItemQty.Value,
-                UnitPrice = rate,
+                Quantity = qty,
+                UnitPrice = price,
                 DiscountPercent = discPct,
                 TaxPercent = taxPct
             };
-
             item.CalculateLineTotal();
+
             _workingItems.Add(item);
 
-            RefreshLineItemsGrid();
-            RecalculateBill();
+            dgvInvoiceItems.Rows.Add(
+                item.ServiceName, item.Description, item.Quantity,
+                $"₹{item.UnitPrice:N2}", $"₹{item.DiscountAmount:N2}",
+                $"{item.TaxPercent}%", $"₹{item.LineTotal:N2}"
+            );
 
-            // Reset item inputs
             cmbServiceName.Text = string.Empty;
             txtItemDesc.Clear();
-            numItemQty.Value = 1;
             txtItemPrice.Clear();
             txtItemDiscPct.Clear();
+            numItemQty.Value = 1;
+
+            RecalculateBill();
         }
 
         private void RemoveSelectedItem()
@@ -803,87 +1015,16 @@ namespace PROJECT_SBV1.Controls
                 if (idx >= 0 && idx < _workingItems.Count)
                 {
                     _workingItems.RemoveAt(idx);
-                    RefreshLineItemsGrid();
+                    dgvInvoiceItems.Rows.RemoveAt(idx);
                     RecalculateBill();
                 }
             }
         }
 
-        private void RefreshLineItemsGrid()
-        {
-            dgvInvoiceItems.Rows.Clear();
-            foreach (var it in _workingItems)
-            {
-                dgvInvoiceItems.Rows.Add(
-                    it.ServiceName, it.Description, $"{it.Quantity:N0}",
-                    $"₹{it.UnitPrice:N2}", $"₹{it.DiscountAmount:N2}",
-                    $"{it.TaxPercent:N0}%", $"₹{it.LineTotal:N2}"
-                );
-            }
-        }
-
-        private Invoice BuildCurrentInvoiceObject()
-        {
-            int custIdx = cmbCustomerSelect.SelectedIndex;
-            long custId = 0;
-            string custName = "Walk-in Customer";
-            if (custIdx > 0 && custIdx <= _allCustomers.Count)
-            {
-                var c = _allCustomers[custIdx - 1];
-                custId = c.Id;
-                custName = c.Name;
-            }
-
-            string taxScheme = cmbTaxScheme.SelectedIndex switch
-            {
-                0 => "GST_INTRA",
-                1 => "GST_INTER",
-                _ => "NONE"
-            };
-
-            decimal.TryParse(txtOverallDisc.Text, out decimal ovrDisc);
-            decimal.TryParse(txtInitialPaymentAmt.Text, out decimal initPay);
-
-            var inv = new Invoice
-            {
-                InvoiceNumber = txtInvNumber.Text.Trim(),
-                CustomerId = custId,
-                CustomerName = custName,
-                CustomerCompany = txtCustCompany.Text.Trim(),
-                CustomerPhone = txtCustPhone.Text.Trim(),
-                CustomerEmail = txtCustEmail.Text.Trim(),
-                CustomerAddress = txtCustAddress.Text.Trim(),
-                CustomerGSTIN = txtCustGSTIN.Text.Trim().ToUpperInvariant(),
-                InvoiceDate = dtpInvDate.Value,
-                DueDate = dtpDueDate.Value,
-                PaymentTerms = cmbPaymentTerms.SelectedItem?.ToString() ?? "Net 15",
-                TaxType = taxScheme,
-                OverallDiscount = ovrDisc,
-                AmountPaid = initPay
-            };
-
-            foreach (var it in _workingItems)
-            {
-                inv.Items.Add(new InvoiceItem
-                {
-                    ServiceName = it.ServiceName,
-                    Description = it.Description,
-                    Quantity = it.Quantity,
-                    UnitPrice = it.UnitPrice,
-                    DiscountPercent = it.DiscountPercent,
-                    DiscountAmount = it.DiscountAmount,
-                    TaxPercent = it.TaxPercent,
-                    LineTotal = it.LineTotal
-                });
-            }
-
-            inv.RecalculateTotals();
-            return inv;
-        }
-
         private void RecalculateBill()
         {
             var inv = BuildCurrentInvoiceObject();
+            inv.RecalculateTotals();
 
             lblCalcSubtotal.Text = $"₹{inv.Subtotal:N2}";
             lblCalcItemDisc.Text = $"-₹{inv.ItemDiscountTotal:N2}";
@@ -894,15 +1035,15 @@ namespace PROJECT_SBV1.Controls
                 lblCalcCgst.Visible = true;
                 lblCalcSgst.Visible = true;
                 lblCalcIgst.Visible = false;
-                lblCalcCgst.Text = $"₹{inv.CgstAmount:N2}";
-                lblCalcSgst.Text = $"₹{inv.SgstAmount:N2}";
+                lblCalcCgst.Text = $"₹{inv.CgstAmount:N2} (9%)";
+                lblCalcSgst.Text = $"₹{inv.SgstAmount:N2} (9%)";
             }
             else if (inv.TaxType == "GST_INTER")
             {
                 lblCalcCgst.Visible = false;
                 lblCalcSgst.Visible = false;
                 lblCalcIgst.Visible = true;
-                lblCalcIgst.Text = $"₹{inv.IgstAmount:N2}";
+                lblCalcIgst.Text = $"₹{inv.IgstAmount:N2} (18%)";
             }
             else
             {
@@ -912,35 +1053,85 @@ namespace PROJECT_SBV1.Controls
             }
 
             lblCalcGrandTotal.Text = $"₹{inv.GrandTotal:N2}";
+
+            decimal.TryParse(txtInitialPaymentAmt.Text.Replace("₹", "").Trim(), out decimal initialPay);
+            inv.AmountPaid = Math.Min(inv.GrandTotal, Math.Max(0m, initialPay));
+            inv.BalanceDue = Math.Max(0m, inv.GrandTotal - inv.AmountPaid);
+
             lblCalcBalanceDue.Text = $"₹{inv.BalanceDue:N2}";
+            lblCalcBalanceDue.ForeColor = inv.BalanceDue > 0 ? Color.FromArgb(225, 29, 72) : Color.FromArgb(16, 185, 129);
+        }
+
+        private Invoice BuildCurrentInvoiceObject()
+        {
+            var inv = new Invoice
+            {
+                InvoiceNumber = txtInvNumber.Text.Trim(),
+                InvoiceDate = dtpInvDate.Value.Date,
+                DueDate = dtpDueDate.Value.Date,
+                PaymentTerms = cmbPaymentTerms.SelectedItem?.ToString() ?? "Net 15",
+                TaxType = cmbTaxScheme.SelectedIndex switch
+                {
+                    0 => "GST_INTRA",
+                    1 => "GST_INTER",
+                    _ => "NONE"
+                }
+            };
+
+            int custIdx = cmbCustomerSelect.SelectedIndex;
+            if (custIdx > 0 && custIdx - 1 < _allCustomers.Count)
+            {
+                var c = _allCustomers[custIdx - 1];
+                inv.CustomerId = c.Id;
+                inv.CustomerName = c.Name;
+                inv.CustomerCompany = c.CompanyName;
+                inv.CustomerPhone = c.Phone;
+                inv.CustomerEmail = c.Email;
+                inv.CustomerAddress = c.BillingAddress;
+                inv.CustomerGSTIN = c.GSTIN;
+            }
+            else
+            {
+                inv.CustomerName = string.IsNullOrWhiteSpace(txtCustCompany.Text) ? "Walk-in Customer" : txtCustCompany.Text.Trim();
+                inv.CustomerCompany = txtCustCompany.Text.Trim();
+                inv.CustomerPhone = txtCustPhone.Text.Trim();
+                inv.CustomerEmail = txtCustEmail.Text.Trim();
+                inv.CustomerAddress = txtCustAddress.Text.Trim();
+                inv.CustomerGSTIN = txtCustGSTIN.Text.Trim();
+            }
+
+            decimal.TryParse(txtOverallDisc.Text.Replace("₹", "").Trim(), out decimal overallDisc);
+            inv.OverallDiscount = Math.Max(0m, overallDisc);
+
+            foreach (var item in _workingItems)
+            {
+                inv.Items.Add(item);
+            }
+
+            decimal.TryParse(txtInitialPaymentAmt.Text.Replace("₹", "").Trim(), out decimal initPaid);
+            inv.AmountPaid = Math.Max(0m, initPaid);
+
+            inv.RecalculateTotals();
+            return inv;
         }
 
         private void SaveCurrentInvoice(bool andPrint)
         {
-            if (cmbCustomerSelect.SelectedIndex <= 0)
-            {
-                MessageBox.Show("Please select or add a customer for this invoice.", "Customer Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                cmbCustomerSelect.Focus();
-                return;
-            }
-
             if (_workingItems.Count == 0)
             {
-                MessageBox.Show("Please add at least one line item / service to the invoice.", "Empty Invoice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                cmbServiceName.Focus();
+                MessageBox.Show("Please add at least one billable service or item to the invoice.", "Empty Invoice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             var inv = BuildCurrentInvoiceObject();
-            PaymentRecord? initialPayment = null;
 
-            if (decimal.TryParse(txtInitialPaymentAmt.Text, out decimal payAmt) && payAmt > 0)
+            PaymentRecord? initialPayment = null;
+            if (inv.AmountPaid > 0)
             {
                 initialPayment = new PaymentRecord
                 {
-                    Amount = payAmt,
-                    PaymentDate = DateTime.Now,
-                    PaymentMethod = cmbInitialPaymentMode.SelectedItem?.ToString() ?? "Cash",
+                    Amount = inv.AmountPaid,
+                    PaymentMethod = cmbInitialPaymentMode.SelectedItem?.ToString() ?? "Bank Transfer",
                     ReferenceNumber = txtInitialPaymentRef.Text.Trim(),
                     Notes = "Initial payment upon invoice creation"
                 };
@@ -992,49 +1183,52 @@ namespace PROJECT_SBV1.Controls
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
-        //  BUILD TAB 3: INVOICES DIRECTORY VIEW
+        //  BUILD TAB 3: INVOICES DIRECTORY VIEW (PRO TABLE & FILTERS)
         // ═══════════════════════════════════════════════════════════════════════════
         private void BuildInvoicesListView()
         {
             pnlInvoicesListView.Dock = DockStyle.Fill;
-            pnlInvoicesListView.Padding = new Padding(16);
+            pnlInvoicesListView.Padding = new Padding(18);
 
-            // Filter Bar
+            // Filter Header Card
             var pnlFilter = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 65,
-                Padding = new Padding(0, 4, 0, 8)
+                Height = 60,
+                Padding = new Padding(0, 4, 0, 10)
             };
 
-            txtInvoiceSearch.PlaceholderText = "Search by invoice # or customer name...";
-            txtInvoiceSearch.SetBounds(0, 20, 260, 28);
+            txtInvoiceSearch.PlaceholderText = "Search by Invoice #, client name, company, or GSTIN...";
+            txtInvoiceSearch.SetBounds(0, 6, 320, 28);
             txtInvoiceSearch.TextChanged += (s, e) => RefreshInvoicesGrid();
 
             cmbStatusFilter.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbStatusFilter.Items.AddRange(new object[] { "All", "Paid", "Partially Paid", "Unpaid", "Overdue", "Cancelled" });
+            cmbStatusFilter.Items.AddRange(new object[] { "All Statuses", "Paid", "Partially Paid", "Unpaid", "Overdue", "Cancelled" });
             cmbStatusFilter.SelectedIndex = 0;
-            cmbStatusFilter.SetBounds(270, 20, 130, 28);
+            cmbStatusFilter.SetBounds(330, 6, 140, 28);
             cmbStatusFilter.SelectedIndexChanged += (s, e) => RefreshInvoicesGrid();
 
             chkFilterDates.Text = "Filter Dates:";
-            chkFilterDates.SetBounds(410, 22, 95, 24);
-            chkFilterDates.CheckedChanged += (s, e) => { dtpFilterFrom.Enabled = dtpFilterTo.Enabled = chkFilterDates.Checked; RefreshInvoicesGrid(); };
+            chkFilterDates.SetBounds(480, 8, 95, 24);
+            chkFilterDates.CheckedChanged += (s, e) => RefreshInvoicesGrid();
 
             dtpFilterFrom.Format = DateTimePickerFormat.Short;
             dtpFilterFrom.Value = DateTime.Today.AddDays(-30);
-            dtpFilterFrom.Enabled = false;
-            dtpFilterFrom.SetBounds(510, 20, 100, 28);
+            dtpFilterFrom.SetBounds(580, 6, 105, 28);
+            dtpFilterFrom.ValueChanged += (s, e) => { if (chkFilterDates.Checked) RefreshInvoicesGrid(); };
 
             dtpFilterTo.Format = DateTimePickerFormat.Short;
             dtpFilterTo.Value = DateTime.Today;
-            dtpFilterTo.Enabled = false;
-            dtpFilterTo.SetBounds(620, 20, 100, 28);
+            dtpFilterTo.SetBounds(695, 6, 105, 28);
+            dtpFilterTo.ValueChanged += (s, e) => { if (chkFilterDates.Checked) RefreshInvoicesGrid(); };
 
             btnFilterReset.Text = "Reset Filters";
-            btnFilterReset.Icon = null;
-            btnFilterReset.FillColor = Color.FromArgb(148, 163, 184);
-            btnFilterReset.SetBounds(730, 20, 100, 28);
+            btnFilterReset.Icon = ReiconRenderer.IconType.Close;
+            btnFilterReset.FillColor = Color.FromArgb(241, 245, 249);
+            btnFilterReset.TextColor = Color.FromArgb(71, 85, 105);
+            btnFilterReset.BorderColor = Color.FromArgb(203, 213, 225);
+            btnFilterReset.BorderWidth = 1f;
+            btnFilterReset.SetBounds(810, 6, 120, 28);
             btnFilterReset.Click += (s, e) =>
             {
                 txtInvoiceSearch.Clear();
@@ -1047,77 +1241,90 @@ namespace PROJECT_SBV1.Controls
                 txtInvoiceSearch, cmbStatusFilter, chkFilterDates, dtpFilterFrom, dtpFilterTo, btnFilterReset
             });
 
-            // Action Bar for selected invoice
+            // Action Bar for Table
             var pnlGridActions = new Panel
             {
-                Dock = DockStyle.Bottom,
-                Height = 50,
-                Padding = new Padding(0, 8, 0, 0)
+                Dock = DockStyle.Top,
+                Height = 44,
+                Padding = new Padding(0, 0, 0, 8)
             };
 
-            btnGridOpenInvoice.Text = "Open / View";
-            btnGridOpenInvoice.Icon = ReiconRenderer.IconType.Receipt;
-            btnGridOpenInvoice.FillColor = ThemeManager.PrimaryAccent;
-            btnGridOpenInvoice.SetBounds(0, 8, 130, 36);
+            btnGridOpenInvoice.Text = "View Details";
+            btnGridOpenInvoice.Icon = ReiconRenderer.IconType.Eye;
+            btnGridOpenInvoice.FillColor = Color.FromArgb(79, 70, 229);
+            btnGridOpenInvoice.SetBounds(0, 2, 125, 34);
             btnGridOpenInvoice.Click += (s, e) => OpenSelectedInvoice();
 
-            btnGridRecordPay.Text = "+ Add Payment";
+            btnGridRecordPay.Text = "Record Payment";
             btnGridRecordPay.Icon = ReiconRenderer.IconType.Wallet;
-            btnGridRecordPay.FillColor = ThemeManager.StatusPositive;
-            btnGridRecordPay.SetBounds(140, 8, 140, 36);
+            btnGridRecordPay.FillColor = Color.FromArgb(16, 185, 129);
+            btnGridRecordPay.SetBounds(135, 2, 145, 34);
             btnGridRecordPay.Click += (s, e) => RecordPaymentForSelected();
 
-            btnGridPrint.Text = "Print";
-            btnGridPrint.Icon = null;
-            btnGridPrint.FillColor = Color.FromArgb(79, 70, 229);
-            btnGridPrint.SetBounds(290, 8, 90, 36);
+            btnGridPrint.Text = "Print Direct";
+            btnGridPrint.Icon = ReiconRenderer.IconType.Printer;
+            btnGridPrint.BorderColor = Color.FromArgb(203, 213, 225);
+            btnGridPrint.BorderWidth = 1.2f;
+            btnGridPrint.FillColor = Color.White;
+            btnGridPrint.TextColor = Color.FromArgb(30, 41, 59);
+            btnGridPrint.HoverColor = Color.FromArgb(241, 245, 249);
+            btnGridPrint.SetBounds(290, 2, 125, 34);
             btnGridPrint.Click += (s, e) => PrintSelectedInvoice();
 
             btnGridExportPdf.Text = "Export PDF";
-            btnGridExportPdf.Icon = null;
-            btnGridExportPdf.FillColor = Color.FromArgb(37, 99, 235);
-            btnGridExportPdf.SetBounds(390, 8, 110, 36);
+            btnGridExportPdf.Icon = ReiconRenderer.IconType.Document;
+            btnGridExportPdf.BorderColor = Color.FromArgb(203, 213, 225);
+            btnGridExportPdf.BorderWidth = 1.2f;
+            btnGridExportPdf.FillColor = Color.White;
+            btnGridExportPdf.TextColor = Color.FromArgb(30, 41, 59);
+            btnGridExportPdf.HoverColor = Color.FromArgb(241, 245, 249);
+            btnGridExportPdf.SetBounds(425, 2, 120, 34);
             btnGridExportPdf.Click += (s, e) => ExportSelectedPdf();
 
             btnGridCancel.Text = "Cancel Invoice";
             btnGridCancel.Icon = ReiconRenderer.IconType.Close;
-            btnGridCancel.FillColor = ThemeManager.StatusNegative;
-            btnGridCancel.SetBounds(510, 8, 140, 36);
+            btnGridCancel.BorderColor = Color.FromArgb(244, 63, 94);
+            btnGridCancel.BorderWidth = 1.2f;
+            btnGridCancel.FillColor = Color.White;
+            btnGridCancel.TextColor = Color.FromArgb(225, 29, 72);
+            btnGridCancel.HoverColor = Color.FromArgb(255, 241, 242);
+            btnGridCancel.SetBounds(555, 2, 135, 34);
             btnGridCancel.Click += (s, e) => CancelSelectedInvoice();
 
             pnlGridActions.Controls.AddRange(new Control[] {
                 btnGridOpenInvoice, btnGridRecordPay, btnGridPrint, btnGridExportPdf, btnGridCancel
             });
 
-            // Invoices Grid
+            // Modern Invoices Grid
+            FormatModernTable(dgvAllInvoices);
             dgvAllInvoices.Dock = DockStyle.Fill;
-            dgvAllInvoices.BorderStyle = BorderStyle.None;
-            dgvAllInvoices.RowHeadersVisible = false;
-            dgvAllInvoices.AllowUserToAddRows = false;
-            dgvAllInvoices.ReadOnly = true;
-            dgvAllInvoices.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvAllInvoices.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
 
-            dgvAllInvoices.Columns.Add("InvNo", "Invoice #");
-            dgvAllInvoices.Columns.Add("Customer", "Customer Name");
-            dgvAllInvoices.Columns.Add("Date", "Invoice Date");
-            dgvAllInvoices.Columns.Add("DueDate", "Due Date");
-            dgvAllInvoices.Columns.Add("Total", "Grand Total (₹)");
-            dgvAllInvoices.Columns.Add("Paid", "Paid (₹)");
-            dgvAllInvoices.Columns.Add("Balance", "Balance Due (₹)");
-            dgvAllInvoices.Columns.Add("Status", "Status");
+            dgvAllInvoices.Columns.Add("InvNo", "INVOICE #");
+            dgvAllInvoices.Columns.Add("Customer", "CUSTOMER / CLIENT");
+            dgvAllInvoices.Columns.Add("Date", "INVOICE DATE");
+            dgvAllInvoices.Columns.Add("DueDate", "DUE DATE");
+            dgvAllInvoices.Columns.Add("Total", "GRAND TOTAL (₹)");
+            dgvAllInvoices.Columns.Add("Paid", "PAID (₹)");
+            dgvAllInvoices.Columns.Add("Balance", "BALANCE DUE (₹)");
+            dgvAllInvoices.Columns.Add("Status", "STATUS");
+
+            dgvAllInvoices.Columns["Total"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvAllInvoices.Columns["Paid"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvAllInvoices.Columns["Balance"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
 
             dgvAllInvoices.CellDoubleClick += (s, e) => OpenSelectedInvoice();
 
             pnlInvoicesListView.Controls.Add(dgvAllInvoices);
-            pnlInvoicesListView.Controls.Add(pnlFilter);
             pnlInvoicesListView.Controls.Add(pnlGridActions);
+            pnlInvoicesListView.Controls.Add(pnlFilter);
         }
 
         private void RefreshInvoicesGrid()
         {
             string search = txtInvoiceSearch.Text.Trim();
-            string status = cmbStatusFilter.SelectedItem?.ToString() ?? "All";
+            string status = cmbStatusFilter.SelectedItem?.ToString() ?? "All Statuses";
+            if (status.StartsWith("All")) status = "All";
+
             DateTime? from = chkFilterDates.Checked ? dtpFilterFrom.Value.Date : null;
             DateTime? to = chkFilterDates.Checked ? dtpFilterTo.Value.Date : null;
 
@@ -1176,7 +1383,7 @@ namespace PROJECT_SBV1.Controls
 
             if (inv.BalanceDue <= 0)
             {
-                MessageBox.Show("This invoice is already fully paid.", "Fully Paid", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("This invoice is already fully settled and paid.", "Fully Paid", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
@@ -1228,28 +1435,28 @@ namespace PROJECT_SBV1.Controls
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
-        //  BUILD TAB 4: CUSTOMERS VIEW
+        //  BUILD TAB 4: CUSTOMERS VIEW (PRO CLIENT LEDGER)
         // ═══════════════════════════════════════════════════════════════════════════
         private void BuildCustomersView()
         {
             pnlCustomersView.Dock = DockStyle.Fill;
-            pnlCustomersView.Padding = new Padding(16);
+            pnlCustomersView.Padding = new Padding(18);
 
             var pnlTop = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 50,
+                Height = 52,
                 Padding = new Padding(0, 4, 0, 8)
             };
 
-            txtCustDirSearch.PlaceholderText = "Search customers by name, company, phone, or email...";
-            txtCustDirSearch.SetBounds(0, 8, 380, 28);
+            txtCustDirSearch.PlaceholderText = "Search customers by name, company, phone, email, or GSTIN...";
+            txtCustDirSearch.SetBounds(0, 6, 380, 28);
             txtCustDirSearch.TextChanged += (s, e) => RefreshCustomersGrid();
 
             btnCustDirAdd.Text = "+ Add Customer";
             btnCustDirAdd.Icon = ReiconRenderer.IconType.Plus;
-            btnCustDirAdd.FillColor = ThemeManager.PrimaryAccent;
-            btnCustDirAdd.SetBounds(390, 8, 150, 32);
+            btnCustDirAdd.FillColor = Color.FromArgb(79, 70, 229);
+            btnCustDirAdd.SetBounds(390, 4, 150, 34);
             btnCustDirAdd.Click += (s, e) =>
             {
                 using var dlg = new CustomerDialog();
@@ -1261,28 +1468,29 @@ namespace PROJECT_SBV1.Controls
             };
 
             btnCustDirEdit.Text = "Edit Customer";
-            btnCustDirEdit.Icon = null;
-            btnCustDirEdit.FillColor = Color.FromArgb(79, 70, 229);
-            btnCustDirEdit.SetBounds(550, 8, 130, 32);
+            btnCustDirEdit.Icon = ReiconRenderer.IconType.Customers;
+            btnCustDirEdit.BorderColor = Color.FromArgb(203, 213, 225);
+            btnCustDirEdit.BorderWidth = 1.2f;
+            btnCustDirEdit.FillColor = Color.White;
+            btnCustDirEdit.TextColor = Color.FromArgb(30, 41, 59);
+            btnCustDirEdit.HoverColor = Color.FromArgb(241, 245, 249);
+            btnCustDirEdit.SetBounds(550, 4, 140, 34);
             btnCustDirEdit.Click += (s, e) => EditSelectedCustomer();
 
             pnlTop.Controls.AddRange(new Control[] { txtCustDirSearch, btnCustDirAdd, btnCustDirEdit });
 
+            // Customers Table
+            FormatModernTable(dgvAllCustomers);
             dgvAllCustomers.Dock = DockStyle.Fill;
-            dgvAllCustomers.BorderStyle = BorderStyle.None;
-            dgvAllCustomers.RowHeadersVisible = false;
-            dgvAllCustomers.AllowUserToAddRows = false;
-            dgvAllCustomers.ReadOnly = true;
-            dgvAllCustomers.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvAllCustomers.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
 
-            dgvAllCustomers.Columns.Add("Name", "Customer Name");
-            dgvAllCustomers.Columns.Add("Company", "Company Name");
-            dgvAllCustomers.Columns.Add("Phone", "Phone Number");
-            dgvAllCustomers.Columns.Add("Email", "Email Address");
-            dgvAllCustomers.Columns.Add("Balance", "Outstanding Balance (₹)");
-            dgvAllCustomers.Columns.Add("GSTIN", "GSTIN");
+            dgvAllCustomers.Columns.Add("Name", "CLIENT / PERSON NAME");
+            dgvAllCustomers.Columns.Add("Company", "COMPANY / ORGANIZATION");
+            dgvAllCustomers.Columns.Add("Phone", "PHONE NUMBER");
+            dgvAllCustomers.Columns.Add("Email", "EMAIL ADDRESS");
+            dgvAllCustomers.Columns.Add("Balance", "OUTSTANDING DUE (₹)");
+            dgvAllCustomers.Columns.Add("GSTIN", "GSTIN NUMBER");
 
+            dgvAllCustomers.Columns["Balance"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
             dgvAllCustomers.CellDoubleClick += (s, e) => EditSelectedCustomer();
 
             pnlCustomersView.Controls.Add(dgvAllCustomers);
@@ -1299,6 +1507,11 @@ namespace PROJECT_SBV1.Controls
             {
                 int r = dgvAllCustomers.Rows.Add(c.Name, c.CompanyName, c.Phone, c.Email, $"₹{c.OutstandingBalance:N2}", c.GSTIN);
                 dgvAllCustomers.Rows[r].Tag = c;
+
+                if (c.OutstandingBalance > 0)
+                {
+                    dgvAllCustomers.Rows[r].Cells["Balance"].Style.ForeColor = Color.FromArgb(225, 29, 72);
+                }
             }
         }
 
@@ -1320,20 +1533,121 @@ namespace PROJECT_SBV1.Controls
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
+        //  MODERN TABLE FORMATTING & CUSTOM STATUS PILL BADGE RENDERING
+        // ═══════════════════════════════════════════════════════════════════════════
+        private void FormatModernTable(DataGridView dgv)
+        {
+            dgv.BorderStyle = BorderStyle.None;
+            dgv.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+            dgv.EnableHeadersVisualStyles = false;
+            dgv.RowHeadersVisible = false;
+            dgv.AllowUserToAddRows = false;
+            dgv.AllowUserToResizeRows = false;
+            dgv.ReadOnly = true;
+            dgv.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgv.RowTemplate.Height = 44;
+            dgv.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            dgv.ColumnHeadersHeight = 40;
+            dgv.Cursor = Cursors.Hand;
+
+            dgv.CellPainting += (s, e) =>
+            {
+                if (e.RowIndex >= 0 && dgv.Columns[e.ColumnIndex].Name.Contains("Status", StringComparison.OrdinalIgnoreCase))
+                {
+                    PaintStatusCellBadge(e, ThemeManager.IsDarkMode);
+                }
+            };
+        }
+
+        private static void PaintStatusCellBadge(DataGridViewCellPaintingEventArgs e, bool isDark)
+        {
+            if (e.RowIndex < 0 || e.Value == null || e.Graphics == null) return;
+            e.PaintBackground(e.ClipBounds, true);
+
+            string status = e.Value.ToString() ?? "";
+            Color bgCol;
+            Color textCol;
+            Color dotCol;
+
+            switch (status)
+            {
+                case "Paid":
+                    bgCol = isDark ? Color.FromArgb(6, 78, 59) : Color.FromArgb(236, 253, 245);
+                    textCol = isDark ? Color.FromArgb(52, 211, 153) : Color.FromArgb(4, 120, 87);
+                    dotCol = Color.FromArgb(16, 185, 129);
+                    break;
+                case "Partially Paid":
+                    bgCol = isDark ? Color.FromArgb(30, 58, 138) : Color.FromArgb(239, 246, 255);
+                    textCol = isDark ? Color.FromArgb(96, 165, 250) : Color.FromArgb(29, 78, 216);
+                    dotCol = Color.FromArgb(59, 130, 246);
+                    break;
+                case "Unpaid":
+                    bgCol = isDark ? Color.FromArgb(120, 53, 15) : Color.FromArgb(254, 243, 199);
+                    textCol = isDark ? Color.FromArgb(251, 191, 36) : Color.FromArgb(180, 83, 9);
+                    dotCol = Color.FromArgb(245, 158, 11);
+                    break;
+                case "Overdue":
+                    bgCol = isDark ? Color.FromArgb(136, 19, 55) : Color.FromArgb(255, 241, 242);
+                    textCol = isDark ? Color.FromArgb(251, 113, 133) : Color.FromArgb(190, 18, 60);
+                    dotCol = Color.FromArgb(244, 63, 94);
+                    break;
+                default: // Cancelled / Draft
+                    bgCol = isDark ? Color.FromArgb(30, 41, 59) : Color.FromArgb(241, 245, 249);
+                    textCol = isDark ? Color.FromArgb(148, 163, 184) : Color.FromArgb(71, 85, 105);
+                    dotCol = Color.FromArgb(148, 163, 184);
+                    break;
+            }
+
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            int pillH = 24;
+            int pillW = Math.Min(e.CellBounds.Width - 20, 110);
+            int pillX = e.CellBounds.X + (e.CellBounds.Width - pillW) / 2;
+            int pillY = e.CellBounds.Y + (e.CellBounds.Height - pillH) / 2;
+
+            using (var path = GraphicsExtensions.CreateRoundedRectanglePath(pillX, pillY, pillW, pillH, pillH / 2))
+            using (var brush = new SolidBrush(bgCol))
+            using (var borderPen = new Pen(dotCol, 0.8f))
+            {
+                g.FillPath(brush, path);
+                g.DrawPath(borderPen, path);
+            }
+
+            // Dot indicator
+            using (var dotBrush = new SolidBrush(dotCol))
+            {
+                g.FillEllipse(dotBrush, pillX + 9, pillY + (pillH - 6) / 2, 6, 6);
+            }
+
+            // Text
+            using (var font = new Font("Segoe UI", 8.2f, FontStyle.Bold))
+            using (var textBrush = new SolidBrush(textCol))
+            using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+            {
+                var textRect = new Rectangle(pillX + 16, pillY, pillW - 18, pillH);
+                g.DrawString(status, font, textBrush, textRect, sf);
+            }
+
+            e.Handled = true;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
         //  THEME APPLICATION (LIGHT / DARK MODES)
         // ═══════════════════════════════════════════════════════════════════════════
         public void ApplyTheme()
         {
             bool isDark = ThemeManager.IsDarkMode;
-            Color pageBg = ThemeManager.PageBackground;
-            Color cardBg = ThemeManager.CardBackground;
-            Color textPrimary = ThemeManager.TextPrimary;
-            Color textSecondary = ThemeManager.TextSecondary;
-            Color borderCol = ThemeManager.BorderHairline;
-            Color inputBg = isDark ? Color.FromArgb(30, 32, 48) : Color.White;
+            Color pageBg = isDark ? Color.FromArgb(15, 17, 26) : Color.FromArgb(248, 250, 252);
+            Color cardBg = isDark ? Color.FromArgb(23, 26, 38) : Color.White;
+            Color textPrimary = isDark ? Color.White : Color.FromArgb(15, 23, 42);
+            Color textSecondary = isDark ? Color.FromArgb(148, 163, 184) : Color.FromArgb(100, 116, 139);
+            Color borderCol = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+            Color inputBg = isDark ? Color.FromArgb(30, 35, 50) : Color.White;
 
             BackColor = pageBg;
-            pnlNavHeader.BackColor = cardBg;
+            pnlNavHeader.BackColor = isDark ? Color.FromArgb(18, 20, 30) : Color.White;
             pnlViewDeck.BackColor = pageBg;
 
             pnlDashboardView.BackColor = pageBg;
@@ -1341,32 +1655,33 @@ namespace PROJECT_SBV1.Controls
             pnlInvoicesListView.BackColor = pageBg;
             pnlCustomersView.BackColor = pageBg;
 
-            UpdateTabButtonStyles();
+            pnlNavPillTrack.Invalidate(true);
+            pnlDashCardsHost.Invalidate(true);
 
             // Style all DataGridViews
             foreach (var dgv in new[] { dgvRecentSales, dgvInvoiceItems, dgvAllInvoices, dgvAllCustomers })
             {
                 dgv.BackgroundColor = cardBg;
                 dgv.GridColor = borderCol;
-                dgv.ColumnHeadersDefaultCellStyle.BackColor = isDark ? Color.FromArgb(32, 35, 50) : Color.FromArgb(241, 245, 249);
+                dgv.ColumnHeadersDefaultCellStyle.BackColor = isDark ? Color.FromArgb(26, 29, 43) : Color.FromArgb(248, 250, 252);
                 dgv.ColumnHeadersDefaultCellStyle.ForeColor = textSecondary;
                 dgv.DefaultCellStyle.BackColor = cardBg;
                 dgv.DefaultCellStyle.ForeColor = textPrimary;
-                dgv.DefaultCellStyle.SelectionBackColor = ThemeManager.NavHover;
+                dgv.DefaultCellStyle.SelectionBackColor = isDark ? Color.FromArgb(38, 46, 72) : Color.FromArgb(238, 242, 255);
                 dgv.DefaultCellStyle.SelectionForeColor = textPrimary;
-                dgv.AlternatingRowsDefaultCellStyle.BackColor = ThemeManager.GridRowAlternate;
+                dgv.AlternatingRowsDefaultCellStyle.BackColor = isDark ? Color.FromArgb(20, 23, 33) : Color.FromArgb(250, 250, 252);
                 dgv.AlternatingRowsDefaultCellStyle.ForeColor = textPrimary;
             }
 
             // Style inputs recursively
-            ApplyInputsTheme(pnlCreateInvoiceView, inputBg, textPrimary, textSecondary);
-            ApplyInputsTheme(pnlInvoicesListView, inputBg, textPrimary, textSecondary);
-            ApplyInputsTheme(pnlCustomersView, inputBg, textPrimary, textSecondary);
+            ApplyInputsTheme(pnlCreateInvoiceView, inputBg, textPrimary, textSecondary, borderCol);
+            ApplyInputsTheme(pnlInvoicesListView, inputBg, textPrimary, textSecondary, borderCol);
+            ApplyInputsTheme(pnlCustomersView, inputBg, textPrimary, textSecondary, borderCol);
 
             Invalidate(true);
         }
 
-        private static void ApplyInputsTheme(Control parent, Color inputBg, Color textPrimary, Color textSecondary)
+        private static void ApplyInputsTheme(Control parent, Color inputBg, Color textPrimary, Color textSecondary, Color borderCol)
         {
             foreach (Control c in parent.Controls)
             {
@@ -1393,12 +1708,18 @@ namespace PROJECT_SBV1.Controls
                 }
                 else if (c is Label lbl)
                 {
-                    lbl.ForeColor = textPrimary;
+                    if (lbl.Font.Bold && lbl.Font.Size > 10f)
+                    {
+                        // Headers
+                    }
+                    else if (lbl.ForeColor != Color.FromArgb(16, 185, 129) && lbl.ForeColor != Color.FromArgb(225, 29, 72))
+                    {
+                        lbl.ForeColor = textPrimary;
+                    }
                 }
-                else if (c is Panel pnl)
+                else if (c.HasChildren)
                 {
-                    pnl.BackColor = ThemeManager.CardBackground;
-                    ApplyInputsTheme(pnl, inputBg, textPrimary, textSecondary);
+                    ApplyInputsTheme(c, inputBg, textPrimary, textSecondary, borderCol);
                 }
             }
         }
