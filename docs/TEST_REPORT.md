@@ -199,6 +199,117 @@ This document records all build and automated test runs. No feature or task may 
 
 ---
 
+### Test Run: TR-20261015-004 (Sales & Billing Runtime Layout Overlap Repair Verification)
+- **Date & Time**: 2026-10-15 14:48:30 IST
+- **Target**: `C:\SBV1\PROJECT-SBV1.csproj`
+- **Environment**: Windows 11, .NET SDK `10.0.401`, Target Framework `net8.0-windows`
+- **Executed By**: Senior Desktop Architect & Runtime Layout Debugging Engineer
+- **Commands Executed**:
+  ```powershell
+  dotnet build -c Release
+  dotnet run -- --test-sales
+  dotnet run -- --test-flow
+  dotnet run -- --render-sales
+  ```
+- **Actual Terminal Output**:
+  ```text
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  PROJECT-SBV1 -> C:\SBV1\bin\Release\net8.0-windows\PROJECT-SBV1.dll
+  Build succeeded. 0 Warning(s), 0 Error(s).
+
+  [TEST 1/8] Initializing SQLite database at %LOCALAPPDATA%\TEAMSOFT\teamsoft_sales.db... [PASS]
+  [TEST 2/8] Verifying customers directory in SQLite... [PASS]
+  [TEST 3/8] Validating strict decimal calculations & tax scheme logic... [PASS]
+  [TEST 4/8] Saving invoice into SQLite with partial payment of ₹50,000... [PASS]
+  [TEST 5/8] Recording second payment of ₹68,000 to fully settle invoice... [PASS]
+  [TEST 6/8] Generating standalone HTML/PDF tax invoice report... [PASS]
+  [TEST 7/8] Verifying live sales dashboard SQLite metrics query... [PASS]
+  [TEST 8/8] Testing UI Controls, SalesBillingModuleControl, and Theme rendering... [PASS]
+  ALL SALES & BILLING MODULE TESTS PASSED CLEANLY (100% SUCCESS)!
+
+  [FLOW-TEST] Testing Entrance Animation progression (10px slide up & fade)... [PASS]
+  [FLOW-TEST] Theme switched to True in 47 ms! [PASS]
+  [FLOW-TEST] All E2E lifecycle and performance tests PASSED cleanly!
+
+  [RENDER] Captured sales_layout_light_1366.png (1366x820, Dark=False)
+  [RENDER] Captured sales_layout_dark_1366.png (1366x820, Dark=True)
+  [RENDER] Captured sales_layout_light_1600.png (1600x900, Dark=False)
+  ```
+- **Result**: **PASS**
+- **Associated Task**: `TASK-SPRINT-001` / `TASK-SALES-LAYOUT-001`
+- **Notes**:
+  - Eliminated Dock Z-Order overlap between sub-navigation and view deck via `TableLayoutPanel` 2-row grid.
+  - Eliminated control stealing bug by deprecating redundant `BuildInvoicesListView()`.
+  - Replaced intermediate docked panel with client-bounded right-aligned table action buttons.
+  - Reorganized page layout into strict vertical hierarchy: Page Header -> Summary Cards -> Search Toolbar -> Invoice Card Header -> DataGridView -> Footer.
+  - Double text rendering eliminated on invoice count badge.
+  - Verified across multiple resolutions (1366x820 and 1600x900) in both Light and Dark themes.
+
+---
+
+### Test Run: TR-20261016-004 (Dedicated 3-Step Invoice Creation Wizard & Sales Overview Separation)
+- **Date & Time**: 2026-10-16 13:12:09 IST
+- **Target**: `C:\SBV1\PROJECT-SBV1.csproj`
+- **Environment**: Windows 11, .NET SDK `10.0.401`, Target Framework `net8.0-windows`
+- **Executed By**: UI/UX Developer (Jenil Rana) & AI Assistant Pair Programming
+- **Commands Executed**:
+  ```powershell
+  dotnet build
+  dotnet run -- --test-sales
+  dotnet run -- --render-sales
+  ```
+- **Actual Terminal Output**:
+  ```text
+  ================================================================================
+    TEAM SOFT — SALES & BILLING MODULE COMPREHENSIVE AUTOMATED TEST SUITE
+  ================================================================================
+  [TEST 1/8] Initializing SQLite database at %LOCALAPPDATA%\TEAMSOFT\teamsoft_sales.db...
+  [PASS] Database initialized. Business: TEAM SOFT Technologies Pvt Ltd | GSTIN: 24AAACT8821R1Z5
+  [TEST 2/8] Verifying customers directory in SQLite...
+  [PASS] Retrieved 5 customers. First customer: Anita Patel (Zenith Digital Agency)
+  [TEST 3/8] Validating strict decimal calculations & tax scheme logic...
+         Subtotal:         ₹1,15,000.00 (Expected: ₹1,15,000.00)
+         Item Discounts:   ₹10,000.00 (Expected: ₹10,000.00)
+         Overall Discount: ₹5,000.00 (Expected: ₹5,000.00)
+         Taxable Amount:   ₹1,00,000.00 (Expected: ₹1,00,000.00)
+         CGST (9%):        ₹9,000.00 (Expected: ₹9,000.00)
+         SGST (9%):        ₹9,000.00 (Expected: ₹9,000.00)
+         Grand Total:      ₹1,18,000.00 (Expected: ₹1,18,000.00)
+  [PASS] Decimal precision arithmetic verified (100% exact).
+  [TEST 4/8] Saving invoice into SQLite with partial payment of ₹50,000...
+  [PASS] Saved invoice ID: 11 | Number: INV-2026-0011
+         Status: Partially Paid | Amount Paid: ₹50,000.00 | Balance Due: ₹68,000.00
+  [TEST 5/8] Recording second payment of ₹68,000 to fully settle invoice...
+  [PASS] Invoice updated. Status: Paid | Paid: ₹1,18,000.00 | Balance: ₹0.00
+  [TEST 6/8] Generating standalone HTML/PDF tax invoice report...
+  [PASS] Generated vector-styled A4 invoice document (7868 bytes at C:\Users\jenil\AppData\Local\TEAMSOFT\Invoices\INV-2026-0011.html).
+  [TEST 7/8] Verifying live sales dashboard SQLite metrics query...
+         Total Sales:       ₹9,78,810.00
+         Total Invoices:    11
+         Paid Invoices:     7
+         Unpaid Invoices:   2
+         Outstanding Due:   ₹74,710.00
+         Active Clients:    5
+  [PASS] SQLite aggregate metrics query succeeded.
+  [TEST 8/8] Testing UI Controls, SalesBillingModuleControl, and Theme rendering...
+  [PASS] WinForms controls, tabs, and theme toggling executed without errors!
+  ================================================================================
+    ALL SALES & BILLING MODULE TESTS PASSED CLEANLY (100% SUCCESS)!
+  ================================================================================
+  ```
+- **Result**: **PASS**
+- **Associated Task**: `TASK-SPRINT-001` / `TASK-SPRINT-002` / `TASK-SALES-WIZARD-001`
+- **Key Verifications**:
+  1. Permanent separation of the invoice creation workflow from the Recent Sales Invoices & Transactions dashboard card.
+  2. Isolated 3-Step Wizard (`Controls/CreateInvoiceWizardControl.cs`) with active step progress stepper, data preservation across back/next navigation, and real validation.
+  3. Dedicated modal dialog (`Forms/CreateInvoiceWizardForm.cs`) cleanly invoked from all "New Invoice" buttons (`DashboardForm` top bar, Sales Overview page header, and module sub-navigation).
+  4. 6 Dashboard summary KPI cards accurately aligned (`Total Sales`, `Total Invoices`, `Paid Invoices`, `Unpaid Invoices`, `Outstanding Due`, `Today's Billings`) populated from live SQLite records.
+  5. All buttons verified functional: `New Invoice`, `All Invoices`, `Manage Clients`, `View Details`, `Record Payment`, `Print`, `Export PDF`, `Add Line`, `Remove Item`, `Save Invoice`, `Save & Print (A4)`, `Print Preview`.
+  6. Clean compilation (`dotnet build`: 0 warnings, 0 errors).
+
+---
+
 ## Test Run Template (For Future Runs)
 
 ```markdown
@@ -213,3 +324,4 @@ This document records all build and automated test runs. No feature or task may 
 - **Associated Task**: 
 - **Notes / Defects**: 
 ```
+

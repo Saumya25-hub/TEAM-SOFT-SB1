@@ -143,8 +143,13 @@ This log records verifiable project events, role authorizations, task transition
 - **Details**: Upgraded Sales & Billing UI/UX to a modern enterprise SaaS desktop aesthetic. Replaced plain buttons and emojis with a segmented capsule navigation track and vector SVG icons (`ReiconRenderer`). Upgraded metric cards with 12px rounded borders and 30x30 tinted icon badges. Redesigned tables with 44px rows, hairline dividers, right-aligned currency, and custom painted rounded status pill badges. Restructured Create Invoice screen into 3 elevated cards with zero mnemonic underscores (`UseMnemonic = false`). Widened `headerTitle` to 460px with updated title mapping. Clean build (0 warnings, 0 errors) and 8/8 tests passed.
 - **Authorization / Approver**: UI/UX Developer / Active Sprint Directive
 
+---
 
-
-
-
-
+### [AUDIT-20261016-008] — Sales Overview Isolation & Create Invoice 3-Step Wizard Architecture
+- **Timestamp**: 2026-10-16 13:15:00 IST
+- **Event Category**: Architecture Approval & Feature Delivery
+- **Actor**: Jenil Rana (@jenilrana026-max) / AI Assistant Pair Programming
+- **Role**: UI/UX Developer & Engine Developer
+- **Target / Reference**: `TASK-SALES-WIZARD-001`, `Controls/CreateInvoiceWizardControl.cs`, `Forms/CreateInvoiceWizardForm.cs`, `Controls/SalesBillingModuleControl.cs`, `Forms/DashboardForm.cs`, Branch `feature/ui-splash-login-dashboard`
+- **Details**: Permanently separated the Create Invoice workflow from the Recent Sales Invoices & Transactions dashboard card. Engineered dedicated 3-step wizard (`CreateInvoiceWizardControl`) featuring animated progress stepper, isolated view deck, real-time decimal and GST calculations, live status badge pill, and atomic SQLite persistence. Embedded into dedicated modal form (`CreateInvoiceWizardForm`). Reorganized Sales Overview into 6 summary KPI cards and verified all action buttons (`New Invoice`, `All Invoices`, `Manage Clients`, `View Details`, `Record Payment`, `Print`, `Export PDF`, `Cancel`). Clean build (0 warnings, 0 errors), 8/8 automated tests passed, and layout rendering verified without clipping.
+- **Authorization / Approver**: Active Sprint Directive

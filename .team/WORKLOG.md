@@ -496,5 +496,78 @@ This log records daily development sessions, code changes, verification test res
   - `dotnet run -- --test-flow`: E2E lifecycle and theme switch verified in 42ms.
 - **Status**: VERIFIED & READY FOR USER REVIEW.
 
+---
 
+## Session: 2026-10-15 — Production-Ready Runtime UI Layout Repair & Hierarchy Fix
 
+- **Developer**: UI/UX & Desktop Architect (@jenilrana026-max / @Saumya25-hub)
+- **Role**: `UI/UX Developer` & `Engine Developer`
+- **Branch**: `feature/ui-splash-login-dashboard`
+- **Assigned Task**: Production-Ready Runtime UI Layout Repair
+- **Objective**: Eliminate all runtime overlaps, docking collisions, control stealing, and misalignments in the Sales & Billing Management page across initial launch, resize, maximize, and theme switching.
+- **Root Causes Identified & Solved**:
+  1. **Dock Z-Order Coordinate Collision**: `pnlNavHeader` (`Dock = Top`) and `pnlViewDeck` (`Dock = Fill`) collided at coordinate (0,0) due to WinForms layout engine priority rules. **Fix**: Replaced raw docking with a 2-row Master `TableLayoutPanel` (`tlpModuleMaster`): Row 0 = 50px fixed (sub-navigation), Row 1 = 100% percent (`pnlViewDeck`), guaranteeing mathematical vertical separation.
+  2. **Control Stealing via Duplicate Page View**: `BuildInvoicesListView()` was silently re-parenting filter and action controls away from `pnlDashboardView` into an inactive panel. **Fix**: Deprecated duplicate builder; anchored all controls permanently in `pnlDashboardView`.
+  3. **Action Buttons Width Clamping**: An intermediate right-docked panel clamped width to 200px, pushing action buttons off-screen. **Fix**: Removed intermediate container; positioned 5 table action buttons with client-bounded right alignment arithmetic.
+  4. **Strict Vertical 4-Row Master Flow**: Implemented `tlpInvoiceMaster` ensuring:
+     - Row 0 (52px): Page Header (`Invoices`, Subtitle, `Manage Clients`, `+ New Invoice`).
+     - Row 1 (110px): 4 Summary KPI Cards (`Total Invoices`, `Paid Invoices`, `Pending Invoices`, `Total Sales`).
+     - Row 2 (38px): Search & Filter Toolbar (`Search`, `All Statuses`, `Filter Dates`, DatePickers, `Reset`).
+     - Row 3 (100%): All Invoices Container Card (Header with badge & 5 action buttons, 9-column DataGridView, Footer with hint & live totals).
+  5. **Label Double-Text Artifact**: WinForms default `OnPaint` rendered `Text` followed by custom GDI+ `Paint` handler. **Fix**: Set `lblRecentBadge.Text = string.Empty` and stored display string in `lblRecentBadge.Tag`, ensuring single vector pass.
+  6. **Mnemonic Ampersand Stripping**: Added `UseMnemonic = false` to `lblRecentFooterHint` to preserve literal `&`.
+- **Files Modified**:
+  - `Controls/SalesBillingModuleControl.cs`
+  - `Controls/TeamControls.cs`
+  - `Forms/DashboardForm.cs`
+  - `Program.cs`
+  - `docs/TEST_REPORT.md`
+  - `.team/WORKLOG.md`
+- **Verification & Test Status**:
+  - `dotnet build -c Release`: Succeeded with **0 warnings, 0 errors**.
+  - `dotnet run -- --test-sales`: 8/8 automated tests passed cleanly (100% success).
+  - `dotnet run -- --test-flow`: E2E lifecycle and theme toggle verified in 47ms.
+  - Runtime Render Captures: Verified visually at 1366x820 (Light & Dark) and 1600x900 (Light) without any overlap, clipping, or ghost controls.
+- **Status**: COMPLETE & VERIFIED.
+
+---
+
+## Session: 2026-10-16 — Sales & Billing Create Invoice 3-Step Wizard & Dashboard Separation
+
+- **Developer**: Jenil Rana (`jenilrana026-max`) / AI Assistant Pair Programming
+- **Role**: `UI/UX Developer` & `Engine Developer`
+- **Branch**: `feature/ui-splash-login-dashboard`
+- **Assigned Task**: `TASK-SALES-WIZARD-001` (Sales Overview & Create Invoice Architecture Isolation)
+- **Objective**: Permanently separate the Create Invoice form from the "Recent Sales Invoices & Transactions" card, implement an isolated 3-step wizard (Client Info, Services/Products, Payment/Summary) with progress stepper, Back/Next navigation, data preservation, and ensure all buttons perform real actions.
+- **Root Cause of UI Mixing**:
+  - In the original `SalesBillingModuleControl.cs`, switching to the "Create Invoice" tab rendered all three cards vertically inside a single long container (`pnlCreateInvoiceView`) that shared similar styling and parent containers, while "New Invoice" buttons across the application were either triggering tab switching or were unattached, confusing the layout and appearing inside or mixed with the recent sales transaction card.
+- **Architecture & Implementation Fixes**:
+  1. **New Control: `Controls/CreateInvoiceWizardControl.cs`**:
+     - Modern 3-step progress stepper at the top (`1. Client & Invoice`, `2. Services & Products`, `3. Payment & Summary`) with circular badges, step titles, connecting track lines, and clickable navigation for completed steps.
+     - **Step 1 (Client & Invoice Settings)**: Auto-generated unique invoice number (`DatabaseService.GetNextInvoiceNumber()`), invoice date, due date, payment terms dropdown, GST tax scheme dropdown, real SQLite customer dropdown (`DatabaseService.GetCustomers()`), working `+ New Client` dialog (`CustomerDialog`), company, phone, email, and billing address.
+     - **Step 2 (Billable Services & Products)**: Service selection with scope, quantity, unit rate, discount %, and GST %, validated `+ Add Line` and `Remove Line` actions, formatted live data grid with currency formatting, clear empty state when no items are added, and dynamic item count and subtotal summary.
+     - **Step 3 (Payment Recording & Financial Summary)**: Initial amount paid, payment method, reference number, live payment status pill badge (`Paid`, `Partially Paid`, `Unpaid`), final invoice preview panel, and comprehensive tax breakdown (Subtotal, Item Discounts, Overall Discount, Taxable Amount, Intra-State CGST 9% + SGST 9% vs Inter-State IGST 18%, Grand Total, and Balance Due).
+     - **Action Footer**: `Back`, `Next`, `Cancel`, `Clear Form`, `Print Preview` (real print preview dialog), `Export PDF` (standalone vector HTML/PDF generation), `Save Invoice` (atomic SQLite transaction), and `Save & Print (A4)`.
+     - Full Light / Dark theme support with custom GDI+ anti-aliased drawing.
+  2. **New Form: `Forms/CreateInvoiceWizardForm.cs`**:
+     - Dedicated, standalone borderless modal dialog hosting `CreateInvoiceWizardControl`, centered over the parent window with `ShowWizard(owner, callback)` helper.
+  3. **Refactored `Controls/SalesBillingModuleControl.cs`**:
+     - Dashboard summary section updated to 6 cleanly aligned cards: `Total Sales`, `Total Invoices`, `Paid Invoices`, `Unpaid Invoices`, `Outstanding Due`, `Today's Billings`.
+     - Toolbar updated with real `Search`, `All Statuses` filter, date range filter, `Reset`, and `All Invoices`.
+     - Recent transactions card title standardized: `Recent Sales Invoices & Transactions`.
+     - All "New Invoice" buttons (`btnTopNewInvoice`, `btnQuickNewInv`) open the dedicated modal wizard dialog; the tab "Create Invoice" embeds the isolated wizard cleanly.
+     - Real actions wired for `View Details` (`InvoiceDetailsForm`), `Record Payment` (`PaymentDialog`), `Print` (`InvoicePrintService.PrintDirect`), `Export PDF` (`InvoicePrintService.OpenOrShareInvoice`), and `Cancel Invoice`.
+  4. **Updated `Forms/DashboardForm.cs`**:
+     - Top bar `btnTopAddProduct` ("+ New Invoice") wired to `CreateInvoiceWizardForm.ShowWizard(...)`, refreshing KPIs upon saving.
+- **Files Created / Modified**:
+  - `Controls/CreateInvoiceWizardControl.cs` (Created)
+  - `Forms/CreateInvoiceWizardForm.cs` (Created)
+  - `Controls/SalesBillingModuleControl.cs` (Modified)
+  - `Forms/DashboardForm.cs` (Modified)
+  - `docs/TEST_REPORT.md` (Modified)
+  - `.team/WORKLOG.md` (Modified)
+- **Verification & Test Status**:
+  - `dotnet build`: Succeeded with **0 warnings, 0 errors**.
+  - `dotnet run -- --test-sales`: 8/8 automated test suites passed cleanly (100% success).
+  - `dotnet run -- --render-sales`: Light and Dark theme layouts rendered and validated without clipping or overlap.
+- **Status**: COMPLETE & VERIFIED.

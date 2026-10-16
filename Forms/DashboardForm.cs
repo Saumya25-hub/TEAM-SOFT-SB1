@@ -106,6 +106,7 @@ namespace PROJECT_SBV1.Forms
         private string _activePage = "Overview";
 
         private SalesBillingModuleControl? _salesModule;
+        public SalesBillingModuleControl? SalesModule => _salesModule;
         private SalesDashboardMetrics? _currentMetrics;
         private readonly (string Title, string Value, string Subtitle, Color StatusCol, ReiconRenderer.IconType Icon)[] _kpiCardData = new (string, string, string, Color, ReiconRenderer.IconType)[6];
 
@@ -332,11 +333,15 @@ namespace PROJECT_SBV1.Forms
                 g.FillEllipse(dotBrush, btnNotifications.Width - 14, 7, 6, 6);
             };
 
-            // New Invoice button click navigation (Custom Framework: Anti-aliased pill, built-in vector icon)
+            // New Invoice button click navigation (Opens dedicated 3-step wizard modal)
             btnTopAddProduct.Click += (s, e) =>
             {
-                ShowPage("Sales");
-                _salesModule?.SwitchTab("CreateInvoice");
+                CreateInvoiceWizardForm.ShowWizard(this, (saved) =>
+                {
+                    RefreshLiveKpiCards();
+                    RefreshInvoicesTable();
+                    _salesModule?.LoadDashboardData();
+                });
             };
 
             // Dynamic header layout resizing for mathematical alignment and zero overlap
@@ -1083,7 +1088,7 @@ namespace PROJECT_SBV1.Forms
             };
         }
 
-        private void ShowPage(string page)
+        public void ShowPage(string page)
         {
             if (page == "Customers")
             {

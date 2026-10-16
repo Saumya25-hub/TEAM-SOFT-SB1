@@ -147,4 +147,23 @@ Allowed Statuses:
 - **Verification Evidence**: Automated test suite `dotnet run -- --test-sales` passed 8/8 tests. Clean build with 0 warnings, 0 errors. Recorded in `docs/TEST_REPORT.md` (Test Run `TR-20261014-003`).
 - **Blockers**: None.
 
+---
+
+### [x] `TASK-SALES-WIZARD-001`: Create Invoice 3-Step Wizard & Sales Overview Separation
+- **Owner**: Jenil Rana (@jenilrana026-max) / AI Assistant Pair Programming
+- **Role**: UI/UX Developer & Engine Developer
+- **Description**: Separate the Create Invoice workflow from the Recent Sales Invoices & Transactions dashboard card. Implement dedicated 3-step wizard (`CreateInvoiceWizardControl`) with visual progress stepper, step 1 (Client Info & Settings), step 2 (Services & Products with line item calculations), step 3 (Payment Recording & Financial Summary), and dedicated modal form (`CreateInvoiceWizardForm`). Reorganize Sales Overview into 6 summary KPI cards and verify all action buttons.
+- **Acceptance Criteria**:
+  1. Permanent separation of invoice creation from the recent transactions card.
+  2. 3-step wizard with active step visibility, Back/Next navigation, and validation.
+  3. Working database-backed customer selection and client creation dialog.
+  4. Real-time line item calculations and tax breakdown (CGST/SGST vs IGST).
+  5. Payment recording with balance due and status badge.
+  6. Action buttons functional: New Invoice, All Invoices, Manage Clients, View Details, Record Payment, Print, Export PDF, Cancel, Save, Save & Print.
+  7. Clean build with 0 warnings, 0 errors, and automated tests passing.
+- **Status**: Done
+- **Verification Evidence**: Automated test suite `dotnet run -- --test-sales` passed 8/8 tests. Visual rendering test passed (`dotnet run -- --render-sales`). Build verified (`dotnet build`: 0 warnings, 0 errors). Recorded in `docs/TEST_REPORT.md` (Test Run `TR-20261016-004`).
+- **Blockers**: None.
+
+
 

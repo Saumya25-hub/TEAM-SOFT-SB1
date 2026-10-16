@@ -39,6 +39,12 @@ namespace PROJECT_SBV1
                 return;
             }
 
+            if (args.Length > 0 && args[0].Equals("--render-sales", StringComparison.OrdinalIgnoreCase))
+            {
+                RunRenderSalesTest();
+                return;
+            }
+
             Application.Run(new Sb1ApplicationContext());
         }
 
@@ -183,6 +189,67 @@ namespace PROJECT_SBV1
             Console.WriteLine("================================================================================");
             Console.WriteLine("  ALL SALES & BILLING MODULE TESTS PASSED CLEANLY (100% SUCCESS)!");
             Console.WriteLine("================================================================================");
+        }
+
+        private static void RunRenderSalesTest()
+        {
+            Services.DatabaseService.InitializeDatabase();
+            string artifactDir = @"C:\Users\jenil\.gemini\antigravity-ide\brain\37f34276-3163-4b3f-9687-e4a92f749dcb";
+
+            void CaptureView(int w, int h, bool isDark, string fileName)
+            {
+                Services.ThemeManager.IsDarkMode = isDark;
+                using var form = new Forms.DashboardForm();
+                form.StartPosition = FormStartPosition.Manual;
+                form.Location = new Point(0, 0);
+                form.Size = new Size(w, h);
+                form.Show();
+                form.ShowPage("Sales");
+
+                for (int i = 0; i < 15; i++)
+                {
+                    Application.DoEvents();
+                    System.Threading.Thread.Sleep(20);
+                }
+
+                if (form.SalesModule is Controls.SalesBillingModuleControl sbm)
+                {
+                    Console.WriteLine($"[DIAG] SalesModule: bounds={sbm.Bounds}, Visible={sbm.Visible}, Parent={sbm.Parent?.GetType().Name} bounds={sbm.Parent?.Bounds}");
+                    
+                    var fbar = sbm.Controls.Find("pnlFilterToolbar", true).FirstOrDefault();
+                    Console.WriteLine($"[DIAG] pnlFilterToolbar: {(fbar != null ? $"{fbar.Bounds}, Vis={fbar.Visible}, Controls={fbar.Controls.Count}" : "NOT FOUND")}");
+                    
+                    var rch = sbm.Controls.Find("pnlRecentCardHeader", true).FirstOrDefault();
+                    Console.WriteLine($"[DIAG] pnlRecentCardHeader: {(rch != null ? $"{rch.Bounds}, Vis={rch.Visible}, Controls={rch.Controls.Count}" : "NOT FOUND")}");
+                    
+                    // Direct search in sbm
+                    void PrintTree(Control parent, int indent)
+                    {
+                        string ind = new string(' ', indent * 2);
+                        Console.WriteLine($"{ind}- {parent.GetType().Name} '{parent.Name}' bounds={parent.Bounds} Vis={parent.Visible} Dock={parent.Dock} CtlCount={parent.Controls.Count}");
+                        foreach (Control child in parent.Controls)
+                        {
+                            if (child is Button || child is ComboBox || child is DateTimePicker || child is CheckBox || child is Label || child is Panel)
+                                Console.WriteLine($"{ind}  * {child.GetType().Name} '{child.Name}' text='{child.Text}' bounds={child.Bounds} Vis={child.Visible}");
+                            if (child.HasChildren && !(child is DataGridView))
+                                PrintTree(child, indent + 1);
+                        }
+                    }
+                    PrintTree(sbm, 0);
+                }
+
+                string outPath = System.IO.Path.Combine(artifactDir, fileName);
+                using var bmp = new Bitmap(w, h);
+                form.DrawToBitmap(bmp, new Rectangle(0, 0, w, h));
+                bmp.Save(outPath, System.Drawing.Imaging.ImageFormat.Png);
+                Console.WriteLine($"[RENDER] Captured {fileName} ({w}x{h}, Dark={isDark})");
+
+                form.Close();
+            }
+
+            CaptureView(1366, 820, false, "sales_layout_light_1366.png");
+            CaptureView(1366, 820, true, "sales_layout_dark_1366.png");
+            CaptureView(1600, 900, false, "sales_layout_light_1600.png");
         }
 
         private static void RunFlowTest()

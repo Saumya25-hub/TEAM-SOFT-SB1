@@ -68,7 +68,7 @@ namespace PROJECT_SBV1.Controls
         public Color TextColor
         {
             get => _textColor;
-            set { _textColor = value; Invalidate(); }
+            set { _textColor = value; if (_iconColor == Color.White && value != Color.White) _iconColor = value; Invalidate(); }
         }
 
         public Color BorderColor
