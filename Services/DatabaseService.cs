@@ -127,8 +127,42 @@ namespace PROJECT_SBV1.Services
                     CREATE INDEX IF NOT EXISTS idx_invoices_date ON Invoices(InvoiceDate);
                     CREATE INDEX IF NOT EXISTS idx_items_invoice ON InvoiceItems(InvoiceId);
                     CREATE INDEX IF NOT EXISTS idx_payments_invoice ON Payments(InvoiceId);
+
+                    CREATE TABLE IF NOT EXISTS Products (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        Barcode TEXT UNIQUE,
+                        Name TEXT NOT NULL,
+                        Category TEXT,
+                        HSN TEXT DEFAULT '8471',
+                        Unit TEXT DEFAULT 'PCS',
+                        CostPrice REAL DEFAULT 0,
+                        SalePrice REAL NOT NULL,
+                        StockQuantity REAL DEFAULT 0,
+                        TaxRate REAL DEFAULT 18,
+                        CreatedAt TEXT NOT NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_products_barcode ON Products(Barcode);
+                    CREATE INDEX IF NOT EXISTS idx_products_name ON Products(Name);
+
+                    CREATE TABLE IF NOT EXISTS Brokers (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        Name TEXT NOT NULL,
+                        Phone TEXT,
+                        CommissionPercent REAL DEFAULT 0,
+                        CreatedAt TEXT NOT NULL
+                    );
                 ";
                 cmd.ExecuteNonQuery();
+
+                // Safe schema migrations for existing database
+                AddColumnIfNotExists(conn, "Invoices", "BrokerName", "TEXT DEFAULT ''");
+                AddColumnIfNotExists(conn, "Invoices", "RoundOff", "REAL DEFAULT 0");
+                AddColumnIfNotExists(conn, "Invoices", "TotalQuantity", "REAL DEFAULT 0");
+
+                AddColumnIfNotExists(conn, "InvoiceItems", "HSN", "TEXT DEFAULT '8471'");
+                AddColumnIfNotExists(conn, "InvoiceItems", "Unit", "TEXT DEFAULT 'PCS'");
+                AddColumnIfNotExists(conn, "InvoiceItems", "TaxableAmount", "REAL DEFAULT 0");
+                AddColumnIfNotExists(conn, "InvoiceItems", "ProductId", "INTEGER DEFAULT 0");
 
                 // Seed Default Business Profile if missing
                 using (var checkCmd = conn.CreateCommand())
@@ -162,184 +196,255 @@ namespace PROJECT_SBV1.Services
 
         private static void SeedInitialDataIfEmpty(SqliteConnection conn)
         {
-            using var countCmd = conn.CreateCommand();
-            countCmd.CommandText = "SELECT COUNT(*) FROM Customers;";
-            long custCount = (long)(countCmd.ExecuteScalar() ?? 0);
-            if (custCount > 0) return;
-
-            // Seed Customers
-            var customers = new[]
+            // 1. Seed Customers & Sample Invoices if Customers table is empty
+            using (var countCmd = conn.CreateCommand())
             {
-                new Customer { Name = "Rajesh Sharma", CompanyName = "Apex Cloud Solutions", Phone = "+91 98251 00112", Email = "rajesh@apexcloud.in", BillingAddress = "402, Navratna Corporate Park, Ambli, Ahmedabad", GSTIN = "24AABCA1234F1ZX" },
-                new Customer { Name = "Anita Patel", CompanyName = "Zenith Digital Agency", Phone = "+91 94260 88231", Email = "anita@zenithagency.com", BillingAddress = "701, Iscon Elegance, Prahlad Nagar, Ahmedabad", GSTIN = "24BBAPA5678K1ZY" },
-                new Customer { Name = "Vikram Mehta", CompanyName = "Mehta Global Logistics", Phone = "+91 98240 12345", Email = "vikram@mehtaglobal.com", BillingAddress = "12, Transport Nagar, Narol, Ahmedabad", GSTIN = "24CCAPM9012M1Z3" },
-                new Customer { Name = "Kiran Joshi", CompanyName = "Starlight Brand Consultants", Phone = "+91 97245 44109", Email = "kiran@starlightbrand.com", BillingAddress = "G-14, Safal Pegasus, Anand Nagar, Ahmedabad", GSTIN = "24DDAPJ3456P1Z7" }
-            };
+                countCmd.CommandText = "SELECT COUNT(*) FROM Customers;";
+                long custCount = (long)(countCmd.ExecuteScalar() ?? 0);
+                if (custCount == 0)
+                {
+                    var customers = new[]
+                    {
+                        new Customer { Name = "Rajesh Sharma", CompanyName = "Apex Cloud Solutions", Phone = "+91 98251 00112", Email = "rajesh@apexcloud.in", BillingAddress = "402, Navratna Corporate Park, Ambli, Ahmedabad", GSTIN = "24AABCA1234F1ZX" },
+                        new Customer { Name = "Anita Patel", CompanyName = "Zenith Digital Agency", Phone = "+91 94260 88231", Email = "anita@zenithagency.com", BillingAddress = "701, Iscon Elegance, Prahlad Nagar, Ahmedabad", GSTIN = "24BBAPA5678K1ZY" },
+                        new Customer { Name = "Vikram Mehta", CompanyName = "Mehta Global Logistics", Phone = "+91 98240 12345", Email = "vikram@mehtaglobal.com", BillingAddress = "12, Transport Nagar, Narol, Ahmedabad", GSTIN = "24CCAPM9012M1Z3" },
+                        new Customer { Name = "Kiran Joshi", CompanyName = "Starlight Brand Consultants", Phone = "+91 97245 44109", Email = "kiran@starlightbrand.com", BillingAddress = "G-14, Safal Pegasus, Anand Nagar, Ahmedabad", GSTIN = "24DDAPJ3456P1Z7" }
+                    };
 
-            foreach (var c in customers)
-            {
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"
-                    INSERT INTO Customers (Name, CompanyName, Phone, Email, BillingAddress, GSTIN, OutstandingBalance, CreatedAt)
-                    VALUES (@name, @comp, @phone, @email, @addr, @gstin, 0, @created);
-                    SELECT last_insert_rowid();
-                ";
-                cmd.Parameters.AddWithValue("@name", c.Name);
-                cmd.Parameters.AddWithValue("@comp", c.CompanyName);
-                cmd.Parameters.AddWithValue("@phone", c.Phone);
-                cmd.Parameters.AddWithValue("@email", c.Email);
-                cmd.Parameters.AddWithValue("@addr", c.BillingAddress);
-                cmd.Parameters.AddWithValue("@gstin", c.GSTIN);
-                cmd.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
-                c.Id = (long)(cmd.ExecuteScalar() ?? 0);
+                    foreach (var c in customers)
+                    {
+                        using var cmd = conn.CreateCommand();
+                        cmd.CommandText = @"
+                            INSERT INTO Customers (Name, CompanyName, Phone, Email, BillingAddress, GSTIN, OutstandingBalance, CreatedAt)
+                            VALUES (@name, @comp, @phone, @email, @addr, @gstin, 0, @created);
+                            SELECT last_insert_rowid();
+                        ";
+                        cmd.Parameters.AddWithValue("@name", c.Name);
+                        cmd.Parameters.AddWithValue("@comp", c.CompanyName);
+                        cmd.Parameters.AddWithValue("@phone", c.Phone);
+                        cmd.Parameters.AddWithValue("@email", c.Email);
+                        cmd.Parameters.AddWithValue("@addr", c.BillingAddress);
+                        cmd.Parameters.AddWithValue("@gstin", c.GSTIN);
+                        cmd.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
+                        c.Id = (long)(cmd.ExecuteScalar() ?? 0);
+                    }
+
+                    var sampleInvoices = new[]
+                    {
+                        new { Cust = customers[0], Num = "INV-2026-0001", Date = DateTime.Today.AddDays(-6), Due = DateTime.Today.AddDays(9), Status = "Paid",
+                              Items = new[] { ("Enterprise Software License (Annual)", "TEAM SOFT ERP Cloud - 10 Users", 1m, 35000m, 0m, 18m),
+                                              ("Cloud Migration & Setup Support", "Database migration & user onboarding", 1m, 10000m, 0m, 18m) },
+                              Paid = 53100m, Method = "Bank Transfer", Ref = "NEFT-HDFC-992144" },
+
+                        new { Cust = customers[1], Num = "INV-2026-0002", Date = DateTime.Today.AddDays(-3), Due = DateTime.Today.AddDays(12), Status = "Partially Paid",
+                              Items = new[] { ("Custom Web Application Architecture", "Microservices backend & API integration", 1m, 45000m, 10m, 18m),
+                                              ("SSL & Domain Security Certification", "Wildcard SSL certificate 2-year provisioning", 1m, 6000m, 0m, 18m) },
+                              Paid = 25000m, Method = "UPI", Ref = "UPI/261014/88912" },
+
+                        new { Cust = customers[2], Num = "INV-2026-0003", Date = DateTime.Today.AddDays(-1), Due = DateTime.Today.AddDays(14), Status = "Unpaid",
+                              Items = new[] { ("Corporate Identity & UI/UX Design", "Figma design system & brand guidelines", 1m, 28000m, 0m, 18m),
+                                              ("Digital Signatures (Class 3 DSC - 2 Yrs)", "Encrypted USB token with org verification", 2m, 2500m, 0m, 18m) },
+                              Paid = 0m, Method = "", Ref = "" }
+                    };
+
+                    foreach (var s in sampleInvoices)
+                    {
+                        var inv = new Invoice
+                        {
+                            InvoiceNumber = s.Num,
+                            CustomerId = s.Cust.Id,
+                            CustomerName = s.Cust.Name,
+                            CustomerCompany = s.Cust.CompanyName,
+                            CustomerPhone = s.Cust.Phone,
+                            CustomerEmail = s.Cust.Email,
+                            CustomerAddress = s.Cust.BillingAddress,
+                            CustomerGSTIN = s.Cust.GSTIN,
+                            InvoiceDate = s.Date,
+                            DueDate = s.Due,
+                            PaymentTerms = "Net 15",
+                            TaxType = "GST_INTRA",
+                            Status = s.Status
+                        };
+
+                        foreach (var it in s.Items)
+                        {
+                            var item = new InvoiceItem
+                            {
+                                ServiceName = it.Item1,
+                                Description = it.Item2,
+                                Quantity = it.Item3,
+                                UnitPrice = it.Item4,
+                                DiscountPercent = it.Item5,
+                                TaxPercent = it.Item6
+                            };
+                            item.CalculateLineTotal();
+                            inv.Items.Add(item);
+                        }
+
+                        inv.AmountPaid = s.Paid;
+                        inv.RecalculateTotals();
+
+                        using var insertInvCmd = conn.CreateCommand();
+                        insertInvCmd.CommandText = @"
+                            INSERT INTO Invoices (InvoiceNumber, CustomerId, CustomerName, CustomerCompany, CustomerPhone, CustomerEmail, 
+                                CustomerAddress, CustomerGSTIN, InvoiceDate, DueDate, PaymentTerms, TaxType, Subtotal, ItemDiscountTotal, 
+                                OverallDiscount, TaxableAmount, CgstRate, CgstAmount, SgstRate, SgstAmount, IgstRate, IgstAmount, 
+                                GrandTotal, AmountPaid, BalanceDue, Status, Notes, CreatedAt)
+                            VALUES (@num, @cid, @cname, @ccomp, @cphone, @cemail, @caddr, @cgst, @idate, @ddate, @terms, @taxtype, 
+                                @sub, @itemdisc, @ovrdisc, @taxable, @cgstr, @cgsta, @sgstr, @sgsta, @igstr, @igsta, 
+                                @grand, @paid, @bal, @status, @notes, @created);
+                            SELECT last_insert_rowid();
+                        ";
+                        insertInvCmd.Parameters.AddWithValue("@num", inv.InvoiceNumber);
+                        insertInvCmd.Parameters.AddWithValue("@cid", inv.CustomerId);
+                        insertInvCmd.Parameters.AddWithValue("@cname", inv.CustomerName);
+                        insertInvCmd.Parameters.AddWithValue("@ccomp", inv.CustomerCompany);
+                        insertInvCmd.Parameters.AddWithValue("@cphone", inv.CustomerPhone);
+                        insertInvCmd.Parameters.AddWithValue("@cemail", inv.CustomerEmail);
+                        insertInvCmd.Parameters.AddWithValue("@caddr", inv.CustomerAddress);
+                        insertInvCmd.Parameters.AddWithValue("@cgst", inv.CustomerGSTIN);
+                        insertInvCmd.Parameters.AddWithValue("@idate", inv.InvoiceDate.ToString("yyyy-MM-dd"));
+                        insertInvCmd.Parameters.AddWithValue("@ddate", inv.DueDate.ToString("yyyy-MM-dd"));
+                        insertInvCmd.Parameters.AddWithValue("@terms", inv.PaymentTerms);
+                        insertInvCmd.Parameters.AddWithValue("@taxtype", inv.TaxType);
+                        insertInvCmd.Parameters.AddWithValue("@sub", inv.Subtotal);
+                        insertInvCmd.Parameters.AddWithValue("@itemdisc", inv.ItemDiscountTotal);
+                        insertInvCmd.Parameters.AddWithValue("@ovrdisc", inv.OverallDiscount);
+                        insertInvCmd.Parameters.AddWithValue("@taxable", inv.TaxableAmount);
+                        insertInvCmd.Parameters.AddWithValue("@cgstr", inv.CgstRate);
+                        insertInvCmd.Parameters.AddWithValue("@cgsta", inv.CgstAmount);
+                        insertInvCmd.Parameters.AddWithValue("@sgstr", inv.SgstRate);
+                        insertInvCmd.Parameters.AddWithValue("@sgsta", inv.SgstAmount);
+                        insertInvCmd.Parameters.AddWithValue("@igstr", inv.IgstRate);
+                        insertInvCmd.Parameters.AddWithValue("@igsta", inv.IgstAmount);
+                        insertInvCmd.Parameters.AddWithValue("@grand", inv.GrandTotal);
+                        insertInvCmd.Parameters.AddWithValue("@paid", inv.AmountPaid);
+                        insertInvCmd.Parameters.AddWithValue("@bal", inv.BalanceDue);
+                        insertInvCmd.Parameters.AddWithValue("@status", inv.Status);
+                        insertInvCmd.Parameters.AddWithValue("@notes", inv.Notes);
+                        insertInvCmd.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
+                        inv.Id = (long)(insertInvCmd.ExecuteScalar() ?? 0);
+
+                        foreach (var item in inv.Items)
+                        {
+                            using var itemCmd = conn.CreateCommand();
+                            itemCmd.CommandText = @"
+                                INSERT INTO InvoiceItems (InvoiceId, ServiceName, Description, Quantity, UnitPrice, DiscountPercent, DiscountAmount, TaxPercent, LineTotal)
+                                VALUES (@invid, @name, @desc, @qty, @price, @disc_pct, @disc_amt, @tax_pct, @total);
+                            ";
+                            itemCmd.Parameters.AddWithValue("@invid", inv.Id);
+                            itemCmd.Parameters.AddWithValue("@name", item.ServiceName);
+                            itemCmd.Parameters.AddWithValue("@desc", item.Description);
+                            itemCmd.Parameters.AddWithValue("@qty", item.Quantity);
+                            itemCmd.Parameters.AddWithValue("@price", item.UnitPrice);
+                            itemCmd.Parameters.AddWithValue("@disc_pct", item.DiscountPercent);
+                            itemCmd.Parameters.AddWithValue("@disc_amt", item.DiscountAmount);
+                            itemCmd.Parameters.AddWithValue("@tax_pct", item.TaxPercent);
+                            itemCmd.Parameters.AddWithValue("@total", item.LineTotal);
+                            itemCmd.ExecuteNonQuery();
+                        }
+
+                        if (s.Paid > 0)
+                        {
+                            using var payCmd = conn.CreateCommand();
+                            payCmd.CommandText = @"
+                                INSERT INTO Payments (InvoiceId, PaymentDate, Amount, PaymentMethod, ReferenceNumber, Notes, CreatedAt)
+                                VALUES (@invid, @date, @amount, @method, @ref, @notes, @created);
+                            ";
+                            payCmd.Parameters.AddWithValue("@invid", inv.Id);
+                            payCmd.Parameters.AddWithValue("@date", s.Date.ToString("yyyy-MM-dd HH:mm:ss"));
+                            payCmd.Parameters.AddWithValue("@amount", s.Paid);
+                            payCmd.Parameters.AddWithValue("@method", s.Method);
+                            payCmd.Parameters.AddWithValue("@ref", s.Ref);
+                            payCmd.Parameters.AddWithValue("@notes", "Initial payment on invoice creation");
+                            payCmd.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
+                            payCmd.ExecuteNonQuery();
+                        }
+
+                        using var custBalCmd = conn.CreateCommand();
+                        custBalCmd.CommandText = @"
+                            UPDATE Customers 
+                            SET OutstandingBalance = (
+                                SELECT COALESCE(SUM(BalanceDue), 0) FROM Invoices WHERE CustomerId = @cid AND Status != 'Cancelled'
+                            )
+                            WHERE Id = @cid;
+                        ";
+                        custBalCmd.Parameters.AddWithValue("@cid", inv.CustomerId);
+                        custBalCmd.ExecuteNonQuery();
+                    }
+                }
             }
 
-            // Seed Sample Invoices
-            var sampleInvoices = new[]
+            // 2. Seed Products if Products table is empty
+            using (var checkProd = conn.CreateCommand())
             {
-                new { Cust = customers[0], Num = "INV-2026-0001", Date = DateTime.Today.AddDays(-6), Due = DateTime.Today.AddDays(9), Status = "Paid",
-                      Items = new[] { ("Enterprise Software License (Annual)", "TEAM SOFT ERP Cloud - 10 Users", 1m, 35000m, 0m, 18m),
-                                      ("Cloud Migration & Setup Support", "Database migration & user onboarding", 1m, 10000m, 0m, 18m) },
-                      Paid = 53100m, Method = "Bank Transfer", Ref = "NEFT-HDFC-992144" },
-
-                new { Cust = customers[1], Num = "INV-2026-0002", Date = DateTime.Today.AddDays(-3), Due = DateTime.Today.AddDays(12), Status = "Partially Paid",
-                      Items = new[] { ("Custom Web Application Architecture", "Microservices backend & API integration", 1m, 45000m, 10m, 18m),
-                                      ("SSL & Domain Security Certification", "Wildcard SSL certificate 2-year provisioning", 1m, 6000m, 0m, 18m) },
-                      Paid = 25000m, Method = "UPI", Ref = "UPI/261014/88912" },
-
-                new { Cust = customers[2], Num = "INV-2026-0003", Date = DateTime.Today.AddDays(-1), Due = DateTime.Today.AddDays(14), Status = "Unpaid",
-                      Items = new[] { ("Corporate Identity & UI/UX Design", "Figma design system & brand guidelines", 1m, 28000m, 0m, 18m),
-                                      ("Digital Signatures (Class 3 DSC - 2 Yrs)", "Encrypted USB token with org verification", 2m, 2500m, 0m, 18m) },
-                      Paid = 0m, Method = "", Ref = "" }
-            };
-
-            foreach (var s in sampleInvoices)
-            {
-                var inv = new Invoice
+                checkProd.CommandText = "SELECT COUNT(*) FROM Products;";
+                long prodCount = (long)(checkProd.ExecuteScalar() ?? 0);
+                if (prodCount == 0)
                 {
-                    InvoiceNumber = s.Num,
-                    CustomerId = s.Cust.Id,
-                    CustomerName = s.Cust.Name,
-                    CustomerCompany = s.Cust.CompanyName,
-                    CustomerPhone = s.Cust.Phone,
-                    CustomerEmail = s.Cust.Email,
-                    CustomerAddress = s.Cust.BillingAddress,
-                    CustomerGSTIN = s.Cust.GSTIN,
-                    InvoiceDate = s.Date,
-                    DueDate = s.Due,
-                    PaymentTerms = "Net 15",
-                    TaxType = "GST_INTRA",
-                    Status = s.Status
-                };
-
-                foreach (var it in s.Items)
-                {
-                    var item = new InvoiceItem
+                    var products = new[]
                     {
-                        ServiceName = it.Item1,
-                        Description = it.Item2,
-                        Quantity = it.Item3,
-                        UnitPrice = it.Item4,
-                        DiscountPercent = it.Item5,
-                        TaxPercent = it.Item6
+                        new ProductItem { Barcode = "8901234567890", Name = "Logitech Wireless Mouse M331", Category = "Electronics", HSN = "8471", Unit = "PCS", CostPrice = 850m, SalePrice = 1199m, StockQuantity = 45m, TaxRate = 18m },
+                        new ProductItem { Barcode = "8901234001", Name = "Samsung SSD 1TB 980 Pro", Category = "Electronics", HSN = "8471", Unit = "PCS", CostPrice = 6800m, SalePrice = 8499m, StockQuantity = 20m, TaxRate = 18m },
+                        new ProductItem { Barcode = "8901234002", Name = "HP Laser Toner 12A Black", Category = "Hardware", HSN = "8443", Unit = "PCS", CostPrice = 550m, SalePrice = 850m, StockQuantity = 35m, TaxRate = 18m },
+                        new ProductItem { Barcode = "8901234003", Name = "Cat6 LAN Cable 305M Roll", Category = "Networking", HSN = "8544", Unit = "Roll", CostPrice = 4200m, SalePrice = 5600m, StockQuantity = 12m, TaxRate = 18m },
+                        new ProductItem { Barcode = "8901234004", Name = "SanDisk Ultra 64GB USB 3.0", Category = "Electronics", HSN = "8523", Unit = "PCS", CostPrice = 450m, SalePrice = 650m, StockQuantity = 80m, TaxRate = 18m },
+                        new ProductItem { Barcode = "8901234005", Name = "Dell 24-inch Full HD Monitor", Category = "Electronics", HSN = "8528", Unit = "PCS", CostPrice = 9200m, SalePrice = 11500m, StockQuantity = 15m, TaxRate = 18m },
+                        new ProductItem { Barcode = "8901234006", Name = "TVS Gold Mechanical Keyboard", Category = "Hardware", HSN = "8471", Unit = "PCS", CostPrice = 1950m, SalePrice = 2450m, StockQuantity = 25m, TaxRate = 18m },
+                        new ProductItem { Barcode = "8901234007", Name = "D-Link 8-Port Gigabit Switch", Category = "Networking", HSN = "8517", Unit = "PCS", CostPrice = 1350m, SalePrice = 1850m, StockQuantity = 18m, TaxRate = 18m }
                     };
-                    item.CalculateLineTotal();
-                    inv.Items.Add(item);
+
+                    foreach (var p in products)
+                    {
+                        using var insertP = conn.CreateCommand();
+                        insertP.CommandText = @"
+                            INSERT INTO Products (Barcode, Name, Category, HSN, Unit, CostPrice, SalePrice, StockQuantity, TaxRate, CreatedAt)
+                            VALUES (@bc, @name, @cat, @hsn, @unit, @cost, @sale, @stock, @tax, @created);
+                        ";
+                        insertP.Parameters.AddWithValue("@bc", p.Barcode);
+                        insertP.Parameters.AddWithValue("@name", p.Name);
+                        insertP.Parameters.AddWithValue("@cat", p.Category);
+                        insertP.Parameters.AddWithValue("@hsn", p.HSN);
+                        insertP.Parameters.AddWithValue("@unit", p.Unit);
+                        insertP.Parameters.AddWithValue("@cost", p.CostPrice);
+                        insertP.Parameters.AddWithValue("@sale", p.SalePrice);
+                        insertP.Parameters.AddWithValue("@stock", p.StockQuantity);
+                        insertP.Parameters.AddWithValue("@tax", p.TaxRate);
+                        insertP.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
+                        insertP.ExecuteNonQuery();
+                    }
                 }
+            }
 
-                inv.AmountPaid = s.Paid;
-                inv.RecalculateTotals();
-
-                // Save to database
-                using var insertInvCmd = conn.CreateCommand();
-                insertInvCmd.CommandText = @"
-                    INSERT INTO Invoices (InvoiceNumber, CustomerId, CustomerName, CustomerCompany, CustomerPhone, CustomerEmail, 
-                        CustomerAddress, CustomerGSTIN, InvoiceDate, DueDate, PaymentTerms, TaxType, Subtotal, ItemDiscountTotal, 
-                        OverallDiscount, TaxableAmount, CgstRate, CgstAmount, SgstRate, SgstAmount, IgstRate, IgstAmount, 
-                        GrandTotal, AmountPaid, BalanceDue, Status, Notes, CreatedAt)
-                    VALUES (@num, @cid, @cname, @ccomp, @cphone, @cemail, @caddr, @cgst, @idate, @ddate, @terms, @taxtype, 
-                        @sub, @itemdisc, @ovrdisc, @taxable, @cgstr, @cgsta, @sgstr, @sgsta, @igstr, @igsta, 
-                        @grand, @paid, @bal, @status, @notes, @created);
-                    SELECT last_insert_rowid();
-                ";
-                insertInvCmd.Parameters.AddWithValue("@num", inv.InvoiceNumber);
-                insertInvCmd.Parameters.AddWithValue("@cid", inv.CustomerId);
-                insertInvCmd.Parameters.AddWithValue("@cname", inv.CustomerName);
-                insertInvCmd.Parameters.AddWithValue("@ccomp", inv.CustomerCompany);
-                insertInvCmd.Parameters.AddWithValue("@cphone", inv.CustomerPhone);
-                insertInvCmd.Parameters.AddWithValue("@cemail", inv.CustomerEmail);
-                insertInvCmd.Parameters.AddWithValue("@caddr", inv.CustomerAddress);
-                insertInvCmd.Parameters.AddWithValue("@cgst", inv.CustomerGSTIN);
-                insertInvCmd.Parameters.AddWithValue("@idate", inv.InvoiceDate.ToString("yyyy-MM-dd"));
-                insertInvCmd.Parameters.AddWithValue("@ddate", inv.DueDate.ToString("yyyy-MM-dd"));
-                insertInvCmd.Parameters.AddWithValue("@terms", inv.PaymentTerms);
-                insertInvCmd.Parameters.AddWithValue("@taxtype", inv.TaxType);
-                insertInvCmd.Parameters.AddWithValue("@sub", inv.Subtotal);
-                insertInvCmd.Parameters.AddWithValue("@itemdisc", inv.ItemDiscountTotal);
-                insertInvCmd.Parameters.AddWithValue("@ovrdisc", inv.OverallDiscount);
-                insertInvCmd.Parameters.AddWithValue("@taxable", inv.TaxableAmount);
-                insertInvCmd.Parameters.AddWithValue("@cgstr", inv.CgstRate);
-                insertInvCmd.Parameters.AddWithValue("@cgsta", inv.CgstAmount);
-                insertInvCmd.Parameters.AddWithValue("@sgstr", inv.SgstRate);
-                insertInvCmd.Parameters.AddWithValue("@sgsta", inv.SgstAmount);
-                insertInvCmd.Parameters.AddWithValue("@igstr", inv.IgstRate);
-                insertInvCmd.Parameters.AddWithValue("@igsta", inv.IgstAmount);
-                insertInvCmd.Parameters.AddWithValue("@grand", inv.GrandTotal);
-                insertInvCmd.Parameters.AddWithValue("@paid", inv.AmountPaid);
-                insertInvCmd.Parameters.AddWithValue("@bal", inv.BalanceDue);
-                insertInvCmd.Parameters.AddWithValue("@status", inv.Status);
-                insertInvCmd.Parameters.AddWithValue("@notes", inv.Notes);
-                insertInvCmd.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
-
-                inv.Id = (long)(insertInvCmd.ExecuteScalar() ?? 0);
-
-                foreach (var item in inv.Items)
+            // 3. Seed Brokers if Brokers table is empty
+            using (var checkBrk = conn.CreateCommand())
+            {
+                checkBrk.CommandText = "SELECT COUNT(*) FROM Brokers;";
+                long brkCount = (long)(checkBrk.ExecuteScalar() ?? 0);
+                if (brkCount == 0)
                 {
-                    using var itemCmd = conn.CreateCommand();
-                    itemCmd.CommandText = @"
-                        INSERT INTO InvoiceItems (InvoiceId, ServiceName, Description, Quantity, UnitPrice, DiscountPercent, DiscountAmount, TaxPercent, LineTotal)
-                        VALUES (@invid, @name, @desc, @qty, @price, @disc_pct, @disc_amt, @tax_pct, @total);
-                    ";
-                    itemCmd.Parameters.AddWithValue("@invid", inv.Id);
-                    itemCmd.Parameters.AddWithValue("@name", item.ServiceName);
-                    itemCmd.Parameters.AddWithValue("@desc", item.Description);
-                    itemCmd.Parameters.AddWithValue("@qty", item.Quantity);
-                    itemCmd.Parameters.AddWithValue("@price", item.UnitPrice);
-                    itemCmd.Parameters.AddWithValue("@disc_pct", item.DiscountPercent);
-                    itemCmd.Parameters.AddWithValue("@disc_amt", item.DiscountAmount);
-                    itemCmd.Parameters.AddWithValue("@tax_pct", item.TaxPercent);
-                    itemCmd.Parameters.AddWithValue("@total", item.LineTotal);
-                    itemCmd.ExecuteNonQuery();
-                }
+                    var brokers = new[]
+                    {
+                        new Broker { Name = "Direct (No Broker)", Phone = "", CommissionPercent = 0m },
+                        new Broker { Name = "Ramesh Patel (Gujarat Trading)", Phone = "+91 98251 44556", CommissionPercent = 1.5m },
+                        new Broker { Name = "Suresh Shah (Agency Broker)", Phone = "+91 94260 11223", CommissionPercent = 2.0m },
+                        new Broker { Name = "Mahesh Broker & Co", Phone = "+91 98240 77889", CommissionPercent = 1.0m }
+                    };
 
-                if (s.Paid > 0)
-                {
-                    using var payCmd = conn.CreateCommand();
-                    payCmd.CommandText = @"
-                        INSERT INTO Payments (InvoiceId, PaymentDate, Amount, PaymentMethod, ReferenceNumber, Notes, CreatedAt)
-                        VALUES (@invid, @date, @amount, @method, @ref, @notes, @created);
-                    ";
-                    payCmd.Parameters.AddWithValue("@invid", inv.Id);
-                    payCmd.Parameters.AddWithValue("@date", s.Date.ToString("yyyy-MM-dd HH:mm:ss"));
-                    payCmd.Parameters.AddWithValue("@amount", s.Paid);
-                    payCmd.Parameters.AddWithValue("@method", s.Method);
-                    payCmd.Parameters.AddWithValue("@ref", s.Ref);
-                    payCmd.Parameters.AddWithValue("@notes", "Initial payment on invoice creation");
-                    payCmd.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
-                    payCmd.ExecuteNonQuery();
+                    foreach (var b in brokers)
+                    {
+                        using var insertB = conn.CreateCommand();
+                        insertB.CommandText = @"
+                            INSERT INTO Brokers (Name, Phone, CommissionPercent, CreatedAt)
+                            VALUES (@name, @phone, @comm, @created);
+                        ";
+                        insertB.Parameters.AddWithValue("@name", b.Name);
+                        insertB.Parameters.AddWithValue("@phone", b.Phone);
+                        insertB.Parameters.AddWithValue("@comm", b.CommissionPercent);
+                        insertB.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
+                        insertB.ExecuteNonQuery();
+                    }
                 }
-
-                // Update customer outstanding balance
-                using var custBalCmd = conn.CreateCommand();
-                custBalCmd.CommandText = @"
-                    UPDATE Customers 
-                    SET OutstandingBalance = (
-                        SELECT COALESCE(SUM(BalanceDue), 0) FROM Invoices WHERE CustomerId = @cid AND Status != 'Cancelled'
-                    )
-                    WHERE Id = @cid;
-                ";
-                custBalCmd.Parameters.AddWithValue("@cid", inv.CustomerId);
-                custBalCmd.ExecuteNonQuery();
             }
         }
 
@@ -518,6 +623,59 @@ namespace PROJECT_SBV1.Services
                 }
             }
             return c;
+        }
+
+        private static void AddColumnIfNotExists(SqliteConnection conn, string table, string column, string typeDef)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"PRAGMA table_info({table});";
+            using var r = cmd.ExecuteReader();
+            bool exists = false;
+            while (r.Read())
+            {
+                if (r.GetString(1).Equals(column, StringComparison.OrdinalIgnoreCase))
+                {
+                    exists = true;
+                    break;
+                }
+            }
+            r.Close();
+            if (!exists)
+            {
+                using var alterCmd = conn.CreateCommand();
+                alterCmd.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {typeDef};";
+                alterCmd.ExecuteNonQuery();
+            }
+        }
+
+        public static string GetNextSalesInvoiceNumber()
+        {
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                int yr = DateTime.Today.Year % 100;
+                int nextYr = (yr + 1) % 100;
+                string fy = $"{yr:D2}-{nextYr:D2}";
+                string prefix = $"{fy}/INV/";
+
+                cmd.CommandText = "SELECT COUNT(*) FROM Invoices;";
+                long count = (long)(cmd.ExecuteScalar() ?? 0);
+                string candidate = $"{prefix}{(count + 1):D4}";
+
+                while (true)
+                {
+                    using var checkCmd = conn.CreateCommand();
+                    checkCmd.CommandText = "SELECT COUNT(*) FROM Invoices WHERE InvoiceNumber = @num;";
+                    checkCmd.Parameters.AddWithValue("@num", candidate);
+                    long exists = (long)(checkCmd.ExecuteScalar() ?? 0);
+                    if (exists == 0) return candidate;
+
+                    count++;
+                    candidate = $"{prefix}{(count + 1):D4}";
+                }
+            }
         }
 
         public static string GetNextInvoiceNumber()
@@ -722,10 +880,10 @@ namespace PROJECT_SBV1.Services
                             INSERT INTO Invoices (InvoiceNumber, CustomerId, CustomerName, CustomerCompany, CustomerPhone, CustomerEmail, 
                                 CustomerAddress, CustomerGSTIN, InvoiceDate, DueDate, PaymentTerms, TaxType, Subtotal, ItemDiscountTotal, 
                                 OverallDiscount, TaxableAmount, CgstRate, CgstAmount, SgstRate, SgstAmount, IgstRate, IgstAmount, 
-                                GrandTotal, AmountPaid, BalanceDue, Status, Notes, CreatedAt)
+                                GrandTotal, AmountPaid, BalanceDue, Status, Notes, BrokerName, RoundOff, TotalQuantity, CreatedAt)
                             VALUES (@num, @cid, @cname, @ccomp, @cphone, @cemail, @caddr, @cgst, @idate, @ddate, @terms, @taxtype, 
                                 @sub, @itemdisc, @ovrdisc, @taxable, @cgstr, @cgsta, @sgstr, @sgsta, @igstr, @igsta, 
-                                @grand, @paid, @bal, @status, @notes, @created);
+                                @grand, @paid, @bal, @status, @notes, @broker, @roundoff, @totqty, @created);
                             SELECT last_insert_rowid();
                         ";
                         SetInvoiceParameters(cmd, inv);
@@ -743,7 +901,8 @@ namespace PROJECT_SBV1.Services
                                 ItemDiscountTotal = @itemdisc, OverallDiscount = @ovrdisc, TaxableAmount = @taxable, 
                                 CgstRate = @cgstr, CgstAmount = @cgsta, SgstRate = @sgstr, SgstAmount = @sgsta, 
                                 IgstRate = @igstr, IgstAmount = @igsta, GrandTotal = @grand, AmountPaid = @paid, 
-                                BalanceDue = @bal, Status = @status, Notes = @notes
+                                BalanceDue = @bal, Status = @status, Notes = @notes, BrokerName = @broker,
+                                RoundOff = @roundoff, TotalQuantity = @totqty
                             WHERE Id = @id;
                         ";
                         cmd.Parameters.AddWithValue("@id", inv.Id);
@@ -758,26 +917,48 @@ namespace PROJECT_SBV1.Services
                         delItems.ExecuteNonQuery();
                     }
 
-                    // Insert Invoice Items
+                    // Insert Invoice Items & deduct stock
                     foreach (var item in inv.Items)
                     {
                         item.InvoiceId = inv.Id;
                         using var itemCmd = conn.CreateCommand();
                         itemCmd.Transaction = tx;
                         itemCmd.CommandText = @"
-                            INSERT INTO InvoiceItems (InvoiceId, ServiceName, Description, Quantity, UnitPrice, DiscountPercent, DiscountAmount, TaxPercent, LineTotal)
-                            VALUES (@invid, @name, @desc, @qty, @price, @disc_pct, @disc_amt, @tax_pct, @total);
+                            INSERT INTO InvoiceItems (InvoiceId, ServiceName, Description, Quantity, UnitPrice, DiscountPercent, DiscountAmount, TaxPercent, LineTotal, HSN, Unit, TaxableAmount, ProductId)
+                            VALUES (@invid, @name, @desc, @qty, @price, @disc_pct, @disc_amt, @tax_pct, @total, @hsn, @unit, @taxable, @pid);
                         ";
                         itemCmd.Parameters.AddWithValue("@invid", inv.Id);
                         itemCmd.Parameters.AddWithValue("@name", item.ServiceName);
-                        itemCmd.Parameters.AddWithValue("@desc", item.Description);
+                        itemCmd.Parameters.AddWithValue("@desc", item.Description ?? "");
                         itemCmd.Parameters.AddWithValue("@qty", item.Quantity);
                         itemCmd.Parameters.AddWithValue("@price", item.UnitPrice);
                         itemCmd.Parameters.AddWithValue("@disc_pct", item.DiscountPercent);
                         itemCmd.Parameters.AddWithValue("@disc_amt", item.DiscountAmount);
                         itemCmd.Parameters.AddWithValue("@tax_pct", item.TaxPercent);
                         itemCmd.Parameters.AddWithValue("@total", item.LineTotal);
+                        itemCmd.Parameters.AddWithValue("@hsn", item.HSN ?? "8471");
+                        itemCmd.Parameters.AddWithValue("@unit", item.Unit ?? "PCS");
+                        itemCmd.Parameters.AddWithValue("@taxable", item.TaxableAmount);
+                        itemCmd.Parameters.AddWithValue("@pid", item.ProductId);
                         itemCmd.ExecuteNonQuery();
+
+                        // Automatically update stock in Products catalog if item matches
+                        try
+                        {
+                            using var stockCmd = conn.CreateCommand();
+                            stockCmd.Transaction = tx;
+                            stockCmd.CommandText = @"
+                                UPDATE Products 
+                                SET StockQuantity = MAX(0, StockQuantity - @qty)
+                                WHERE (Id = @pid AND @pid > 0) OR (Barcode = @desc AND @desc != '') OR Name = @name;
+                            ";
+                            stockCmd.Parameters.AddWithValue("@qty", item.Quantity);
+                            stockCmd.Parameters.AddWithValue("@pid", item.ProductId);
+                            stockCmd.Parameters.AddWithValue("@desc", item.Description ?? "");
+                            stockCmd.Parameters.AddWithValue("@name", item.ServiceName);
+                            stockCmd.ExecuteNonQuery();
+                        }
+                        catch { /* Ignore non-catalog item */ }
                     }
 
                     // Record initial payment if provided
@@ -1069,7 +1250,7 @@ namespace PROJECT_SBV1.Services
 
         private static Invoice ReadInvoice(SqliteDataReader r)
         {
-            return new Invoice
+            var inv = new Invoice
             {
                 Id = r.GetInt64(0),
                 InvoiceNumber = r.GetString(1),
@@ -1101,6 +1282,19 @@ namespace PROJECT_SBV1.Services
                 Notes = r.IsDBNull(27) ? "" : r.GetString(27),
                 CreatedAt = DateTime.TryParse(r.GetString(28), out var cdate) ? cdate : DateTime.Now
             };
+
+            for (int i = 29; i < r.FieldCount; i++)
+            {
+                string col = r.GetName(i);
+                if (col.Equals("BrokerName", StringComparison.OrdinalIgnoreCase) && !r.IsDBNull(i))
+                    inv.BrokerName = r.GetString(i);
+                else if (col.Equals("RoundOff", StringComparison.OrdinalIgnoreCase) && !r.IsDBNull(i))
+                    inv.RoundOff = Convert.ToDecimal(r.GetDouble(i));
+                else if (col.Equals("TotalQuantity", StringComparison.OrdinalIgnoreCase) && !r.IsDBNull(i))
+                    inv.TotalQuantity = Convert.ToDecimal(r.GetDouble(i));
+            }
+
+            return inv;
         }
 
         private static void SetInvoiceParameters(SqliteCommand cmd, Invoice inv)
@@ -1132,7 +1326,211 @@ namespace PROJECT_SBV1.Services
             cmd.Parameters.AddWithValue("@bal", inv.BalanceDue);
             cmd.Parameters.AddWithValue("@status", inv.Status);
             cmd.Parameters.AddWithValue("@notes", inv.Notes ?? "");
+            cmd.Parameters.AddWithValue("@broker", inv.BrokerName ?? "");
+            cmd.Parameters.AddWithValue("@roundoff", inv.RoundOff);
+            cmd.Parameters.AddWithValue("@totqty", inv.TotalQuantity);
             cmd.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  PRODUCTS & INVENTORY CATALOG SERVICES
+        // ═══════════════════════════════════════════════════════════════════════════
+        public static List<ProductItem> GetProducts(string search = "")
+        {
+            var list = new List<ProductItem>();
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    cmd.CommandText = @"
+                        SELECT Id, Barcode, Name, Category, HSN, Unit, CostPrice, SalePrice, StockQuantity, TaxRate, CreatedAt
+                        FROM Products
+                        WHERE Name LIKE @q OR Barcode LIKE @q OR HSN LIKE @q OR Category LIKE @q
+                        ORDER BY Name ASC;
+                    ";
+                    cmd.Parameters.AddWithValue("@q", $"%{search.Trim()}%");
+                }
+                else
+                {
+                    cmd.CommandText = @"
+                        SELECT Id, Barcode, Name, Category, HSN, Unit, CostPrice, SalePrice, StockQuantity, TaxRate, CreatedAt
+                        FROM Products
+                        ORDER BY Name ASC;
+                    ";
+                }
+
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    list.Add(new ProductItem
+                    {
+                        Id = r.GetInt64(0),
+                        Barcode = r.IsDBNull(1) ? "" : r.GetString(1),
+                        Name = r.GetString(2),
+                        Category = r.IsDBNull(3) ? "" : r.GetString(3),
+                        HSN = r.IsDBNull(4) ? "8471" : r.GetString(4),
+                        Unit = r.IsDBNull(5) ? "PCS" : r.GetString(5),
+                        CostPrice = Convert.ToDecimal(r.GetDouble(6)),
+                        SalePrice = Convert.ToDecimal(r.GetDouble(7)),
+                        StockQuantity = Convert.ToDecimal(r.GetDouble(8)),
+                        TaxRate = Convert.ToDecimal(r.GetDouble(9)),
+                        CreatedAt = DateTime.TryParse(r.GetString(10), out var dt) ? dt : DateTime.Now
+                    });
+                }
+            }
+            return list;
+        }
+
+        public static ProductItem? GetProductByBarcode(string barcode)
+        {
+            if (string.IsNullOrWhiteSpace(barcode)) return null;
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+                    SELECT Id, Barcode, Name, Category, HSN, Unit, CostPrice, SalePrice, StockQuantity, TaxRate, CreatedAt
+                    FROM Products
+                    WHERE Barcode = @bc OR Barcode LIKE @bclike OR Name LIKE @bclike
+                    LIMIT 1;
+                ";
+                cmd.Parameters.AddWithValue("@bc", barcode.Trim());
+                cmd.Parameters.AddWithValue("@bclike", $"%{barcode.Trim()}%");
+                using var r = cmd.ExecuteReader();
+                if (r.Read())
+                {
+                    return new ProductItem
+                    {
+                        Id = r.GetInt64(0),
+                        Barcode = r.IsDBNull(1) ? "" : r.GetString(1),
+                        Name = r.GetString(2),
+                        Category = r.IsDBNull(3) ? "" : r.GetString(3),
+                        HSN = r.IsDBNull(4) ? "8471" : r.GetString(4),
+                        Unit = r.IsDBNull(5) ? "PCS" : r.GetString(5),
+                        CostPrice = Convert.ToDecimal(r.GetDouble(6)),
+                        SalePrice = Convert.ToDecimal(r.GetDouble(7)),
+                        StockQuantity = Convert.ToDecimal(r.GetDouble(8)),
+                        TaxRate = Convert.ToDecimal(r.GetDouble(9)),
+                        CreatedAt = DateTime.TryParse(r.GetString(10), out var dt) ? dt : DateTime.Now
+                    };
+                }
+            }
+            return null;
+        }
+
+        public static ProductItem SaveProduct(ProductItem p)
+        {
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                if (p.Id == 0)
+                {
+                    cmd.CommandText = @"
+                        INSERT INTO Products (Barcode, Name, Category, HSN, Unit, CostPrice, SalePrice, StockQuantity, TaxRate, CreatedAt)
+                        VALUES (@bc, @name, @cat, @hsn, @unit, @cost, @sale, @stock, @tax, @created);
+                        SELECT last_insert_rowid();
+                    ";
+                    cmd.Parameters.AddWithValue("@bc", p.Barcode.Trim());
+                    cmd.Parameters.AddWithValue("@name", p.Name.Trim());
+                    cmd.Parameters.AddWithValue("@cat", p.Category.Trim());
+                    cmd.Parameters.AddWithValue("@hsn", p.HSN.Trim());
+                    cmd.Parameters.AddWithValue("@unit", p.Unit.Trim());
+                    cmd.Parameters.AddWithValue("@cost", p.CostPrice);
+                    cmd.Parameters.AddWithValue("@sale", p.SalePrice);
+                    cmd.Parameters.AddWithValue("@stock", p.StockQuantity);
+                    cmd.Parameters.AddWithValue("@tax", p.TaxRate);
+                    cmd.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
+                    p.Id = (long)(cmd.ExecuteScalar() ?? 0);
+                }
+                else
+                {
+                    cmd.CommandText = @"
+                        UPDATE Products 
+                        SET Barcode = @bc, Name = @name, Category = @cat, HSN = @hsn, Unit = @unit,
+                            CostPrice = @cost, SalePrice = @sale, StockQuantity = @stock, TaxRate = @tax
+                        WHERE Id = @id;
+                    ";
+                    cmd.Parameters.AddWithValue("@id", p.Id);
+                    cmd.Parameters.AddWithValue("@bc", p.Barcode.Trim());
+                    cmd.Parameters.AddWithValue("@name", p.Name.Trim());
+                    cmd.Parameters.AddWithValue("@cat", p.Category.Trim());
+                    cmd.Parameters.AddWithValue("@hsn", p.HSN.Trim());
+                    cmd.Parameters.AddWithValue("@unit", p.Unit.Trim());
+                    cmd.Parameters.AddWithValue("@cost", p.CostPrice);
+                    cmd.Parameters.AddWithValue("@sale", p.SalePrice);
+                    cmd.Parameters.AddWithValue("@stock", p.StockQuantity);
+                    cmd.Parameters.AddWithValue("@tax", p.TaxRate);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            return p;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  BROKERS SERVICES
+        // ═══════════════════════════════════════════════════════════════════════════
+        public static List<Broker> GetBrokers()
+        {
+            var list = new List<Broker>();
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "SELECT Id, Name, Phone, CommissionPercent, CreatedAt FROM Brokers ORDER BY Id ASC;";
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    list.Add(new Broker
+                    {
+                        Id = r.GetInt64(0),
+                        Name = r.GetString(1),
+                        Phone = r.IsDBNull(2) ? "" : r.GetString(2),
+                        CommissionPercent = Convert.ToDecimal(r.GetDouble(3)),
+                        CreatedAt = DateTime.TryParse(r.GetString(4), out var dt) ? dt : DateTime.Now
+                    });
+                }
+            }
+            return list;
+        }
+
+        public static Broker SaveBroker(Broker b)
+        {
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                if (b.Id == 0)
+                {
+                    cmd.CommandText = @"
+                        INSERT INTO Brokers (Name, Phone, CommissionPercent, CreatedAt)
+                        VALUES (@name, @phone, @comm, @created);
+                        SELECT last_insert_rowid();
+                    ";
+                    cmd.Parameters.AddWithValue("@name", b.Name.Trim());
+                    cmd.Parameters.AddWithValue("@phone", b.Phone.Trim());
+                    cmd.Parameters.AddWithValue("@comm", b.CommissionPercent);
+                    cmd.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
+                    b.Id = (long)(cmd.ExecuteScalar() ?? 0);
+                }
+                else
+                {
+                    cmd.CommandText = "UPDATE Brokers SET Name = @name, Phone = @phone, CommissionPercent = @comm WHERE Id = @id;";
+                    cmd.Parameters.AddWithValue("@id", b.Id);
+                    cmd.Parameters.AddWithValue("@name", b.Name.Trim());
+                    cmd.Parameters.AddWithValue("@phone", b.Phone.Trim());
+                    cmd.Parameters.AddWithValue("@comm", b.CommissionPercent);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            return b;
         }
     }
 }

@@ -571,3 +571,55 @@ This log records daily development sessions, code changes, verification test res
   - `dotnet run -- --test-sales`: 8/8 automated test suites passed cleanly (100% success).
   - `dotnet run -- --render-sales`: Light and Dark theme layouts rendered and validated without clipping or overlap.
 - **Status**: COMPLETE & VERIFIED.
+
+---
+
+## Session: 2026-10-16 — Complete New Sales Invoice Page Delivery (Master Prompt 3)
+
+- **Developer**: Jenil Rana (`@jenilrana026-max`) / AI Assistant Pair Programming
+- **Role**: Senior C#/.NET Desktop Application Developer, UI/UX Engineer, Database Architect
+- **Branch**: `feature/ui-splash-login-dashboard`
+- **Assigned Task**: `TASK-SALES-INVOICE-003` / `MASTER-PROMPT-3` (Complete New Sales Invoice Page Matching Reference UI)
+- **Objective**: Implement and complete the production-ready New Sales Invoice page exactly matching the reference billing UI screenshot (`media_1792134818455.png`), with barcode scanning, product catalog lookup, in-cell recalculation, live product counters, customer address with intra/inter-state supply badge, payment status reconciliation, invoice summary card with grand total callout, atomic database persistence, stock deduction, and PDF export.
+- **Architecture & Implementation Details**:
+  1. **New Control: `Controls/NewSalesInvoiceControl.cs`**:
+     - Header: Back button `←`, Title `New Sales Invoice`, `Cancel`, and `Save Invoice` button.
+     - Section A (Invoice Info Card): Auto-generated unique invoice number (`26-27/INV/XXXX`), Date picker (`dd-MM-yyyy`), Due Date picker, Select Customer searchable dropdown, Broker Name dropdown with working `+ Manage` modal action, Customer details display (Name, Address: Gujarat), and dynamic `Intra-State Supply` vs `Inter-State Supply` badge pill.
+     - Section B (Barcode Entry Toolbar): Visual barcode icon, wide barcode input supporting keyboard and hardware USB scanner (Enter key event), `Scan Barcode` button, and `+ Manual Search` button.
+     - Section C (Invoice Product Grid): 10 columns (`Product`, `HSN`, `PCS`, `Qty`, `Rate`, `Discount`, `GST %`, `Taxable`, `Amount`, `Actions`), cell edit recalculations, remove action, clean empty state when no items are added.
+     - Section D (Product Counters): `Total Products: X` (blue pill) and `Total Quantity: Y units` (green pill).
+     - Section E (Payment Received & Notes Card): `Payment Status` dropdown (`Unpaid`, `Partially Paid`, `Paid`), `Amount Received (₹)` input, and `Invoice Notes / Terms (Optional)` multiline box.
+     - Section F (Invoice Summary Card): `Subtotal (Before Disc/Tax)`, `Total Discount`, `Taxable Amount`, `CGST`, `SGST`, `IGST`, `Round Off`, prominent `GRAND TOTAL` callout banner, `Balance Due`, and `Save Sales Invoice` button.
+     - Centralized Save Workflow: Validates all inputs, executes atomic SQLite transaction decrementing stock quantity for each sold product, inserting invoice, line items, and payment records, and updating customer balance.
+  2. **New Form: `Forms/NewSalesInvoiceForm.cs`**:
+     - Dedicated modal form hosting `NewSalesInvoiceControl`, centered and responsive with `ShowInvoice(owner, callback)` helper.
+  3. **New Dialog: `Forms/ProductSearchDialog.cs`**:
+     - Modal dialog for manual product search by name, barcode, SKU, category, or HSN with instant search filtering, stock/rate display, and "+ Add New Product" quick registration.
+  4. **New Dialog: `Forms/ManageBrokersDialog.cs`**:
+     - Modal dialog to register and manage commission brokers with name, phone, commission percentage, and SQLite persistence.
+  5. **Updated Database & Models**:
+     - `Models/BillingModels.cs`: Added `ProductItem` and `Broker` models. Extended `InvoiceItem` with `HSN`, `Unit`, `TaxableAmount`, `ProductId`. Extended `Invoice` with `BrokerName`, `RoundOff`, `TotalQuantity`. Added `ToString` overrides.
+     - `Services/DatabaseService.cs`: Created `Products` and `Brokers` tables with indexes. Added migration columns to `Invoices` and `InvoiceItems`. Seeded initial products and brokers. Added inventory stock deduction logic in `SaveInvoice`.
+  6. **Wired Navigation**:
+     - Embedded `NewSalesInvoiceControl` directly in `SalesBillingModuleControl`'s Create Invoice tab.
+     - Connected all "+ New Invoice" buttons (`DashboardForm` top bar, Sales module buttons) to `NewSalesInvoiceForm.ShowInvoice(...)`.
+- **Files Created / Modified**:
+  - `Controls/NewSalesInvoiceControl.cs` (Created)
+  - `Forms/NewSalesInvoiceForm.cs` (Created)
+  - `Forms/ProductSearchDialog.cs` (Created)
+  - `Forms/ManageBrokersDialog.cs` (Created)
+  - `Models/BillingModels.cs` (Modified)
+  - `Services/DatabaseService.cs` (Modified)
+  - `Controls/SalesBillingModuleControl.cs` (Modified)
+  - `Forms/DashboardForm.cs` (Modified)
+  - `Program.cs` (Modified)
+  - `docs/TEST_REPORT.md` (Modified)
+  - `docs/AUDIT_LOG.md` (Modified)
+  - `.team/WORKLOG.md` (Modified)
+- **Verification & Test Status**:
+  - `dotnet build`: Succeeded with **0 warnings, 0 errors**.
+  - `dotnet run -- --test-invoice`: **10/10 automated tests passed cleanly (100% success)**.
+  - `dotnet run -- --test-sales`: **8/8 automated tests passed cleanly (100% success)**.
+  - `dotnet run -- --render-new-invoice`: Light and Dark theme screenshots rendered and visually verified against the reference UI.
+- **Status**: COMPLETE & VERIFIED.
+

@@ -204,9 +204,8 @@ namespace PROJECT_SBV1.Controls
 
 
 
-        // Dedicated Three-Step Create Invoice Wizard (Isolated from recent transactions card)
-
-        private readonly CreateInvoiceWizardControl _inlineWizard = new();
+        // Dedicated New Sales Invoice Page (Matching Reference Screenshot)
+        private readonly NewSalesInvoiceControl _inlineNewInvoice = new();
 
 
 
@@ -1643,19 +1642,12 @@ namespace PROJECT_SBV1.Controls
 
 
         private void OnNewInvoiceClicked(object? s, EventArgs e)
-
         {
-
-            CreateInvoiceWizardForm.ShowWizard((IWin32Window?)this.FindForm() ?? this, (saved) =>
-
+            NewSalesInvoiceForm.ShowInvoice((IWin32Window?)this.FindForm() ?? this, () =>
             {
-
                 LoadDashboardData();
-
                 DataChanged?.Invoke(this, EventArgs.Empty);
-
             });
-
         }
 
 
@@ -2100,7 +2092,7 @@ namespace PROJECT_SBV1.Controls
 
         // ═══════════════════════════════════════════════════════════════════════════
 
-        //  BUILD TAB 2: CREATE INVOICE VIEW (DEDICATED 3-STEP WIZARD)
+        //  BUILD TAB 2: CREATE INVOICE VIEW (NEW SALES INVOICE PAGE)
 
         // ═══════════════════════════════════════════════════════════════════════════
 
@@ -2114,25 +2106,29 @@ namespace PROJECT_SBV1.Controls
 
 
 
-            _inlineWizard.Dock = DockStyle.Fill;
+            _inlineNewInvoice.Dock = DockStyle.Fill;
 
-            _inlineWizard.InvoiceSaved -= OnInlineWizardInvoiceSaved;
+            _inlineNewInvoice.InvoiceSaved -= OnInlineNewInvoiceSaved;
 
-            _inlineWizard.InvoiceSaved += OnInlineWizardInvoiceSaved;
+            _inlineNewInvoice.InvoiceSaved += OnInlineNewInvoiceSaved;
 
-            _inlineWizard.CancelRequested -= OnInlineWizardCancelRequested;
+            _inlineNewInvoice.CancelRequested -= OnInlineNewInvoiceCancelRequested;
 
-            _inlineWizard.CancelRequested += OnInlineWizardCancelRequested;
+            _inlineNewInvoice.CancelRequested += OnInlineNewInvoiceCancelRequested;
+
+            _inlineNewInvoice.BackRequested -= OnInlineNewInvoiceCancelRequested;
+
+            _inlineNewInvoice.BackRequested += OnInlineNewInvoiceCancelRequested;
 
 
 
-            pnlCreateInvoiceView.Controls.Add(_inlineWizard);
+            pnlCreateInvoiceView.Controls.Add(_inlineNewInvoice);
 
         }
 
 
 
-        private void OnInlineWizardInvoiceSaved(object? s, EventArgs e)
+        private void OnInlineNewInvoiceSaved(object? s, EventArgs e)
 
         {
 
@@ -2146,7 +2142,7 @@ namespace PROJECT_SBV1.Controls
 
 
 
-        private void OnInlineWizardCancelRequested(object? s, EventArgs e)
+        private void OnInlineNewInvoiceCancelRequested(object? s, EventArgs e)
 
         {
 
@@ -2160,7 +2156,7 @@ namespace PROJECT_SBV1.Controls
 
         {
 
-            _inlineWizard.ResetForm();
+            _inlineNewInvoice.ResetForm();
 
         }
 
@@ -3722,7 +3718,7 @@ namespace PROJECT_SBV1.Controls
 
             ApplyInputsTheme(pnlCustomersView, inputBg, textPrimary, textSecondary, borderCol);
 
-            _inlineWizard.ApplyTheme();
+            _inlineNewInvoice.Invalidate(true);
 
 
 

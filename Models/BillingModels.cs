@@ -15,6 +15,34 @@ namespace PROJECT_SBV1.Models
         public string BankDetails { get; set; } = "HDFC Bank | A/C: 50200088912344 | IFSC: HDFC0001025";
     }
 
+    public class ProductItem
+    {
+        public long Id { get; set; }
+        public string Barcode { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Category { get; set; } = "General";
+        public string HSN { get; set; } = "8471";
+        public string Unit { get; set; } = "PCS";
+        public decimal CostPrice { get; set; } = 0m;
+        public decimal SalePrice { get; set; } = 0m;
+        public decimal StockQuantity { get; set; } = 0m;
+        public decimal TaxRate { get; set; } = 18m;
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        public string DisplayText => $"{Name} [Barcode: {Barcode}] (Rate: ₹{SalePrice:N2} | Stock: {StockQuantity} {Unit})";
+    }
+
+    public class Broker
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public decimal CommissionPercent { get; set; } = 0m;
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        public override string ToString() => Name;
+    }
+
     public class Customer
     {
         public long Id { get; set; }
@@ -30,19 +58,25 @@ namespace PROJECT_SBV1.Models
         public string DisplayName => string.IsNullOrWhiteSpace(CompanyName) 
             ? Name 
             : $"{Name} ({CompanyName})";
+
+        public override string ToString() => DisplayName;
     }
 
     public class InvoiceItem
     {
         public long Id { get; set; }
         public long InvoiceId { get; set; }
+        public long ProductId { get; set; } = 0;
         public string ServiceName { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
+        public string HSN { get; set; } = "8471";
+        public string Unit { get; set; } = "PCS";
         public decimal Quantity { get; set; } = 1m;
         public decimal UnitPrice { get; set; } = 0m;
         public decimal DiscountPercent { get; set; } = 0m;
         public decimal DiscountAmount { get; set; } = 0m;
         public decimal TaxPercent { get; set; } = 18m;
+        public decimal TaxableAmount { get; set; } = 0m;
         public decimal LineTotal { get; set; } = 0m;
 
         public void CalculateLineTotal()
@@ -52,9 +86,9 @@ namespace PROJECT_SBV1.Models
             {
                 DiscountAmount = Math.Round(rawTotal * (DiscountPercent / 100m), 2);
             }
-            decimal net = Math.Max(0, rawTotal - DiscountAmount);
-            decimal tax = Math.Round(net * (TaxPercent / 100m), 2);
-            LineTotal = net + tax;
+            TaxableAmount = Math.Max(0m, rawTotal - DiscountAmount);
+            decimal tax = Math.Round(TaxableAmount * (TaxPercent / 100m), 2);
+            LineTotal = TaxableAmount + tax;
         }
     }
 
@@ -81,6 +115,7 @@ namespace PROJECT_SBV1.Models
         public string CustomerEmail { get; set; } = string.Empty;
         public string CustomerAddress { get; set; } = string.Empty;
         public string CustomerGSTIN { get; set; } = string.Empty;
+        public string BrokerName { get; set; } = string.Empty;
 
         public DateTime InvoiceDate { get; set; } = DateTime.Today;
         public DateTime DueDate { get; set; } = DateTime.Today.AddDays(15);
@@ -100,6 +135,8 @@ namespace PROJECT_SBV1.Models
         public decimal IgstAmount { get; set; } = 0m;
         public decimal TotalTax => CgstAmount + SgstAmount + IgstAmount;
 
+        public decimal RoundOff { get; set; } = 0m;
+        public decimal TotalQuantity { get; set; } = 0m;
         public decimal GrandTotal { get; set; } = 0m;
         public decimal AmountPaid { get; set; } = 0m;
         public decimal BalanceDue { get; set; } = 0m;
@@ -118,11 +155,13 @@ namespace PROJECT_SBV1.Models
         {
             Subtotal = 0m;
             ItemDiscountTotal = 0m;
+            TotalQuantity = 0m;
             decimal totalTaxable = 0m;
             decimal totalTax = 0m;
 
             foreach (var item in Items)
             {
+                TotalQuantity += item.Quantity;
                 decimal itemRaw = item.Quantity * item.UnitPrice;
                 decimal itemDisc = item.DiscountPercent > 0 
                     ? Math.Round(itemRaw * (item.DiscountPercent / 100m), 2)
@@ -131,6 +170,7 @@ namespace PROJECT_SBV1.Models
                 decimal itemTax = Math.Round(itemNet * (item.TaxPercent / 100m), 2);
 
                 item.DiscountAmount = itemDisc;
+                item.TaxableAmount = itemNet;
                 item.LineTotal = itemNet + itemTax;
 
                 Subtotal += itemRaw;
@@ -179,8 +219,12 @@ namespace PROJECT_SBV1.Models
                 IgstAmount = 0m;
             }
 
-            GrandTotal = TaxableAmount + CgstAmount + SgstAmount + IgstAmount;
+            decimal exactGrand = TaxableAmount + CgstAmount + SgstAmount + IgstAmount;
+            decimal roundedGrand = Math.Round(exactGrand, 0, MidpointRounding.AwayFromZero);
+            RoundOff = roundedGrand - exactGrand;
+            GrandTotal = roundedGrand;
             BalanceDue = Math.Max(0m, GrandTotal - AmountPaid);
+
 
             // Determine status
             if (Status == "Cancelled") return;

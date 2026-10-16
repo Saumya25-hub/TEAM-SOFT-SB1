@@ -333,10 +333,10 @@ namespace PROJECT_SBV1.Forms
                 g.FillEllipse(dotBrush, btnNotifications.Width - 14, 7, 6, 6);
             };
 
-            // New Invoice button click navigation (Opens dedicated 3-step wizard modal)
+            // New Invoice button click navigation (Opens New Sales Invoice modal)
             btnTopAddProduct.Click += (s, e) =>
             {
-                CreateInvoiceWizardForm.ShowWizard(this, (saved) =>
+                NewSalesInvoiceForm.ShowInvoice(this, () =>
                 {
                     RefreshLiveKpiCards();
                     RefreshInvoicesTable();
