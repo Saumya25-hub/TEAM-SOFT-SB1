@@ -35,7 +35,12 @@ namespace PROJECT_SBV1.Forms
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.Sizable;
             MinimumSize = new Size(1080, 720);
-            ClientSize = new Size(1180, 780);
+            var screenArea = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1920, 1080);
+            int targetW = Math.Min(1440, (int)(screenArea.Width * 0.90f));
+            int targetH = Math.Min(920, (int)(screenArea.Height * 0.90f));
+            if (targetW < 1180) targetW = 1180;
+            if (targetH < 780) targetH = 780;
+            ClientSize = new Size(targetW, targetH);
             ShowIcon = false;
             ShowInTaskbar = false;
 

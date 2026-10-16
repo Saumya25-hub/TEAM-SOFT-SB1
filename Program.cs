@@ -548,6 +548,8 @@ namespace PROJECT_SBV1
 
             CaptureInvoiceView(1280, 800, false, "new_sales_invoice_light_1280.png");
             CaptureInvoiceView(1280, 800, true, "new_sales_invoice_dark_1280.png");
+            CaptureInvoiceView(1920, 1080, false, "new_sales_invoice_bigscreen_light_1920.png");
+            CaptureInvoiceView(1920, 1080, true, "new_sales_invoice_bigscreen_dark_1920.png");
         }
     }
 
