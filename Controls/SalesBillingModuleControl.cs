@@ -633,6 +633,22 @@ namespace PROJECT_SBV1.Controls
 
         }
 
+        public void FilterInvoicesByStatus(string status)
+        {
+            SwitchTab("Dashboard");
+            if (cmbStatusFilter != null)
+            {
+                for (int i = 0; i < cmbStatusFilter.Items.Count; i++)
+                {
+                    if (cmbStatusFilter.Items[i]?.ToString()?.IndexOf(status, StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        cmbStatusFilter.SelectedIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+
 
 
         // ═══════════════════════════════════════════════════════════════════════════
