@@ -117,6 +117,16 @@ namespace PROJECT_SBV1.Forms
         private List<ProductItem> _lowStockProducts = new();
         private List<Invoice> _recentInvoices = new();
 
+        private Panel? _pnlInvoicesHeader;
+        private Label? _lblInvoicesBadge;
+        private Panel? _pnlInvoicesFooter;
+        private Label? _lblInvoicesFooterSummary;
+
+        private Panel? _pnlLowStockHeader;
+        private Label? _lblLowStockBadge;
+        private Panel? _pnlLowStockFooter;
+        private Label? _lblLowStockFooterSummary;
+
         private readonly Panel pnlSettings = new();
         private readonly Panel pnlStatistics = new();
 
@@ -535,6 +545,19 @@ namespace PROJECT_SBV1.Forms
                 StyleDataGridView(dgvCustomers);
                 StyleDataGridView(dgvProducts);
                 StyleDataGridView(dgvAllTransactions);
+
+                if (_pnlInvoicesHeader != null) _pnlInvoicesHeader.BackColor = cardBg;
+                if (_pnlInvoicesFooter != null) _pnlInvoicesFooter.BackColor = cardBg;
+                if (_lblInvoicesFooterSummary != null) _lblInvoicesFooterSummary.ForeColor = textMid;
+                if (_pnlLowStockHeader != null) _pnlLowStockHeader.BackColor = cardBg;
+                if (_pnlLowStockFooter != null) _pnlLowStockFooter.BackColor = cardBg;
+                if (_lblLowStockFooterSummary != null) _lblLowStockFooterSummary.ForeColor = textMid;
+                pnlRecentInvoicesCard.BackColor = cardBg;
+                pnlLowStockCard.BackColor = cardBg;
+                _pnlInvoicesHeader?.Invalidate();
+                _pnlInvoicesFooter?.Invalidate();
+                _pnlLowStockHeader?.Invalidate();
+                _pnlLowStockFooter?.Invalidate();
 
                 // Invalidate all visible elements
                 btnThemeToggle.Invalidate();
@@ -981,10 +1004,155 @@ namespace PROJECT_SBV1.Forms
                 TableDesignStandard.PaintCardContainerBorder(g, pnlRecentInvoicesCard.ClientRectangle);
             };
 
-            pnlRecentInvoicesCard.Controls.Add(dgvInvoices);
-            dgvInvoices.Dock = DockStyle.Fill;
-            dgvInvoices.BringToFront();
+            // 1. Header Bar (Dock = Top)
+            _pnlInvoicesHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 44,
+                BackColor = C_CardBg,
+                Padding = new Padding(12, 0, 12, 0)
+            };
 
+            var fHdrTitle = new Font("Segoe UI", 9.8f, FontStyle.Bold);
+            _pnlInvoicesHeader.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                bool isDark = ThemeManager.IsDarkMode;
+
+                // Bottom hairline separator
+                Color sepCol = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+                using (var pen = new Pen(sepCol, 1f))
+                {
+                    g.DrawLine(pen, 0, _pnlInvoicesHeader.Height - 1, _pnlInvoicesHeader.Width, _pnlInvoicesHeader.Height - 1);
+                }
+
+                // Vector Icon
+                ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Sales, new Rectangle(14, 13, 18, 18), ThemeManager.PrimaryAccent, 1.5f);
+
+                // Title
+                using var bTitle = new SolidBrush(ThemeManager.TextPrimary);
+                g.DrawString("Recent Invoices & Transactions", fHdrTitle, bTitle, 38, 12);
+            };
+
+            // Badge
+            _lblInvoicesBadge = new Label
+            {
+                Text = "● 0 Invoices",
+                Font = new Font("Segoe UI", 7.8f, FontStyle.Bold),
+                Size = new Size(96, 22),
+                TextAlign = ContentAlignment.MiddleCenter,
+                BackColor = Color.Transparent
+            };
+            _lblInvoicesBadge.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                bool isDark = ThemeManager.IsDarkMode;
+                Color bg = isDark ? Color.FromArgb(30, 41, 59) : Color.FromArgb(238, 242, 255);
+                Color bdr = isDark ? Color.FromArgb(71, 85, 105) : Color.FromArgb(199, 210, 254);
+                Color txt = isDark ? Color.FromArgb(148, 163, 184) : Color.FromArgb(79, 70, 229);
+
+                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, _lblInvoicesBadge.Width - 1, _lblInvoicesBadge.Height - 1, 11);
+                using var bBg = new SolidBrush(bg);
+                using var pBdr = new Pen(bdr, 1f);
+                g.FillPath(bBg, path);
+                g.DrawPath(pBdr, path);
+
+                using var bDot = new SolidBrush(Color.FromArgb(99, 102, 241));
+                g.FillEllipse(bDot, 8, 8, 6, 6);
+
+                using var bTxt = new SolidBrush(txt);
+                using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                var rect = new Rectangle(12, 0, _lblInvoicesBadge.Width - 14, _lblInvoicesBadge.Height);
+                g.DrawString(_lblInvoicesBadge.Text.Replace("● ", ""), _lblInvoicesBadge.Font, bTxt, rect, sf);
+            };
+
+            void LayoutInvoicesBadge()
+            {
+                if (_lblInvoicesBadge == null || _pnlInvoicesHeader == null) return;
+                using var g = _pnlInvoicesHeader.CreateGraphics();
+                var sz = g.MeasureString("Recent Invoices & Transactions", fHdrTitle);
+                _lblInvoicesBadge.Location = new Point(40 + (int)sz.Width + 8, (_pnlInvoicesHeader.Height - _lblInvoicesBadge.Height) / 2);
+            }
+            _pnlInvoicesHeader.Resize += (s, e) => LayoutInvoicesBadge();
+
+            var btnViewAllInvoices = new Button
+            {
+                Text = "View All →",
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = ThemeManager.PrimaryAccent,
+                BackColor = Color.Transparent,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                AutoSize = true,
+                Height = 28,
+                Dock = DockStyle.Right
+            };
+            btnViewAllInvoices.FlatAppearance.BorderSize = 0;
+            btnViewAllInvoices.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, ThemeManager.PrimaryAccent);
+            btnViewAllInvoices.Click += (s, e) =>
+            {
+                ShowPage("Sales");
+                _salesModule?.SwitchTab("Dashboard");
+            };
+
+            _pnlInvoicesHeader.Controls.Add(_lblInvoicesBadge);
+            _pnlInvoicesHeader.Controls.Add(btnViewAllInvoices);
+
+            // 2. Footer Bar (Dock = Bottom)
+            _pnlInvoicesFooter = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 34,
+                BackColor = C_CardBg,
+                Padding = new Padding(12, 0, 12, 0)
+            };
+            _pnlInvoicesFooter.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                bool isDark = ThemeManager.IsDarkMode;
+                Color sepCol = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+                using var pen = new Pen(sepCol, 1f);
+                g.DrawLine(pen, 0, 0, _pnlInvoicesFooter.Width, 0);
+            };
+
+            _lblInvoicesFooterSummary = new Label
+            {
+                Text = "Showing latest 20 sales transactions across all accounts",
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Regular),
+                ForeColor = C_TextMid,
+                Dock = DockStyle.Left,
+                AutoSize = true,
+                Padding = new Padding(0, 9, 0, 0)
+            };
+
+            var btnNewInvoiceQuick = new Button
+            {
+                Text = "+ New Invoice",
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                ForeColor = ThemeManager.PrimaryAccent,
+                BackColor = Color.Transparent,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                AutoSize = true,
+                Height = 26,
+                Dock = DockStyle.Right
+            };
+            btnNewInvoiceQuick.FlatAppearance.BorderSize = 0;
+            btnNewInvoiceQuick.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, ThemeManager.PrimaryAccent);
+            btnNewInvoiceQuick.Click += (s, e) =>
+            {
+                ShowPage("Sales");
+                _salesModule?.SwitchTab("CreateInvoice");
+            };
+
+            _pnlInvoicesFooter.Controls.Add(_lblInvoicesFooterSummary);
+            _pnlInvoicesFooter.Controls.Add(btnNewInvoiceQuick);
+
+            // 3. Grid Columns & Layout
             dgvInvoices.Columns.Clear();
             dgvInvoices.Columns.Add("InvoiceNo", "Invoice No");
             dgvInvoices.Columns.Add("Customer", "Customer");
@@ -1030,6 +1198,14 @@ namespace PROJECT_SBV1.Forms
                 }
             };
 
+            pnlRecentInvoicesCard.Controls.Clear();
+            pnlRecentInvoicesCard.Controls.Add(dgvInvoices);
+            pnlRecentInvoicesCard.Controls.Add(_pnlInvoicesFooter);
+            pnlRecentInvoicesCard.Controls.Add(_pnlInvoicesHeader);
+            dgvInvoices.Dock = DockStyle.Fill;
+            dgvInvoices.BringToFront();
+
+            LayoutInvoicesBadge();
             RefreshInvoicesTable();
         }
 
@@ -1043,10 +1219,164 @@ namespace PROJECT_SBV1.Forms
                 TableDesignStandard.PaintCardContainerBorder(g, pnlLowStockCard.ClientRectangle);
             };
 
-            pnlLowStockCard.Controls.Add(dgvLowStock);
-            dgvLowStock.Dock = DockStyle.Fill;
-            dgvLowStock.BringToFront();
+            // 1. Header Bar (Dock = Top)
+            _pnlLowStockHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 44,
+                BackColor = C_CardBg,
+                Padding = new Padding(12, 0, 12, 0)
+            };
 
+            var fHdrTitle = new Font("Segoe UI", 9.8f, FontStyle.Bold);
+            _pnlLowStockHeader.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                bool isDark = ThemeManager.IsDarkMode;
+
+                // Bottom hairline separator
+                Color sepCol = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+                using (var pen = new Pen(sepCol, 1f))
+                {
+                    g.DrawLine(pen, 0, _pnlLowStockHeader.Height - 1, _pnlLowStockHeader.Width, _pnlLowStockHeader.Height - 1);
+                }
+
+                // Vector Icon
+                ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Warning, new Rectangle(14, 13, 18, 18), Color.FromArgb(245, 158, 11), 1.5f);
+
+                // Title
+                using var bTitle = new SolidBrush(ThemeManager.TextPrimary);
+                g.DrawString("Inventory Stock Alerts", fHdrTitle, bTitle, 38, 12);
+            };
+
+            // Badge
+            _lblLowStockBadge = new Label
+            {
+                Text = "● 0 Low Stock",
+                Font = new Font("Segoe UI", 7.8f, FontStyle.Bold),
+                Size = new Size(100, 22),
+                TextAlign = ContentAlignment.MiddleCenter,
+                BackColor = Color.Transparent
+            };
+            _lblLowStockBadge.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                bool isDark = ThemeManager.IsDarkMode;
+                int count = _lowStockProducts?.Count ?? 0;
+                Color bg = count == 0
+                    ? (isDark ? Color.FromArgb(6, 78, 59) : Color.FromArgb(236, 253, 245))
+                    : (isDark ? Color.FromArgb(69, 26, 3) : Color.FromArgb(254, 243, 199));
+                Color bdr = count == 0
+                    ? (isDark ? Color.FromArgb(4, 120, 87) : Color.FromArgb(167, 243, 208))
+                    : (isDark ? Color.FromArgb(180, 83, 9) : Color.FromArgb(253, 230, 138));
+                Color dotCol = count == 0 ? Color.FromArgb(16, 185, 129) : Color.FromArgb(245, 158, 11);
+                Color txt = count == 0
+                    ? (isDark ? Color.FromArgb(110, 231, 183) : Color.FromArgb(4, 120, 87))
+                    : (isDark ? Color.FromArgb(253, 230, 138) : Color.FromArgb(180, 83, 9));
+
+                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, _lblLowStockBadge.Width - 1, _lblLowStockBadge.Height - 1, 11);
+                using var bBg = new SolidBrush(bg);
+                using var pBdr = new Pen(bdr, 1f);
+                g.FillPath(bBg, path);
+                g.DrawPath(pBdr, path);
+
+                using var bDot = new SolidBrush(dotCol);
+                g.FillEllipse(bDot, 8, 8, 6, 6);
+
+                using var bTxt = new SolidBrush(txt);
+                using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                var rect = new Rectangle(12, 0, _lblLowStockBadge.Width - 14, _lblLowStockBadge.Height);
+                g.DrawString(_lblLowStockBadge.Text.Replace("● ", ""), _lblLowStockBadge.Font, bTxt, rect, sf);
+            };
+
+            void LayoutLowStockBadge()
+            {
+                if (_lblLowStockBadge == null || _pnlLowStockHeader == null) return;
+                using var g = _pnlLowStockHeader.CreateGraphics();
+                var sz = g.MeasureString("Inventory Stock Alerts", fHdrTitle);
+                _lblLowStockBadge.Location = new Point(40 + (int)sz.Width + 8, (_pnlLowStockHeader.Height - _lblLowStockBadge.Height) / 2);
+            }
+            _pnlLowStockHeader.Resize += (s, e) => LayoutLowStockBadge();
+
+            var btnViewProducts = new Button
+            {
+                Text = "Catalog →",
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = ThemeManager.PrimaryAccent,
+                BackColor = Color.Transparent,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                AutoSize = true,
+                Height = 28,
+                Dock = DockStyle.Right
+            };
+            btnViewProducts.FlatAppearance.BorderSize = 0;
+            btnViewProducts.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, ThemeManager.PrimaryAccent);
+            btnViewProducts.Click += (s, e) => ShowPage("Products");
+
+            _pnlLowStockHeader.Controls.Add(_lblLowStockBadge);
+            _pnlLowStockHeader.Controls.Add(btnViewProducts);
+
+            // 2. Footer Bar (Dock = Bottom)
+            _pnlLowStockFooter = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 34,
+                BackColor = C_CardBg,
+                Padding = new Padding(12, 0, 12, 0)
+            };
+            _pnlLowStockFooter.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                bool isDark = ThemeManager.IsDarkMode;
+                Color sepCol = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+                using var pen = new Pen(sepCol, 1f);
+                g.DrawLine(pen, 0, 0, _pnlLowStockFooter.Width, 0);
+            };
+
+            _lblLowStockFooterSummary = new Label
+            {
+                Text = "All other products in catalog are healthy.",
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Regular),
+                ForeColor = C_TextMid,
+                Dock = DockStyle.Left,
+                AutoSize = true,
+                Padding = new Padding(0, 9, 0, 0)
+            };
+
+            var btnAddProductQuick = new Button
+            {
+                Text = "+ Add Product",
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                ForeColor = ThemeManager.PrimaryAccent,
+                BackColor = Color.Transparent,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                AutoSize = true,
+                Height = 26,
+                Dock = DockStyle.Right
+            };
+            btnAddProductQuick.FlatAppearance.BorderSize = 0;
+            btnAddProductQuick.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, ThemeManager.PrimaryAccent);
+            btnAddProductQuick.Click += (s, e) =>
+            {
+                using var dlg = new ProductDialog();
+                if (dlg.ShowDialog(this) == DialogResult.OK)
+                {
+                    RefreshDashboardAnalytics();
+                    RefreshLowStockTable();
+                    RefreshProductsTable();
+                }
+            };
+
+            _pnlLowStockFooter.Controls.Add(_lblLowStockFooterSummary);
+            _pnlLowStockFooter.Controls.Add(btnAddProductQuick);
+
+            // 3. Grid Columns & Layout
             dgvLowStock.Columns.Clear();
             dgvLowStock.Columns.Add("ItemName", "Item / Product");
             dgvLowStock.Columns.Add("Stock", "In Stock");
@@ -1083,6 +1413,14 @@ namespace PROJECT_SBV1.Forms
                 }
             };
 
+            pnlLowStockCard.Controls.Clear();
+            pnlLowStockCard.Controls.Add(dgvLowStock);
+            pnlLowStockCard.Controls.Add(_pnlLowStockFooter);
+            pnlLowStockCard.Controls.Add(_pnlLowStockHeader);
+            dgvLowStock.Dock = DockStyle.Fill;
+            dgvLowStock.BringToFront();
+
+            LayoutLowStockBadge();
             RefreshLowStockTable();
         }
 
@@ -1119,6 +1457,16 @@ namespace PROJECT_SBV1.Forms
                     else
                         statusCell.Style.ForeColor = C_Negative;
                 }
+
+                if (_lblInvoicesBadge != null)
+                {
+                    _lblInvoicesBadge.Text = $"● {list.Count} Invoices";
+                    _lblInvoicesBadge.Invalidate();
+                }
+                if (_lblInvoicesFooterSummary != null)
+                {
+                    _lblInvoicesFooterSummary.Text = $"Showing latest {list.Count} sales transactions across all accounts";
+                }
             }
             catch
             {
@@ -1145,11 +1493,25 @@ namespace PROJECT_SBV1.Forms
                     alertCell.Style.ForeColor = alertLevel == "CRITICAL" ? C_Negative : C_Warning;
                     alertCell.Style.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
                 }
+
+                int count = _lowStockProducts.Count;
+                if (_lblLowStockBadge != null)
+                {
+                    _lblLowStockBadge.Text = count == 0 ? "● All Healthy" : $"● {count} {(count == 1 ? "Item Due" : "Items Due")}";
+                    _lblLowStockBadge.Invalidate();
+                }
+                if (_lblLowStockFooterSummary != null)
+                {
+                    _lblLowStockFooterSummary.Text = count == 0
+                        ? "✓ All inventory items are safely above minimum reorder levels."
+                        : $"✓ {count} urgent {(count == 1 ? "item requires" : "items require")} restocking • Catalog healthy";
+                }
             }
             catch
             {
             }
         }
+
 
         // ═══════════════════════════════════════════════════════════════════════════
         //  SIDEBAR NAVIGATION WITH REICON VECTOR ICONS (Zero Emojis!)
