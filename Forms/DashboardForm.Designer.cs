@@ -413,7 +413,7 @@ namespace PROJECT_SBV1.Forms
 
             // Row 2 Charts
             tlpCharts.Dock      = System.Windows.Forms.DockStyle.Top;
-            tlpCharts.Height    = 250;
+            tlpCharts.Height    = 265;
             tlpCharts.ColumnCount = 2;
             tlpCharts.RowCount    = 1;
             tlpCharts.BackColor = System.Drawing.Color.Transparent;

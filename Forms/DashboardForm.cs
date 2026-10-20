@@ -127,6 +127,14 @@ namespace PROJECT_SBV1.Forms
         private Panel? _pnlLowStockFooter;
         private Label? _lblLowStockFooterSummary;
 
+        private Panel? _pnlDynamicsHeader;
+        private int _hoveredDynamicsMonthIndex = -1;
+        private Point _dynamicsMousePos = Point.Empty;
+
+        private Panel? _pnlDonutHeader;
+        private int _hoveredCategoryIndex = -1;
+        private Point _donutMousePos = Point.Empty;
+
         private readonly Panel pnlSettings = new();
         private readonly Panel pnlStatistics = new();
 
@@ -559,6 +567,17 @@ namespace PROJECT_SBV1.Forms
                 _pnlLowStockHeader?.Invalidate();
                 _pnlLowStockFooter?.Invalidate();
 
+                if (_pnlDynamicsHeader != null) _pnlDynamicsHeader.BackColor = cardBg;
+                if (_pnlDonutHeader != null) _pnlDonutHeader.BackColor = cardBg;
+                pnlSalesDynamicsCard.BackColor = cardBg;
+                pnlCategoryDonutCard.BackColor = cardBg;
+                pnlDynamicsChartCanvas.BackColor = cardBg;
+                pnlDonutChartCanvas.BackColor = cardBg;
+                _pnlDynamicsHeader?.Invalidate();
+                _pnlDonutHeader?.Invalidate();
+                pnlDynamicsChartCanvas.Invalidate();
+                pnlDonutChartCanvas.Invalidate();
+
                 // Invalidate all visible elements
                 btnThemeToggle.Invalidate();
                 pnlBrandHeader.Invalidate();
@@ -783,6 +802,9 @@ namespace PROJECT_SBV1.Forms
                 pnlDynamicsChartCanvas?.Invalidate();
                 pnlDonutChartCanvas?.Invalidate();
                 pnlSalesDynamicsCard?.Invalidate();
+                pnlCategoryDonutCard?.Invalidate();
+                _pnlDynamicsHeader?.Invalidate();
+                _pnlDonutHeader?.Invalidate();
             }
             catch
             {
@@ -794,41 +816,121 @@ namespace PROJECT_SBV1.Forms
         // ═══════════════════════════════════════════════════════════════════════════
         private void SetupSalesDynamicsCard()
         {
-            pnlSalesDynamicsCard.Controls.Add(pnlDynamicsChartCanvas);
-            pnlDynamicsChartCanvas.Dock = DockStyle.Fill;
+            EnableDoubleBuffering(pnlSalesDynamicsCard);
+            EnableDoubleBuffering(pnlDynamicsChartCanvas);
 
+            pnlSalesDynamicsCard.Padding = new Padding(1);
+            pnlSalesDynamicsCard.BackColor = C_CardBg;
             pnlSalesDynamicsCard.Paint += (s, e) =>
             {
                 var g = e.Graphics;
+                TableDesignStandard.PaintCardContainerBorder(g, pnlSalesDynamicsCard.ClientRectangle);
+            };
+
+            // 1. Header Bar
+            _pnlDynamicsHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 44,
+                BackColor = C_CardBg,
+                Padding = new Padding(14, 0, 14, 0)
+            };
+
+            var fHdrTitle = new Font("Segoe UI", 9.8f, FontStyle.Bold);
+            _pnlDynamicsHeader.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
-                int w = pnlSalesDynamicsCard.Width;
-                int h = pnlSalesDynamicsCard.Height;
-                if (w <= 0 || h <= 0) return;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                bool isDark = ThemeManager.IsDarkMode;
 
-                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, w - 1, h - 1, 10);
-                using var bg = new SolidBrush(C_CardBg);
-                g.FillPath(bg, path);
-                using var bdr = new Pen(C_Border, 1.2f);
-                g.DrawPath(bdr, path);
-
-                using var bTitle = new SolidBrush(C_TextDark);
-                using var bSales = new SolidBrush(C_Blue);
-                Color purchCol = ThemeManager.IsDarkMode ? Color.FromArgb(165, 180, 252) : Color.FromArgb(99, 102, 241);
-                using var bPurch = new SolidBrush(purchCol);
-
-                g.DrawString($"Sales Dynamics ({_selectedDynamicsYear})", s_fontChartTitle, bTitle, 16, 12);
-
-                int legX = w - 180;
-                if (legX > 200)
+                Color sepCol = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+                using (var pen = new Pen(sepCol, 1f))
                 {
-                    g.FillEllipse(bSales, legX, 16, 8, 8);
-                    g.DrawString("Sales", s_fontLegend, bTitle, legX + 12, 12);
+                    g.DrawLine(pen, 0, _pnlDynamicsHeader.Height - 1, _pnlDynamicsHeader.Width, _pnlDynamicsHeader.Height - 1);
+                }
 
-                    g.FillEllipse(bPurch, legX + 70, 16, 8, 8);
-                    g.DrawString("Purchases", s_fontLegend, bTitle, legX + 82, 12);
+                // Vector Icon
+                ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Statistics, new Rectangle(14, 13, 18, 18), ThemeManager.PrimaryAccent, 1.5f);
+
+                // Title
+                using var bTitle = new SolidBrush(ThemeManager.TextPrimary);
+                g.DrawString($"Sales Dynamics ({_selectedDynamicsYear})", fHdrTitle, bTitle, 38, 12);
+
+                // Right Legend (Sales vs Purchases)
+                int w = _pnlDynamicsHeader.Width;
+                int legX = w - 170;
+                if (legX > 220)
+                {
+                    using var bSalesDot = new SolidBrush(C_Blue);
+                    Color purchCol = isDark ? Color.FromArgb(165, 180, 252) : Color.FromArgb(99, 102, 241);
+                    using var bPurchDot = new SolidBrush(purchCol);
+                    using var bLegendTxt = new SolidBrush(ThemeManager.TextPrimary);
+                    using var fLegend = new Font("Segoe UI", 8.5f, FontStyle.Regular);
+
+                    g.FillEllipse(bSalesDot, legX, 17, 8, 8);
+                    g.DrawString("Sales", fLegend, bLegendTxt, legX + 12, 13);
+
+                    g.FillEllipse(bPurchDot, legX + 65, 17, 8, 8);
+                    g.DrawString("Purchases", fLegend, bLegendTxt, legX + 77, 13);
                 }
             };
 
+            // 2. Chart Canvas
+            pnlSalesDynamicsCard.Controls.Clear();
+            pnlSalesDynamicsCard.Controls.Add(pnlDynamicsChartCanvas);
+            pnlSalesDynamicsCard.Controls.Add(_pnlDynamicsHeader);
+            pnlDynamicsChartCanvas.Dock = DockStyle.Fill;
+            pnlDynamicsChartCanvas.BringToFront();
+
+            // Mouse Hover Tracking on Canvas
+            pnlDynamicsChartCanvas.MouseMove += (s, e) =>
+            {
+                _dynamicsMousePos = e.Location;
+                int w = pnlDynamicsChartCanvas.Width;
+                int h = pnlDynamicsChartCanvas.Height;
+                int padL = 44, padR = 16, topY = 16, padB = 26;
+                int chartW = w - padL - padR;
+                int chartH = h - topY - padB;
+                int n = _monthlyDynamics?.Count ?? 0;
+
+                int newHover = -1;
+                if (n > 0 && chartW > 0 && chartH > 0)
+                {
+                    float slotW = (float)chartW / n;
+                    if (e.X >= padL && e.X <= padL + chartW && e.Y >= topY - 10 && e.Y <= topY + chartH + 24)
+                    {
+                        int idx = (int)((e.X - padL) / slotW);
+                        if (idx >= 0 && idx < n)
+                        {
+                            newHover = idx;
+                        }
+                    }
+                }
+
+                if (newHover != _hoveredDynamicsMonthIndex)
+                {
+                    _hoveredDynamicsMonthIndex = newHover;
+                    pnlDynamicsChartCanvas.Cursor = (newHover >= 0) ? Cursors.Hand : Cursors.Default;
+                    pnlDynamicsChartCanvas.Invalidate();
+                }
+                else if (_hoveredDynamicsMonthIndex >= 0)
+                {
+                    pnlDynamicsChartCanvas.Invalidate();
+                }
+            };
+
+            pnlDynamicsChartCanvas.MouseLeave += (s, e) =>
+            {
+                if (_hoveredDynamicsMonthIndex != -1)
+                {
+                    _hoveredDynamicsMonthIndex = -1;
+                    pnlDynamicsChartCanvas.Cursor = Cursors.Default;
+                    pnlDynamicsChartCanvas.Invalidate();
+                }
+            };
+
+            // Canvas Paint Event
             pnlDynamicsChartCanvas.Paint += (s, e) =>
             {
                 var g = e.Graphics;
@@ -837,8 +939,18 @@ namespace PROJECT_SBV1.Forms
 
                 int w = pnlDynamicsChartCanvas.Width;
                 int h = pnlDynamicsChartCanvas.Height;
-                int padL = 20, padR = 20, padB = 26, topY = 46;
+                if (w <= 0 || h <= 0) return;
 
+                bool isDark = ThemeManager.IsDarkMode;
+                Color cardBg = ThemeManager.CardBackground;
+
+                // 1. Explicit full background fill to prevent any ghosting or duplication
+                using (var bCardBg = new SolidBrush(cardBg))
+                {
+                    g.FillRectangle(bCardBg, 0, 0, w, h);
+                }
+
+                int padL = 44, padR = 16, topY = 16, padB = 26;
                 int chartW = w - padL - padR;
                 int chartH = h - topY - padB;
                 if (chartW <= 0 || chartH <= 0) return;
@@ -851,17 +963,46 @@ namespace PROJECT_SBV1.Forms
                 int n = _monthlyDynamics.Count;
                 if (n == 0) return;
 
-                float slotW = (float)chartW / n;
-                float barW = Math.Max(5, slotW * 0.32f);
-
                 decimal maxDataVal = _monthlyDynamics.Max(m => Math.Max(m.SalesAmount, m.PurchasesAmount));
                 float maxVal = (float)(maxDataVal <= 0 ? 50000m : maxDataVal * 1.25m);
-                Color purchCol = ThemeManager.IsDarkMode ? Color.FromArgb(165, 180, 252) : Color.FromArgb(99, 102, 241);
+
+                // 2. Y-Axis Subtle Horizontal Guidelines & Lakhs Labels
+                Color guideColor = isDark ? Color.FromArgb(38, 44, 64) : Color.FromArgb(235, 238, 244);
+                Color yLabelColor = isDark ? Color.FromArgb(148, 163, 184) : Color.FromArgb(100, 116, 139);
+                using (var pGuide = new Pen(guideColor, 1f))
+                using (var bYLbl = new SolidBrush(yLabelColor))
+                using (var fYLbl = new Font("Segoe UI", 7.5f, FontStyle.Regular))
+                using (var sfY = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center })
+                {
+                    float[] levels = { 1.0f, 0.66f, 0.33f, 0.0f };
+                    foreach (var lvl in levels)
+                    {
+                        float gy = topY + chartH * (1.0f - lvl);
+                        g.DrawLine(pGuide, padL, gy, padL + chartW, gy);
+
+                        decimal lvlVal = (decimal)(maxVal * lvl);
+                        string lvlText = lvlVal >= 100000m
+                            ? $"₹{(lvlVal / 100000m):0.#}L"
+                            : (lvlVal > 0 ? $"₹{lvlVal:0}" : "0");
+
+                        g.DrawString(lvlText, fYLbl, bYLbl, new RectangleF(0, gy - 8, padL - 6, 16), sfY);
+                    }
+                }
+
+                float slotW = (float)chartW / n;
+                float barW = Math.Max(6, slotW * 0.30f);
+                Color purchCol = isDark ? Color.FromArgb(165, 180, 252) : Color.FromArgb(99, 102, 241);
 
                 using var sBrush = new SolidBrush(C_Blue);
                 using var pBrush = new SolidBrush(purchCol);
                 using var bLbl = new SolidBrush(C_TextMid);
+                using var bLblHover = new SolidBrush(ThemeManager.PrimaryAccent);
+                using var fLblReg = new Font("Segoe UI", 8f, FontStyle.Regular);
+                using var fLblBold = new Font("Segoe UI", 8.2f, FontStyle.Bold);
                 using var sf = new StringFormat { Alignment = StringAlignment.Center };
+
+                int hoveredSlotX = -1;
+                float hoveredSalesY = 0f, hoveredPurchY = 0f;
 
                 for (int i = 0; i < n; i++)
                 {
@@ -878,56 +1019,316 @@ namespace PROJECT_SBV1.Forms
                     float sY = topY + chartH - sH;
                     float pY = topY + chartH - pH;
 
+                    bool isHovered = (i == _hoveredDynamicsMonthIndex);
+                    if (isHovered)
+                    {
+                        hoveredSlotX = (int)cx;
+                        hoveredSalesY = sY;
+                        hoveredPurchY = pY;
+
+                        // Sleek Translucent Column Hover Pillar
+                        int colX = (int)(padL + i * slotW + 2);
+                        int colW = (int)(slotW - 4);
+                        using var colPath = GraphicsExtensions.CreateRoundedRectanglePath(colX, topY - 4, colW, chartH + 8, 6);
+                        using var bCol = new SolidBrush(Color.FromArgb(isDark ? 35 : 22, ThemeManager.PrimaryAccent));
+                        using var pCol = new Pen(Color.FromArgb(isDark ? 70 : 45, ThemeManager.PrimaryAccent), 1f);
+                        g.FillPath(bCol, colPath);
+                        g.DrawPath(pCol, colPath);
+                    }
+
                     // Sales Bar
-                    using var sPath = GraphicsExtensions.CreateRoundedRectanglePath((int)(cx - barW - 2), (int)sY, (int)barW, (int)Math.Max(1, sH), 4);
-                    g.FillPath(sBrush, sPath);
+                    int sBarX = (int)(cx - barW - 2);
+                    using (var sPath = GraphicsExtensions.CreateRoundedRectanglePath(sBarX, (int)sY, (int)barW, (int)Math.Max(1, sH), 4))
+                    {
+                        if (isHovered)
+                        {
+                            using var bGlow = new SolidBrush(Color.FromArgb(96, 165, 250));
+                            using var pGlow = new Pen(Color.White, 1.2f);
+                            g.FillPath(bGlow, sPath);
+                            g.DrawPath(pGlow, sPath);
+                        }
+                        else
+                        {
+                            g.FillPath(sBrush, sPath);
+                        }
+                    }
 
                     // Purchase/Cost Bar
-                    using var pPath = GraphicsExtensions.CreateRoundedRectanglePath((int)(cx + 2), (int)pY, (int)barW, (int)Math.Max(1, pH), 4);
-                    g.FillPath(pBrush, pPath);
+                    int pBarX = (int)(cx + 2);
+                    using (var pPath = GraphicsExtensions.CreateRoundedRectanglePath(pBarX, (int)pY, (int)barW, (int)Math.Max(1, pH), 4))
+                    {
+                        if (isHovered)
+                        {
+                            using var bGlow = new SolidBrush(Color.FromArgb(199, 210, 254));
+                            using var pGlow = new Pen(Color.White, 1.2f);
+                            g.FillPath(bGlow, pPath);
+                            g.DrawPath(pGlow, pPath);
+                        }
+                        else
+                        {
+                            g.FillPath(pBrush, pPath);
+                        }
+                    }
 
                     // Month Label
-                    g.DrawString(_monthlyDynamics[i].MonthLabel, s_fontMonthLbl, bLbl, cx, topY + chartH + 6, sf);
+                    g.DrawString(_monthlyDynamics[i].MonthLabel, isHovered ? fLblBold : fLblReg, isHovered ? bLblHover : bLbl, cx, topY + chartH + 6, sf);
+                }
+
+                // 3. FLOATING REAL-USER HUD TOOLTIP CARD
+                if (_hoveredDynamicsMonthIndex >= 0 && _hoveredDynamicsMonthIndex < n)
+                {
+                    var item = _monthlyDynamics[_hoveredDynamicsMonthIndex];
+                    decimal margin = item.SalesAmount - item.PurchasesAmount;
+
+                    int ttW = 196;
+                    int ttH = 82;
+                    int ttX = (int)(hoveredSlotX - ttW / 2);
+                    float highestBar = Math.Min(hoveredSalesY, hoveredPurchY);
+                    int ttY = (int)(highestBar - ttH - 12);
+
+                    // Clamp within canvas boundaries
+                    if (ttY < topY - 6) ttY = (int)(highestBar + 22);
+                    if (ttX < padL) ttX = padL;
+                    if (ttX + ttW > w - 10) ttX = w - ttW - 10;
+
+                    // Tooltip Drop Shadow
+                    using (var shPath = GraphicsExtensions.CreateRoundedRectanglePath(ttX + 2, ttY + 3, ttW, ttH, 8))
+                    using (var bSh = new SolidBrush(Color.FromArgb(50, 0, 0, 0)))
+                    {
+                        g.FillPath(bSh, shPath);
+                    }
+
+                    // Tooltip Container
+                    using (var ttPath = GraphicsExtensions.CreateRoundedRectanglePath(ttX, ttY, ttW, ttH, 8))
+                    using (var bTt = new SolidBrush(isDark ? Color.FromArgb(245, 15, 23, 42) : Color.FromArgb(248, 24, 30, 48)))
+                    using (var pTt = new Pen(isDark ? Color.FromArgb(71, 85, 105) : Color.FromArgb(51, 65, 85), 1.2f))
+                    {
+                        g.FillPath(bTt, ttPath);
+                        g.DrawPath(pTt, ttPath);
+                    }
+
+                    // Month Title in Tooltip
+                    string fullMonth = item.MonthLabel switch
+                    {
+                        "Jan" => "January", "Feb" => "February", "Mar" => "March",
+                        "Apr" => "April", "May" => "May", "Jun" => "June",
+                        "Jul" => "July", "Aug" => "August", "Sep" => "September",
+                        "Oct" => "October", "Nov" => "November", "Dec" => "December",
+                        _ => item.MonthLabel
+                    };
+
+                    using (var fTtHdr = new Font("Segoe UI", 8.5f, FontStyle.Bold))
+                    using (var fTtRow = new Font("Segoe UI", 7.8f, FontStyle.Regular))
+                    using (var bTtWhite = new SolidBrush(Color.White))
+                    using (var bTtDotS = new SolidBrush(Color.FromArgb(96, 165, 250)))
+                    using (var bTtDotP = new SolidBrush(Color.FromArgb(165, 180, 252)))
+                    using (var bTtDotM = new SolidBrush(margin >= 0 ? Color.FromArgb(52, 211, 153) : Color.FromArgb(248, 113, 113)))
+                    {
+                        g.DrawString($"{fullMonth} {_selectedDynamicsYear}", fTtHdr, bTtWhite, ttX + 12, ttY + 8);
+
+                        // Row 1: Sales
+                        g.FillEllipse(bTtDotS, ttX + 13, ttY + 28, 6, 6);
+                        g.DrawString($"Sales: ₹{item.SalesAmount:N2}", fTtRow, bTtWhite, ttX + 24, ttY + 24);
+
+                        // Row 2: Purchases
+                        g.FillEllipse(bTtDotP, ttX + 13, ttY + 44, 6, 6);
+                        g.DrawString($"Purchases: ₹{item.PurchasesAmount:N2}", fTtRow, bTtWhite, ttX + 24, ttY + 40);
+
+                        // Row 3: Net Margin
+                        g.FillEllipse(bTtDotM, ttX + 13, ttY + 60, 6, 6);
+                        string marginSign = margin >= 0 ? "+" : "";
+                        g.DrawString($"Margin: {marginSign}₹{margin:N2}", fTtRow, bTtDotM, ttX + 24, ttY + 56);
+                    }
                 }
             };
         }
 
         private void SetupCategoryDonutCard()
         {
-            pnlCategoryDonutCard.Controls.Add(pnlDonutChartCanvas);
-            pnlDonutChartCanvas.Dock = DockStyle.Fill;
+            EnableDoubleBuffering(pnlCategoryDonutCard);
+            EnableDoubleBuffering(pnlDonutChartCanvas);
 
+            pnlCategoryDonutCard.Padding = new Padding(1);
+            pnlCategoryDonutCard.BackColor = C_CardBg;
             pnlCategoryDonutCard.Paint += (s, e) =>
             {
                 var g = e.Graphics;
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                int w = pnlCategoryDonutCard.Width;
-                int h = pnlCategoryDonutCard.Height;
-                if (w <= 0 || h <= 0) return;
-
-                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, w - 1, h - 1, 10);
-                using var bg = new SolidBrush(C_CardBg);
-                g.FillPath(bg, path);
-                using var bdr = new Pen(C_Border, 1.2f);
-                g.DrawPath(bdr, path);
-
-                using var bTitle = new SolidBrush(C_TextDark);
-                g.DrawString("Category Revenue", s_fontChartTitle, bTitle, 16, 12);
+                TableDesignStandard.PaintCardContainerBorder(g, pnlCategoryDonutCard.ClientRectangle);
             };
 
+            // 1. Header Bar
+            _pnlDonutHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 44,
+                BackColor = C_CardBg,
+                Padding = new Padding(14, 0, 14, 0)
+            };
+
+            var fHdrTitle = new Font("Segoe UI", 9.8f, FontStyle.Bold);
+            _pnlDonutHeader.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                bool isDark = ThemeManager.IsDarkMode;
+
+                Color sepCol = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+                using (var pen = new Pen(sepCol, 1f))
+                {
+                    g.DrawLine(pen, 0, _pnlDonutHeader.Height - 1, _pnlDonutHeader.Width, _pnlDonutHeader.Height - 1);
+                }
+
+                // Vector Icon
+                ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Products, new Rectangle(14, 13, 18, 18), Color.FromArgb(16, 185, 129), 1.5f);
+
+                // Title
+                using var bTitle = new SolidBrush(ThemeManager.TextPrimary);
+                g.DrawString("Category Revenue", fHdrTitle, bTitle, 38, 12);
+
+                // Count Badge
+                int count = _categoryDistribution?.Count ?? 0;
+                string catBadge = $"● {count} {(count == 1 ? "Category" : "Categories")}";
+                using var bBadgeBg = new SolidBrush(isDark ? Color.FromArgb(30, 41, 59) : Color.FromArgb(238, 242, 255));
+                using var pBadgeBdr = new Pen(isDark ? Color.FromArgb(71, 85, 105) : Color.FromArgb(199, 210, 254), 1f);
+                using var bBadgeTxt = new SolidBrush(isDark ? Color.FromArgb(148, 163, 184) : Color.FromArgb(79, 70, 229));
+                using var fBadge = new Font("Segoe UI", 7.8f, FontStyle.Bold);
+                using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+
+                int bW = 104;
+                int bH = 22;
+                int bX = _pnlDonutHeader.Width - bW - 14;
+                if (bX > 180)
+                {
+                    using var bPath = GraphicsExtensions.CreateRoundedRectanglePath(bX, 11, bW, bH, 11);
+                    g.FillPath(bBadgeBg, bPath);
+                    g.DrawPath(pBadgeBdr, bPath);
+
+                    using var bDot = new SolidBrush(Color.FromArgb(99, 102, 241));
+                    g.FillEllipse(bDot, bX + 8, 11 + 8, 6, 6);
+
+                    var textRect = new Rectangle(bX + 12, 11, bW - 14, bH);
+                    g.DrawString(catBadge.Replace("● ", ""), fBadge, bBadgeTxt, textRect, sf);
+                }
+            };
+
+            // 2. Donut Canvas
+            pnlCategoryDonutCard.Controls.Clear();
+            pnlCategoryDonutCard.Controls.Add(pnlDonutChartCanvas);
+            pnlCategoryDonutCard.Controls.Add(_pnlDonutHeader);
+            pnlDonutChartCanvas.Dock = DockStyle.Fill;
+            pnlDonutChartCanvas.BringToFront();
+
+            Color[] palette = {
+                C_Blue,
+                C_Positive,
+                C_Warning,
+                Color.FromArgb(168, 85, 247),
+                Color.FromArgb(236, 72, 153),
+                Color.FromArgb(14, 165, 233)
+            };
+
+            // Mouse Hover Tracking
+            pnlDonutChartCanvas.MouseMove += (s, e) =>
+            {
+                _donutMousePos = e.Location;
+                int w = pnlDonutChartCanvas.Width;
+                int h = pnlDonutChartCanvas.Height;
+                int d = Math.Min((int)(w * 0.44f), h - 36);
+                int cx = 20 + d / 2;
+                int cy = (h - d) / 2 + d / 2;
+
+                int newHover = -1;
+                if (d > 10 && _categoryDistribution != null && _categoryDistribution.Count > 0)
+                {
+                    float dx = e.X - cx;
+                    float dy = e.Y - cy;
+                    float dist = (float)Math.Sqrt(dx * dx + dy * dy);
+                    int outerRadius = d / 2;
+                    int innerRadius = (int)(d * 0.62f) / 2;
+
+                    // Hovering on donut ring
+                    if (dist >= innerRadius - 4 && dist <= outerRadius + 14)
+                    {
+                        float angle = (float)(Math.Atan2(dy, dx) * 180.0 / Math.PI);
+                        if (angle < 0) angle += 360f;
+
+                        float currA = 0f;
+                        for (int i = 0; i < _categoryDistribution.Count; i++)
+                        {
+                            float sliceA = _categoryDistribution[i].Angle;
+                            if (angle >= currA && angle < currA + sliceA)
+                            {
+                                newHover = i;
+                                break;
+                            }
+                            currA += sliceA;
+                        }
+                    }
+                    else
+                    {
+                        // Check if hovering over Legend items on the right side
+                        int legX = cx + d / 2 + 16;
+                        int legY = 16;
+                        for (int i = 0; i < Math.Min(6, _categoryDistribution.Count); i++)
+                        {
+                            var legRect = new Rectangle(legX - 4, legY + i * 28 - 2, w - legX - 8, 26);
+                            if (legRect.Contains(e.Location))
+                            {
+                                newHover = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (newHover != _hoveredCategoryIndex)
+                {
+                    _hoveredCategoryIndex = newHover;
+                    pnlDonutChartCanvas.Cursor = (newHover >= 0) ? Cursors.Hand : Cursors.Default;
+                    pnlDonutChartCanvas.Invalidate();
+                }
+                else if (_hoveredCategoryIndex >= 0)
+                {
+                    pnlDonutChartCanvas.Invalidate();
+                }
+            };
+
+            pnlDonutChartCanvas.MouseLeave += (s, e) =>
+            {
+                if (_hoveredCategoryIndex != -1)
+                {
+                    _hoveredCategoryIndex = -1;
+                    pnlDonutChartCanvas.Cursor = Cursors.Default;
+                    pnlDonutChartCanvas.Invalidate();
+                }
+            };
+
+            // Canvas Paint Event
             pnlDonutChartCanvas.Paint += (s, e) =>
             {
                 var g = e.Graphics;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
 
                 int w = pnlDonutChartCanvas.Width;
                 int h = pnlDonutChartCanvas.Height;
+                if (w <= 0 || h <= 0) return;
 
-                int d = Math.Min(w / 2, h - 50);
+                bool isDark = ThemeManager.IsDarkMode;
+                Color cardBg = ThemeManager.CardBackground;
+
+                // 1. Explicit full background fill to prevent any ghosting or duplication
+                using (var bCardBg = new SolidBrush(cardBg))
+                {
+                    g.FillRectangle(bCardBg, 0, 0, w, h);
+                }
+
+                int d = Math.Min((int)(w * 0.44f), h - 36);
                 if (d <= 10) return;
 
                 int cx = 20 + d / 2;
-                int cy = 40 + d / 2;
+                int cy = (h - d) / 2 + d / 2;
                 var rect = new Rectangle(cx - d / 2, cy - d / 2, d, d);
 
                 if (_categoryDistribution == null || _categoryDistribution.Count == 0)
@@ -937,59 +1338,191 @@ namespace PROJECT_SBV1.Forms
                     _categoryGrandTotal = gTotal;
                 }
 
-                Color[] palette = {
-                    C_Blue,
-                    C_Positive,
-                    C_Warning,
-                    Color.FromArgb(168, 85, 247),
-                    Color.FromArgb(236, 72, 153),
-                    Color.FromArgb(14, 165, 233)
-                };
-
+                // 2. Draw Donut Slices (with Explosion & Glow on Hover)
                 float startA = 0f;
+                int hoveredSliceIndex = _hoveredCategoryIndex;
+                Rectangle hoveredSliceRect = Rectangle.Empty;
+                float hoveredStartA = 0f, hoveredAngle = 0f;
+                Color hoveredColor = Color.Empty;
+
                 for (int i = 0; i < _categoryDistribution.Count; i++)
                 {
                     var item = _categoryDistribution[i];
                     Color c = palette[i % palette.Length];
                     using var b = new SolidBrush(c);
+
                     if (item.Angle > 0)
                     {
-                        g.FillPie(b, rect, startA, item.Angle);
+                        if (i == hoveredSliceIndex)
+                        {
+                            hoveredStartA = startA;
+                            hoveredAngle = item.Angle;
+                            hoveredColor = c;
+
+                            float midA = (startA + item.Angle / 2f) * (float)Math.PI / 180f;
+                            float offDist = 5f;
+                            int expCx = cx + (int)(Math.Cos(midA) * offDist);
+                            int expCy = cy + (int)(Math.Sin(midA) * offDist);
+                            hoveredSliceRect = new Rectangle(expCx - d / 2 - 2, expCy - d / 2 - 2, d + 4, d + 4);
+                        }
+                        else
+                        {
+                            g.FillPie(b, rect, startA, item.Angle);
+                            using var pSliceSep = new Pen(cardBg, 1.5f);
+                            g.DrawPie(pSliceSep, rect, startA, item.Angle);
+                        }
                         startA += item.Angle;
                     }
                 }
 
-                // Inner cutout
+                // Draw Hovered Slice with Expanded Boundary and White/Bright Glow Outline
+                if (hoveredSliceIndex >= 0 && hoveredAngle > 0)
+                {
+                    using (var bHov = new SolidBrush(hoveredColor))
+                    using (var pGlow = new Pen(Color.White, 2.5f))
+                    {
+                        g.FillPie(bHov, hoveredSliceRect, hoveredStartA, hoveredAngle);
+                        g.DrawPie(pGlow, hoveredSliceRect, hoveredStartA, hoveredAngle);
+                    }
+                }
+
+                // 3. Inner Cutout Circle (Hole)
                 int holeD = (int)(d * 0.62f);
                 var holeRect = new Rectangle(cx - holeD / 2, cy - holeD / 2, holeD, holeD);
-                using var holeBrush = new SolidBrush(C_CardBg);
-                g.FillEllipse(holeBrush, holeRect);
+                using (var holeBrush = new SolidBrush(cardBg))
+                using (var holePen = new Pen(isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240), 1f))
+                {
+                    g.FillEllipse(holeBrush, holeRect);
+                    g.DrawEllipse(holePen, holeRect);
+                }
 
-                // Center Total Text
-                using var bC1 = new SolidBrush(C_TextMid);
-                using var bC2 = new SolidBrush(C_TextDark);
-                using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                g.DrawString("TOTAL", s_fontCenterSmall, bC1, cx, cy - 8, sf);
+                // 4. REAL-USER DYNAMIC CENTER TEXT
+                using (var sfCenter = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+                {
+                    if (hoveredSliceIndex >= 0 && hoveredSliceIndex < _categoryDistribution.Count)
+                    {
+                        var hItem = _categoryDistribution[hoveredSliceIndex];
+                        Color hCol = palette[hoveredSliceIndex % palette.Length];
+                        using var bCol = new SolidBrush(hCol);
+                        using var bVal = new SolidBrush(ThemeManager.TextPrimary);
+                        using var bSub = new SolidBrush(ThemeManager.TextSecondary);
 
-                string grandTotalFormatted = _categoryGrandTotal >= 100000m
-                    ? $"₹{(_categoryGrandTotal / 100000m):N1}L"
-                    : $"₹{_categoryGrandTotal:N0}";
-                g.DrawString(grandTotalFormatted, s_fontCenterBold, bC2, cx, cy + 10, sf);
+                        using var fName = new Font("Segoe UI", 7.8f, FontStyle.Bold);
+                        using var fAmt = new Font("Segoe UI", 12f, FontStyle.Bold);
+                        using var fPct = new Font("Segoe UI", 7.5f, FontStyle.Bold);
 
-                // Legend List on the right
-                int legX = cx + d / 2 + 16;
-                int legY = 46;
-                for (int i = 0; i < Math.Min(5, _categoryDistribution.Count); i++)
+                        string amtFmt = hItem.TotalSales >= 100000m
+                            ? $"₹{(hItem.TotalSales / 100000m):N1}L"
+                            : $"₹{hItem.TotalSales:N0}";
+
+                        g.DrawString(hItem.CategoryName.ToUpperInvariant(), fName, bCol, cx, cy - 18, sfCenter);
+                        g.DrawString(amtFmt, fAmt, bVal, cx, cy, sfCenter);
+                        g.DrawString($"{hItem.Percentage:0.0}% of Total", fPct, bSub, cx, cy + 18, sfCenter);
+                    }
+                    else
+                    {
+                        using var bC1 = new SolidBrush(C_TextMid);
+                        using var bC2 = new SolidBrush(C_TextDark);
+                        using var fTotalLbl = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+                        using var fTotalVal = new Font("Segoe UI", 12.5f, FontStyle.Bold);
+
+                        g.DrawString("TOTAL SALES", fTotalLbl, bC1, cx, cy - 10, sfCenter);
+
+                        string grandTotalFormatted = _categoryGrandTotal >= 100000m
+                            ? $"₹{(_categoryGrandTotal / 100000m):N1}L"
+                            : $"₹{_categoryGrandTotal:N0}";
+                        g.DrawString(grandTotalFormatted, fTotalVal, bC2, cx, cy + 10, sfCenter);
+                    }
+                }
+
+                // 5. INTERACTIVE LEGEND LIST ON THE RIGHT
+                int legX = cx + d / 2 + 18;
+                int legY = 16;
+                int maxLeg = Math.Min(6, _categoryDistribution.Count);
+
+                for (int i = 0; i < maxLeg; i++)
                 {
                     var item = _categoryDistribution[i];
                     Color c = palette[i % palette.Length];
-                    using var bDot = new SolidBrush(c);
-                    using var bTxt = new SolidBrush(C_TextDark);
-                    g.FillEllipse(bDot, legX, legY + i * 24 + 3, 8, 8);
-                    g.DrawString($"{item.CategoryName} ({item.Percentage:0}%)", s_fontLegendList, bTxt, legX + 14, legY + i * 24);
+                    bool isLegHover = (i == _hoveredCategoryIndex);
+
+                    int rowY = legY + i * 28;
+
+                    // Hover Highlight Pill on Legend Row
+                    if (isLegHover)
+                    {
+                        int legW = w - legX - 10;
+                        using var path = GraphicsExtensions.CreateRoundedRectanglePath(legX - 4, rowY - 2, legW, 25, 6);
+                        using var bH = new SolidBrush(Color.FromArgb(isDark ? 40 : 22, c));
+                        using var pH = new Pen(Color.FromArgb(isDark ? 80 : 50, c), 1f);
+                        g.FillPath(bH, path);
+                        g.DrawPath(pH, path);
+                    }
+
+                    // Colored Dot
+                    using (var bDot = new SolidBrush(c))
+                    {
+                        g.FillEllipse(bDot, legX + 2, rowY + 5, 8, 8);
+                    }
+
+                    // Category Name & Percentage
+                    using (var bTxt = new SolidBrush(isLegHover ? ThemeManager.TextPrimary : ThemeManager.TextSecondary))
+                    using (var fLeg = new Font("Segoe UI", isLegHover ? 8.5f : 8.2f, isLegHover ? FontStyle.Bold : FontStyle.Regular))
+                    {
+                        g.DrawString($"{item.CategoryName} ({item.Percentage:0.#}%)", fLeg, bTxt, legX + 16, rowY + 1);
+                    }
+                }
+
+                // 6. FLOATING HUD TOOLTIP CARD FOR DONUT SLICE
+                if (hoveredSliceIndex >= 0 && hoveredSliceIndex < _categoryDistribution.Count)
+                {
+                    var hItem = _categoryDistribution[hoveredSliceIndex];
+                    Color hCol = palette[hoveredSliceIndex % palette.Length];
+
+                    int ttW = 184;
+                    int ttH = 68;
+                    int ttX = _donutMousePos.X + 14;
+                    int ttY = _donutMousePos.Y - ttH / 2;
+
+                    // Clamp
+                    if (ttX + ttW > w - 8) ttX = _donutMousePos.X - ttW - 14;
+                    if (ttX < 8) ttX = 8;
+                    if (ttY < 6) ttY = 6;
+                    if (ttY + ttH > h - 6) ttY = h - ttH - 6;
+
+                    // Drop shadow
+                    using (var shPath = GraphicsExtensions.CreateRoundedRectanglePath(ttX + 2, ttY + 3, ttW, ttH, 8))
+                    using (var bSh = new SolidBrush(Color.FromArgb(50, 0, 0, 0)))
+                    {
+                        g.FillPath(bSh, shPath);
+                    }
+
+                    // HUD Container
+                    using (var ttPath = GraphicsExtensions.CreateRoundedRectanglePath(ttX, ttY, ttW, ttH, 8))
+                    using (var bTt = new SolidBrush(isDark ? Color.FromArgb(245, 15, 23, 42) : Color.FromArgb(248, 24, 30, 48)))
+                    using (var pTt = new Pen(isDark ? Color.FromArgb(71, 85, 105) : Color.FromArgb(51, 65, 85), 1.2f))
+                    {
+                        g.FillPath(bTt, ttPath);
+                        g.DrawPath(pTt, ttPath);
+                    }
+
+                    // Tooltip Content
+                    using (var fTtHdr = new Font("Segoe UI", 8.5f, FontStyle.Bold))
+                    using (var fTtRow = new Font("Segoe UI", 7.8f, FontStyle.Regular))
+                    using (var bTtWhite = new SolidBrush(Color.White))
+                    using (var bTtSub = new SolidBrush(Color.FromArgb(148, 163, 184)))
+                    using (var bTtDot = new SolidBrush(hCol))
+                    {
+                        g.FillEllipse(bTtDot, ttX + 12, ttY + 13, 7, 7);
+                        g.DrawString(hItem.CategoryName, fTtHdr, bTtWhite, ttX + 24, ttY + 9);
+
+                        g.DrawString($"Revenue: ₹{hItem.TotalSales:N2}", fTtRow, bTtWhite, ttX + 12, ttY + 28);
+                        g.DrawString($"Contribution: {hItem.Percentage:0.0}% of total", fTtRow, bTtSub, ttX + 12, ttY + 44);
+                    }
                 }
             };
         }
+
 
         // ═══════════════════════════════════════════════════════════════════════════
         //  TABLES: RECENT INVOICES & LOW STOCK ALERTS
