@@ -602,21 +602,21 @@ namespace PROJECT_SBV1.Controls
             _dgvItems.AllowUserToDeleteRows = false;
             _dgvItems.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             _dgvItems.SelectionMode = DataGridViewSelectionMode.CellSelect;
-            _dgvItems.RowTemplate.Height = 42;
-            _dgvItems.Font = new Font("Segoe UI", 9.75f);
+            _dgvItems.RowTemplate.Height = 34;
+            _dgvItems.Font = new Font("Segoe UI", 9.25f);
             _dgvItems.GridColor = C_Border;
             _dgvItems.EnableHeadersVisualStyles = false;
 
             _dgvItems.ColumnHeadersDefaultCellStyle.BackColor = ThemeManager.IsDarkMode ? Color.FromArgb(28, 33, 48) : Color.FromArgb(248, 250, 252);
             _dgvItems.ColumnHeadersDefaultCellStyle.ForeColor = C_TextMid;
-            _dgvItems.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-            _dgvItems.ColumnHeadersHeight = 40;
+            _dgvItems.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            _dgvItems.ColumnHeadersHeight = 34;
 
             _dgvItems.DefaultCellStyle.BackColor = C_CardBg;
             _dgvItems.DefaultCellStyle.ForeColor = C_TextDark;
             _dgvItems.DefaultCellStyle.SelectionBackColor = ThemeManager.IsDarkMode ? Color.FromArgb(36, 42, 60) : Color.FromArgb(239, 246, 255);
             _dgvItems.DefaultCellStyle.SelectionForeColor = C_Blue;
-            _dgvItems.DefaultCellStyle.Padding = new Padding(6, 3, 6, 3);
+            _dgvItems.DefaultCellStyle.Padding = new Padding(6, 2, 6, 2);
 
             // Define Columns matching Screenshot
             _dgvItems.Columns.Add(new DataGridViewTextBoxColumn { Name = "Product", HeaderText = "Product", FillWeight = 26, ReadOnly = true });
@@ -643,12 +643,63 @@ namespace PROJECT_SBV1.Controls
 
             // Alignments
             _dgvItems.Columns["Qty"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            _dgvItems.Columns["Qty"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
             _dgvItems.Columns["Rate"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            _dgvItems.Columns["Rate"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
             _dgvItems.Columns["Discount"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            _dgvItems.Columns["Discount"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
             _dgvItems.Columns["GST"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            _dgvItems.Columns["GST"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
             _dgvItems.Columns["Taxable"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            _dgvItems.Columns["Taxable"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
             _dgvItems.Columns["Amount"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            _dgvItems.Columns["Amount"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
             _dgvItems.Columns["Actions"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            _dgvItems.Columns["Actions"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+
+            _dgvItems.CellPainting += (s, e) =>
+            {
+                if (e.RowIndex == -1 && e.ColumnIndex >= 0 && e.Graphics != null)
+                {
+                    bool isDark = ThemeManager.IsDarkMode;
+                    Color headerBg = isDark ? Color.FromArgb(28, 33, 48) : Color.FromArgb(248, 250, 252);
+                    Color headerFg = isDark ? Color.FromArgb(203, 213, 225) : Color.FromArgb(71, 85, 105);
+                    Color bdrColor = isDark ? Color.FromArgb(48, 54, 76) : Color.FromArgb(203, 213, 225);
+
+                    var g = e.Graphics;
+                    using (var bBg = new SolidBrush(headerBg))
+                        g.FillRectangle(bBg, e.CellBounds);
+
+                    using (var pBdr = new Pen(bdrColor, 1f))
+                    {
+                        g.DrawLine(pBdr, e.CellBounds.Left, e.CellBounds.Top, e.CellBounds.Right, e.CellBounds.Top);
+                        g.DrawLine(pBdr, e.CellBounds.Left, e.CellBounds.Bottom - 1, e.CellBounds.Right, e.CellBounds.Bottom - 1);
+                        g.DrawLine(pBdr, e.CellBounds.Right - 1, e.CellBounds.Top, e.CellBounds.Right - 1, e.CellBounds.Bottom - 1);
+                        if (e.ColumnIndex == 0)
+                            g.DrawLine(pBdr, e.CellBounds.Left, e.CellBounds.Top, e.CellBounds.Left, e.CellBounds.Bottom - 1);
+                    }
+
+                    string colHeader = e.Value?.ToString() ?? string.Empty;
+                    var align = _dgvItems.Columns[e.ColumnIndex].DefaultCellStyle.Alignment;
+                    bool isRight = align == DataGridViewContentAlignment.MiddleRight;
+                    bool isCenter = align == DataGridViewContentAlignment.MiddleCenter;
+
+                    var sf = new StringFormat
+                    {
+                        LineAlignment = StringAlignment.Center,
+                        Alignment = isRight ? StringAlignment.Far : (isCenter ? StringAlignment.Center : StringAlignment.Near),
+                        Trimming = StringTrimming.EllipsisCharacter
+                    };
+
+                    int padX = 8;
+                    var textRect = new Rectangle(e.CellBounds.X + padX, e.CellBounds.Y, e.CellBounds.Width - (padX * 2), e.CellBounds.Height);
+                    using var f = new Font("Segoe UI", 9f, FontStyle.Bold);
+                    using var bText = new SolidBrush(headerFg);
+                    g.DrawString(colHeader, f, bText, textRect, sf);
+
+                    e.Handled = true;
+                }
+            };
 
             // Events
             _dgvItems.CellContentClick += OnGridCellContentClick;

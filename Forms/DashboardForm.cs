@@ -574,21 +574,7 @@ namespace PROJECT_SBV1.Forms
         private void StyleDataGridView(DataGridView dgv)
         {
             if (dgv == null) return;
-            dgv.BackgroundColor = C_CardBg;
-            dgv.GridColor       = C_Border;
-
-            dgv.ColumnHeadersDefaultCellStyle.BackColor = C_CardBg;
-            dgv.ColumnHeadersDefaultCellStyle.ForeColor = C_TextMid;
-            dgv.ColumnHeadersDefaultCellStyle.SelectionBackColor = C_CardBg;
-            dgv.ColumnHeadersDefaultCellStyle.SelectionForeColor = C_TextMid;
-
-            dgv.DefaultCellStyle.BackColor          = C_CardBg;
-            dgv.DefaultCellStyle.ForeColor          = C_TextDark;
-            dgv.DefaultCellStyle.SelectionBackColor = C_NavHover;
-            dgv.DefaultCellStyle.SelectionForeColor = C_TextDark;
-
-            dgv.AlternatingRowsDefaultCellStyle.BackColor = ThemeManager.GridRowAlternate;
-            dgv.AlternatingRowsDefaultCellStyle.ForeColor = C_TextDark;
+            TableDesignStandard.ApplyStandardGrid(dgv);
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -987,16 +973,19 @@ namespace PROJECT_SBV1.Forms
         // ═══════════════════════════════════════════════════════════════════════════
         private void SetupRecentInvoicesCard()
         {
+            pnlRecentInvoicesCard.Padding = new Padding(1);
+            pnlRecentInvoicesCard.BackColor = C_CardBg;
+            pnlRecentInvoicesCard.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                TableDesignStandard.PaintCardContainerBorder(g, pnlRecentInvoicesCard.ClientRectangle);
+            };
+
             pnlRecentInvoicesCard.Controls.Add(dgvInvoices);
             dgvInvoices.Dock = DockStyle.Fill;
             dgvInvoices.BringToFront();
 
-            dgvInvoices.BorderStyle               = BorderStyle.None;
-            dgvInvoices.CellBorderStyle           = DataGridViewCellBorderStyle.SingleHorizontal;
-            dgvInvoices.EnableHeadersVisualStyles = false;
-            dgvInvoices.ColumnHeadersDefaultCellStyle.Font = s_fontGridHeader;
-            dgvInvoices.DefaultCellStyle.Font              = s_fontGrid;
-
+            dgvInvoices.Columns.Clear();
             dgvInvoices.Columns.Add("InvoiceNo", "Invoice No");
             dgvInvoices.Columns.Add("Customer", "Customer");
             dgvInvoices.Columns.Add("Date", "Date");
@@ -1004,11 +993,19 @@ namespace PROJECT_SBV1.Forms
             dgvInvoices.Columns.Add("Amount", "Amount (₹)");
             dgvInvoices.Columns.Add("Status", "Status");
 
-            dgvInvoices.RowHeadersVisible = false;
-            dgvInvoices.AllowUserToAddRows = false;
-            dgvInvoices.ReadOnly = true;
-            dgvInvoices.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvInvoices.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvInvoices.Columns["InvoiceNo"].FillWeight = 19;
+            dgvInvoices.Columns["Customer"].FillWeight = 24;
+            dgvInvoices.Columns["Date"].FillWeight = 18;
+            dgvInvoices.Columns["Mode"].FillWeight = 12;
+            dgvInvoices.Columns["Amount"].FillWeight = 15;
+            dgvInvoices.Columns["Status"].FillWeight = 12;
+
+            dgvInvoices.Columns["Amount"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvInvoices.Columns["Amount"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvInvoices.Columns["Status"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvInvoices.Columns["Status"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+
+            TableDesignStandard.ApplyStandardGrid(dgvInvoices, new TableStyleOptions { EmptyStateMessage = "No recent invoices recorded" });
             dgvInvoices.Cursor = Cursors.Hand;
 
             dgvInvoices.CellDoubleClick += (s, e) =>
@@ -1038,26 +1035,33 @@ namespace PROJECT_SBV1.Forms
 
         private void SetupLowStockCard()
         {
+            pnlLowStockCard.Padding = new Padding(1);
+            pnlLowStockCard.BackColor = C_CardBg;
+            pnlLowStockCard.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                TableDesignStandard.PaintCardContainerBorder(g, pnlLowStockCard.ClientRectangle);
+            };
+
             pnlLowStockCard.Controls.Add(dgvLowStock);
             dgvLowStock.Dock = DockStyle.Fill;
             dgvLowStock.BringToFront();
 
-            dgvLowStock.BorderStyle               = BorderStyle.None;
-            dgvLowStock.CellBorderStyle           = DataGridViewCellBorderStyle.SingleHorizontal;
-            dgvLowStock.EnableHeadersVisualStyles = false;
-            dgvLowStock.ColumnHeadersDefaultCellStyle.Font = s_fontGridHeader;
-            dgvLowStock.DefaultCellStyle.Font              = s_fontGrid;
-
+            dgvLowStock.Columns.Clear();
             dgvLowStock.Columns.Add("ItemName", "Item / Product");
             dgvLowStock.Columns.Add("Stock", "In Stock");
             dgvLowStock.Columns.Add("MinLevel", "Reorder Level");
             dgvLowStock.Columns.Add("Action", "Alert Level");
 
-            dgvLowStock.RowHeadersVisible = false;
-            dgvLowStock.AllowUserToAddRows = false;
-            dgvLowStock.ReadOnly = true;
-            dgvLowStock.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvLowStock.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvLowStock.Columns["ItemName"].FillWeight = 42;
+            dgvLowStock.Columns["Stock"].FillWeight = 18;
+            dgvLowStock.Columns["MinLevel"].FillWeight = 22;
+            dgvLowStock.Columns["Action"].FillWeight = 18;
+
+            dgvLowStock.Columns["Action"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvLowStock.Columns["Action"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+
+            TableDesignStandard.ApplyStandardGrid(dgvLowStock, new TableStyleOptions { EmptyStateMessage = "All stock levels are currently healthy" });
             dgvLowStock.Cursor = Cursors.Hand;
 
             dgvLowStock.CellDoubleClick += (s, e) =>
@@ -1372,19 +1376,6 @@ namespace PROJECT_SBV1.Forms
 
             pnlTop.Controls.AddRange(new Control[] { txtCustSearch, btnAddCustomer });
 
-            dgvCustomers.Dock = DockStyle.Fill;
-            dgvCustomers.BorderStyle = BorderStyle.None;
-            dgvCustomers.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
-            dgvCustomers.EnableHeadersVisualStyles = false;
-            dgvCustomers.ColumnHeadersDefaultCellStyle.Font = s_fontGridHeader;
-            dgvCustomers.DefaultCellStyle.Font = s_fontGrid;
-            dgvCustomers.RowHeadersVisible = false;
-            dgvCustomers.AllowUserToAddRows = false;
-            dgvCustomers.ReadOnly = true;
-            dgvCustomers.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvCustomers.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            dgvCustomers.Cursor = Cursors.Hand;
-
             dgvCustomers.Columns.Clear();
             dgvCustomers.Columns.Add("Id", "ID");
             dgvCustomers.Columns["Id"].Visible = false;
@@ -1394,6 +1385,14 @@ namespace PROJECT_SBV1.Forms
             dgvCustomers.Columns.Add("GSTIN", "GSTIN");
             dgvCustomers.Columns.Add("Balance", "Outstanding Due (₹)");
             dgvCustomers.Columns.Add("Status", "Status");
+
+            dgvCustomers.Columns["Balance"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvCustomers.Columns["Balance"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvCustomers.Columns["Status"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvCustomers.Columns["Status"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+
+            TableDesignStandard.ApplyStandardGrid(dgvCustomers, new TableStyleOptions { EmptyStateMessage = "No customer accounts registered" });
+            dgvCustomers.Cursor = Cursors.Hand;
 
             dgvCustomers.CellDoubleClick += (s, e) =>
             {
@@ -1520,19 +1519,6 @@ namespace PROJECT_SBV1.Forms
 
             pnlTop.Controls.AddRange(new Control[] { txtProdSearch, btnAddProductPage, btnStockAdjust });
 
-            dgvProducts.Dock = DockStyle.Fill;
-            dgvProducts.BorderStyle = BorderStyle.None;
-            dgvProducts.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
-            dgvProducts.EnableHeadersVisualStyles = false;
-            dgvProducts.ColumnHeadersDefaultCellStyle.Font = s_fontGridHeader;
-            dgvProducts.DefaultCellStyle.Font = s_fontGrid;
-            dgvProducts.RowHeadersVisible = false;
-            dgvProducts.AllowUserToAddRows = false;
-            dgvProducts.ReadOnly = true;
-            dgvProducts.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvProducts.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            dgvProducts.Cursor = Cursors.Hand;
-
             dgvProducts.Columns.Clear();
             dgvProducts.Columns.Add("Id", "ID");
             dgvProducts.Columns["Id"].Visible = false;
@@ -1543,6 +1529,16 @@ namespace PROJECT_SBV1.Forms
             dgvProducts.Columns.Add("Sale", "Sale Price");
             dgvProducts.Columns.Add("Stock", "In Stock");
             dgvProducts.Columns.Add("MinAlert", "Alert Level");
+
+            dgvProducts.Columns["Cost"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvProducts.Columns["Cost"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvProducts.Columns["Sale"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvProducts.Columns["Sale"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvProducts.Columns["MinAlert"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvProducts.Columns["MinAlert"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+
+            TableDesignStandard.ApplyStandardGrid(dgvProducts, new TableStyleOptions { EmptyStateMessage = "No inventory items cataloged" });
+            dgvProducts.Cursor = Cursors.Hand;
 
             dgvProducts.CellDoubleClick += (s, e) =>
             {
@@ -1629,18 +1625,6 @@ namespace PROJECT_SBV1.Forms
 
             pnlTop.Controls.Add(txtTransSearch);
 
-            dgvAllTransactions.Dock = DockStyle.Fill;
-            dgvAllTransactions.BorderStyle = BorderStyle.None;
-            dgvAllTransactions.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
-            dgvAllTransactions.EnableHeadersVisualStyles = false;
-            dgvAllTransactions.ColumnHeadersDefaultCellStyle.Font = s_fontGridHeader;
-            dgvAllTransactions.DefaultCellStyle.Font = s_fontGrid;
-            dgvAllTransactions.RowHeadersVisible = false;
-            dgvAllTransactions.AllowUserToAddRows = false;
-            dgvAllTransactions.ReadOnly = true;
-            dgvAllTransactions.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvAllTransactions.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-
             dgvAllTransactions.Columns.Clear();
             dgvAllTransactions.Columns.Add("Date", "Date & Time");
             dgvAllTransactions.Columns.Add("Type", "Type");
@@ -1649,6 +1633,12 @@ namespace PROJECT_SBV1.Forms
             dgvAllTransactions.Columns.Add("Mode", "Payment Mode");
             dgvAllTransactions.Columns.Add("Amount", "Amount (₹)");
             dgvAllTransactions.Columns.Add("Ref", "Reference No");
+
+            dgvAllTransactions.Columns["Amount"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvAllTransactions.Columns["Amount"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+
+            TableDesignStandard.ApplyStandardGrid(dgvAllTransactions, new TableStyleOptions { EmptyStateMessage = "No payment transactions recorded" });
+            dgvAllTransactions.Cursor = Cursors.Hand;
 
             var pnlGridContainer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 0, 20, 20) };
             pnlGridContainer.Controls.Add(dgvAllTransactions);

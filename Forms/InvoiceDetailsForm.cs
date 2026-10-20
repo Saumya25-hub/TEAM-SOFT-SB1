@@ -65,13 +65,6 @@ namespace PROJECT_SBV1.Forms
             };
 
             dgvItems.SetBounds(24, 154, 830, 160);
-            dgvItems.BorderStyle = BorderStyle.None;
-            dgvItems.RowHeadersVisible = false;
-            dgvItems.AllowUserToAddRows = false;
-            dgvItems.ReadOnly = true;
-            dgvItems.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvItems.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-
             dgvItems.Columns.Add("Service", "Service / Product");
             dgvItems.Columns.Add("Desc", "Description");
             dgvItems.Columns.Add("Qty", "Qty");
@@ -79,6 +72,19 @@ namespace PROJECT_SBV1.Forms
             dgvItems.Columns.Add("Disc", "Disc (₹)");
             dgvItems.Columns.Add("Tax", "GST %");
             dgvItems.Columns.Add("Total", "Line Total (₹)");
+
+            dgvItems.Columns["Qty"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvItems.Columns["Qty"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvItems.Columns["Price"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvItems.Columns["Price"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvItems.Columns["Disc"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvItems.Columns["Disc"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvItems.Columns["Tax"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvItems.Columns["Tax"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvItems.Columns["Total"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvItems.Columns["Total"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+
+            TableDesignStandard.ApplyStandardGrid(dgvItems, new TableStyleOptions { HeaderHeight = 32, RowHeight = 28, EmptyStateMessage = "No line items found" });
 
             // Financial Summary Block
             lblSummary.Font = new Font("Segoe UI", 10f);
@@ -93,18 +99,16 @@ namespace PROJECT_SBV1.Forms
             };
 
             dgvPayments.SetBounds(24, 450, 830, 140);
-            dgvPayments.BorderStyle = BorderStyle.None;
-            dgvPayments.RowHeadersVisible = false;
-            dgvPayments.AllowUserToAddRows = false;
-            dgvPayments.ReadOnly = true;
-            dgvPayments.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvPayments.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-
             dgvPayments.Columns.Add("Date", "Payment Date");
             dgvPayments.Columns.Add("Amount", "Amount (₹)");
             dgvPayments.Columns.Add("Method", "Mode");
             dgvPayments.Columns.Add("Ref", "Reference / UTR");
             dgvPayments.Columns.Add("Notes", "Notes");
+
+            dgvPayments.Columns["Amount"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvPayments.Columns["Amount"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+
+            TableDesignStandard.ApplyStandardGrid(dgvPayments, new TableStyleOptions { HeaderHeight = 32, RowHeight = 28, EmptyStateMessage = "No payments recorded yet" });
 
             // Action Buttons
             int btnY = 610;
@@ -223,14 +227,7 @@ namespace PROJECT_SBV1.Forms
 
             foreach (var dgv in new[] { dgvItems, dgvPayments })
             {
-                dgv.BackgroundColor = gridBg;
-                dgv.GridColor = ThemeManager.BorderHairline;
-                dgv.ColumnHeadersDefaultCellStyle.BackColor = isDark ? Color.FromArgb(32, 35, 50) : Color.FromArgb(241, 245, 249);
-                dgv.ColumnHeadersDefaultCellStyle.ForeColor = ThemeManager.TextSecondary;
-                dgv.DefaultCellStyle.BackColor = gridBg;
-                dgv.DefaultCellStyle.ForeColor = gridFg;
-                dgv.DefaultCellStyle.SelectionBackColor = ThemeManager.NavHover;
-                dgv.DefaultCellStyle.SelectionForeColor = gridFg;
+                TableDesignStandard.ApplyStandardGrid(dgv, new TableStyleOptions { HeaderHeight = 32, RowHeight = 28 });
             }
         }
     }

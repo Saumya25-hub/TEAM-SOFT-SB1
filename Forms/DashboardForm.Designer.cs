@@ -430,9 +430,8 @@ namespace PROJECT_SBV1.Forms
             tlpCharts.Controls.Add(pnlSalesDynamicsCard, 0, 0);
             tlpCharts.Controls.Add(pnlCategoryDonutCard, 1, 0);
 
-            // Row 3 Tables
-            tlpTables.Dock      = System.Windows.Forms.DockStyle.Top;
-            tlpTables.Height    = 260;
+            // Row 3 Tables (60:40 Split matching Reference Screenshot)
+            tlpTables.Dock      = System.Windows.Forms.DockStyle.Fill;
             tlpTables.ColumnCount = 2;
             tlpTables.RowCount    = 1;
             tlpTables.BackColor = System.Drawing.Color.Transparent;
