@@ -412,9 +412,16 @@ namespace PROJECT_SBV1.Controls
             dgvInvoiceItems.Columns.Add("Tax", "GST %");
             dgvInvoiceItems.Columns.Add("Total", "LINE TOTAL (₹)");
 
+            dgvInvoiceItems.Columns["Qty"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvInvoiceItems.Columns["Qty"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
             dgvInvoiceItems.Columns["Price"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvInvoiceItems.Columns["Price"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
             dgvInvoiceItems.Columns["Disc"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvInvoiceItems.Columns["Disc"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvInvoiceItems.Columns["Tax"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvInvoiceItems.Columns["Tax"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
             dgvInvoiceItems.Columns["Total"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvInvoiceItems.Columns["Total"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
 
             // Empty state overlay
             pnlEmptyState.Dock = DockStyle.Fill;
@@ -1599,26 +1606,7 @@ namespace PROJECT_SBV1.Controls
 
         private static void FormatTable(DataGridView dgv)
         {
-            dgv.BackgroundColor = Color.White;
-            dgv.BorderStyle = BorderStyle.None;
-            dgv.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
-            dgv.GridColor = Color.FromArgb(241, 245, 249);
-            dgv.RowHeadersVisible = false;
-            dgv.AllowUserToAddRows = false;
-            dgv.AllowUserToDeleteRows = false;
-            dgv.ReadOnly = true;
-            dgv.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgv.MultiSelect = false;
-            dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            dgv.RowTemplate.Height = 36;
-            dgv.Font = new Font("Segoe UI", 9f);
-            dgv.EnableHeadersVisualStyles = false;
-            dgv.ColumnHeadersHeight = 34;
-            dgv.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
-            dgv.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(71, 85, 105);
-            dgv.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 8.8f, FontStyle.Bold);
-            dgv.DefaultCellStyle.SelectionBackColor = Color.FromArgb(238, 242, 255);
-            dgv.DefaultCellStyle.SelectionForeColor = Color.FromArgb(15, 23, 42);
+            TableDesignStandard.ApplyStandardGrid(dgv, new TableStyleOptions { HeaderHeight = 32, RowHeight = 28 });
         }
     }
 }

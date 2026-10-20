@@ -84,21 +84,17 @@ namespace PROJECT_SBV1.Forms
 
             // Grid
             _dgvBrokers.Dock = DockStyle.Fill;
-            _dgvBrokers.BackgroundColor = ThemeManager.IsDarkMode ? Color.FromArgb(20, 24, 36) : Color.White;
-            _dgvBrokers.BorderStyle = BorderStyle.None;
-            _dgvBrokers.RowHeadersVisible = false;
-            _dgvBrokers.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            _dgvBrokers.AllowUserToAddRows = false;
-            _dgvBrokers.ReadOnly = true;
-            _dgvBrokers.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            _dgvBrokers.RowTemplate.Height = 34;
-
             _dgvBrokers.Columns.Add("Id", "ID");
             _dgvBrokers.Columns["Id"].Width = 50;
             _dgvBrokers.Columns.Add("Name", "Broker Name");
             _dgvBrokers.Columns.Add("Phone", "Phone");
             _dgvBrokers.Columns.Add("Commission", "Commission %");
             _dgvBrokers.Columns.Add("CreatedAt", "Registered On");
+
+            _dgvBrokers.Columns["Commission"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            _dgvBrokers.Columns["Commission"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+
+            TableDesignStandard.ApplyStandardGrid(_dgvBrokers, new TableStyleOptions { HeaderHeight = 32, RowHeight = 28, EmptyStateMessage = "No brokers registered yet" });
 
             // Bottom panel
             var pnlBottom = new Panel

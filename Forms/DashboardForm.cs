@@ -110,18 +110,37 @@ namespace PROJECT_SBV1.Forms
         private SalesDashboardMetrics? _currentMetrics;
         private readonly (string Title, string Value, string Subtitle, Color StatusCol, ReiconRenderer.IconType Icon)[] _kpiCardData = new (string, string, string, Color, ReiconRenderer.IconType)[6];
 
+        private int _selectedDynamicsYear = DateTime.Today.Year;
+        private List<MonthlySalesBarItem> _monthlyDynamics = new();
+        private List<CategorySalesDistribution> _categoryDistribution = new();
+        private decimal _categoryGrandTotal = 0m;
+        private List<ProductItem> _lowStockProducts = new();
+        private List<Invoice> _recentInvoices = new();
 
-        private readonly List<string[]> _invoicesStore = new();
-        private readonly List<string[]> _lowStockStore = new();
+        private Panel? _pnlInvoicesHeader;
+        private Label? _lblInvoicesBadge;
+        private Panel? _pnlInvoicesFooter;
+        private Label? _lblInvoicesFooterSummary;
+
+        private Panel? _pnlLowStockHeader;
+        private Label? _lblLowStockBadge;
+        private Panel? _pnlLowStockFooter;
+        private Label? _lblLowStockFooterSummary;
+
+        private Panel? _pnlDynamicsHeader;
+        private int _hoveredDynamicsMonthIndex = -1;
+        private Point _dynamicsMousePos = Point.Empty;
+
+        private Panel? _pnlDonutHeader;
+        private int _hoveredCategoryIndex = -1;
+        private Point _donutMousePos = Point.Empty;
+
+        private readonly Panel pnlSettings = new();
+        private readonly Panel pnlStatistics = new();
 
         private bool _isDragging;
         private Point _dragCursorPoint;
         private Point _dragFormPoint;
-
-        // 12 Months Dynamics Data (Jan to Dec)
-        private static readonly string[] _monthLabels = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-        private static readonly int[] _salesDynamicsData    = { 42, 58, 65, 80, 72, 95, 88, 110, 102, 128, 115, 140 };
-        private static readonly int[] _purchaseDynamicsData = { 28, 35, 42, 50, 48, 62, 55,  70,  68,  82,  75,  90 };
 
         // ═══════════════════════════════════════════════════════════════════════════
         //  CONSTRUCTOR
@@ -135,9 +154,6 @@ namespace PROJECT_SBV1.Forms
 
             this.Opacity = 1.0;
 
-            // Load data immediately — NEVER delay data loading for animation!
-            PopulateSampleData();
-
             InitTooltips();
             InitThemeToggle();
             InitEntranceAnimation();
@@ -146,9 +162,15 @@ namespace PROJECT_SBV1.Forms
             BuildCustomersPage();
             BuildProductsPage();
             BuildTransactionsPage();
+            BuildSettingsPage();
+            BuildStatisticsPage();
             SetupSidebarNav();
             SetupWindowDrag();
+
+            RefreshDashboardAnalytics();
             RefreshLiveKpiCards();
+            RefreshInvoicesTable();
+            RefreshLowStockTable();
             ShowPage("Overview");
 
             // CRITICAL: Double-buffer the entire form and all child controls AFTER pages are built
@@ -294,6 +316,26 @@ namespace PROJECT_SBV1.Forms
             // Search box with focus border and Reicon Search icon
             txtSearch.GotFocus += (s, e) => { _isSearchFocused = true; pnlSearchBox.Invalidate(); };
             txtSearch.LostFocus += (s, e) => { _isSearchFocused = false; pnlSearchBox.Invalidate(); };
+            txtSearch.TextChanged += (s, e) =>
+            {
+                string q = txtSearch.Text.Trim();
+                if (_activePage == "Overview")
+                {
+                    RefreshInvoicesTable(q);
+                }
+                else if (_activePage == "Customers")
+                {
+                    txtCustSearch.Text = q;
+                }
+                else if (_activePage == "Products")
+                {
+                    txtProdSearch.Text = q;
+                }
+                else if (_activePage == "Transactions")
+                {
+                    txtTransSearch.Text = q;
+                }
+            };
 
             pnlSearchBox.Paint += (s, e) =>
             {
@@ -311,8 +353,21 @@ namespace PROJECT_SBV1.Forms
 
             // Notifications button with Reicon Notification Icon
             bool isNotifHovered = false;
+            btnNotifications.Cursor = Cursors.Hand;
             btnNotifications.MouseEnter += (s, e) => { isNotifHovered = true; btnNotifications.Invalidate(); };
             btnNotifications.MouseLeave += (s, e) => { isNotifHovered = false; btnNotifications.Invalidate(); };
+            btnNotifications.Click += (s, e) =>
+            {
+                var lowList = DatabaseService.GetLowStockProducts(10m);
+                var unpaid = DatabaseService.GetInvoices("", "Unpaid");
+                string msg = $"Active Inventory & Billing Notifications:\n\n" +
+                    $"• Low Stock Products ({lowList.Count} items):\n" +
+                    string.Join("\n", lowList.Take(5).Select(p => $"   - {p.Name}: {p.StockQuantity} {p.Unit} remaining (Min Alert: {p.MinStockAlert} {p.Unit})")) +
+                    $"\n\n• Outstanding / Unpaid Invoices ({unpaid.Count} invoices):\n" +
+                    string.Join("\n", unpaid.Take(5).Select(i => $"   - {i.InvoiceNumber} ({i.CustomerName}): ₹{i.BalanceDue:N2} balance due"));
+
+                MessageBox.Show(msg, "Notifications & Stock Alerts — S TOM'S", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            };
             btnNotifications.Text = string.Empty;
             btnNotifications.Paint += (s, e) =>
             {
@@ -338,8 +393,10 @@ namespace PROJECT_SBV1.Forms
             {
                 NewSalesInvoiceForm.ShowInvoice(this, () =>
                 {
+                    RefreshDashboardAnalytics();
                     RefreshLiveKpiCards();
                     RefreshInvoicesTable();
+                    RefreshLowStockTable();
                     _salesModule?.LoadDashboardData();
                 });
             };
@@ -497,6 +554,30 @@ namespace PROJECT_SBV1.Forms
                 StyleDataGridView(dgvProducts);
                 StyleDataGridView(dgvAllTransactions);
 
+                if (_pnlInvoicesHeader != null) _pnlInvoicesHeader.BackColor = cardBg;
+                if (_pnlInvoicesFooter != null) _pnlInvoicesFooter.BackColor = cardBg;
+                if (_lblInvoicesFooterSummary != null) _lblInvoicesFooterSummary.ForeColor = textMid;
+                if (_pnlLowStockHeader != null) _pnlLowStockHeader.BackColor = cardBg;
+                if (_pnlLowStockFooter != null) _pnlLowStockFooter.BackColor = cardBg;
+                if (_lblLowStockFooterSummary != null) _lblLowStockFooterSummary.ForeColor = textMid;
+                pnlRecentInvoicesCard.BackColor = cardBg;
+                pnlLowStockCard.BackColor = cardBg;
+                _pnlInvoicesHeader?.Invalidate();
+                _pnlInvoicesFooter?.Invalidate();
+                _pnlLowStockHeader?.Invalidate();
+                _pnlLowStockFooter?.Invalidate();
+
+                if (_pnlDynamicsHeader != null) _pnlDynamicsHeader.BackColor = cardBg;
+                if (_pnlDonutHeader != null) _pnlDonutHeader.BackColor = cardBg;
+                pnlSalesDynamicsCard.BackColor = cardBg;
+                pnlCategoryDonutCard.BackColor = cardBg;
+                pnlDynamicsChartCanvas.BackColor = cardBg;
+                pnlDonutChartCanvas.BackColor = cardBg;
+                _pnlDynamicsHeader?.Invalidate();
+                _pnlDonutHeader?.Invalidate();
+                pnlDynamicsChartCanvas.Invalidate();
+                pnlDonutChartCanvas.Invalidate();
+
                 // Invalidate all visible elements
                 btnThemeToggle.Invalidate();
                 pnlBrandHeader.Invalidate();
@@ -535,21 +616,7 @@ namespace PROJECT_SBV1.Forms
         private void StyleDataGridView(DataGridView dgv)
         {
             if (dgv == null) return;
-            dgv.BackgroundColor = C_CardBg;
-            dgv.GridColor       = C_Border;
-
-            dgv.ColumnHeadersDefaultCellStyle.BackColor = C_CardBg;
-            dgv.ColumnHeadersDefaultCellStyle.ForeColor = C_TextMid;
-            dgv.ColumnHeadersDefaultCellStyle.SelectionBackColor = C_CardBg;
-            dgv.ColumnHeadersDefaultCellStyle.SelectionForeColor = C_TextMid;
-
-            dgv.DefaultCellStyle.BackColor          = C_CardBg;
-            dgv.DefaultCellStyle.ForeColor          = C_TextDark;
-            dgv.DefaultCellStyle.SelectionBackColor = C_NavHover;
-            dgv.DefaultCellStyle.SelectionForeColor = C_TextDark;
-
-            dgv.AlternatingRowsDefaultCellStyle.BackColor = ThemeManager.GridRowAlternate;
-            dgv.AlternatingRowsDefaultCellStyle.ForeColor = C_TextDark;
+            TableDesignStandard.ApplyStandardGrid(dgv);
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -630,8 +697,38 @@ namespace PROJECT_SBV1.Forms
         {
             _kpiCardData[cardIndex] = (title, val, sub, statusCol, iconType);
 
+            pnl.Cursor = Cursors.Hand;
             pnl.MouseEnter += (s, e) => { _hoveredCardIndex = cardIndex; pnl.Invalidate(); };
             pnl.MouseLeave += (s, e) => { if (_hoveredCardIndex == cardIndex) { _hoveredCardIndex = -1; pnl.Invalidate(); } };
+
+            pnl.Click += (s, e) =>
+            {
+                switch (cardIndex)
+                {
+                    case 0: // Total Sales
+                        ShowPage("Sales");
+                        _salesModule?.SwitchTab("Dashboard");
+                        break;
+                    case 1: // Total Invoices
+                        ShowPage("Sales");
+                        _salesModule?.SwitchTab("Invoices");
+                        break;
+                    case 2: // Paid Invoices
+                        ShowPage("Sales");
+                        _salesModule?.FilterInvoicesByStatus("Paid");
+                        break;
+                    case 3: // Unpaid Invoices
+                        ShowPage("Sales");
+                        _salesModule?.FilterInvoicesByStatus("Unpaid");
+                        break;
+                    case 4: // Outstanding Due
+                        ShowPage("Customers");
+                        break;
+                    case 5: // Active Clients
+                        ShowPage("Customers");
+                        break;
+                }
+            };
 
             pnl.Paint += (s, e) =>
             {
@@ -693,46 +790,147 @@ namespace PROJECT_SBV1.Forms
             }
         }
 
+        public void RefreshDashboardAnalytics()
+        {
+            try
+            {
+                _monthlyDynamics = DatabaseService.Get12MonthsSalesDynamics(_selectedDynamicsYear);
+                var (cats, gTotal) = DatabaseService.GetCategorySalesDistribution("ThisYear");
+                _categoryDistribution = cats;
+                _categoryGrandTotal = gTotal;
+                _lowStockProducts = DatabaseService.GetLowStockProducts(15m);
+                pnlDynamicsChartCanvas?.Invalidate();
+                pnlDonutChartCanvas?.Invalidate();
+                pnlSalesDynamicsCard?.Invalidate();
+                pnlCategoryDonutCard?.Invalidate();
+                _pnlDynamicsHeader?.Invalidate();
+                _pnlDonutHeader?.Invalidate();
+            }
+            catch
+            {
+            }
+        }
+
         // ═══════════════════════════════════════════════════════════════════════════
         //  CHARTS: 12-MONTH SALES DYNAMICS & CATEGORY DONUT
         // ═══════════════════════════════════════════════════════════════════════════
         private void SetupSalesDynamicsCard()
         {
-            pnlSalesDynamicsCard.Controls.Add(pnlDynamicsChartCanvas);
-            pnlDynamicsChartCanvas.Dock = DockStyle.Fill;
+            EnableDoubleBuffering(pnlSalesDynamicsCard);
+            EnableDoubleBuffering(pnlDynamicsChartCanvas);
 
+            pnlSalesDynamicsCard.Padding = new Padding(1);
+            pnlSalesDynamicsCard.BackColor = C_CardBg;
             pnlSalesDynamicsCard.Paint += (s, e) =>
             {
                 var g = e.Graphics;
+                TableDesignStandard.PaintCardContainerBorder(g, pnlSalesDynamicsCard.ClientRectangle);
+            };
+
+            // 1. Header Bar
+            _pnlDynamicsHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 44,
+                BackColor = C_CardBg,
+                Padding = new Padding(14, 0, 14, 0)
+            };
+
+            var fHdrTitle = new Font("Segoe UI", 9.8f, FontStyle.Bold);
+            _pnlDynamicsHeader.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
-                int w = pnlSalesDynamicsCard.Width;
-                int h = pnlSalesDynamicsCard.Height;
-                if (w <= 0 || h <= 0) return;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                bool isDark = ThemeManager.IsDarkMode;
 
-                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, w - 1, h - 1, 10);
-                using var bg = new SolidBrush(C_CardBg);
-                g.FillPath(bg, path);
-                using var bdr = new Pen(C_Border, 1.2f);
-                g.DrawPath(bdr, path);
-
-                using var bTitle = new SolidBrush(C_TextDark);
-                using var bSales = new SolidBrush(C_Blue);
-                Color purchCol = ThemeManager.IsDarkMode ? Color.FromArgb(165, 180, 252) : Color.FromArgb(99, 102, 241);
-                using var bPurch = new SolidBrush(purchCol);
-
-                g.DrawString("Sales Dynamics (12 Months)", s_fontChartTitle, bTitle, 16, 12);
-
-                int legX = w - 180;
-                if (legX > 200)
+                Color sepCol = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+                using (var pen = new Pen(sepCol, 1f))
                 {
-                    g.FillEllipse(bSales, legX, 16, 8, 8);
-                    g.DrawString("Sales", s_fontLegend, bTitle, legX + 12, 12);
+                    g.DrawLine(pen, 0, _pnlDynamicsHeader.Height - 1, _pnlDynamicsHeader.Width, _pnlDynamicsHeader.Height - 1);
+                }
 
-                    g.FillEllipse(bPurch, legX + 70, 16, 8, 8);
-                    g.DrawString("Purchases", s_fontLegend, bTitle, legX + 82, 12);
+                // Vector Icon
+                ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Statistics, new Rectangle(14, 13, 18, 18), ThemeManager.PrimaryAccent, 1.5f);
+
+                // Title
+                using var bTitle = new SolidBrush(ThemeManager.TextPrimary);
+                g.DrawString($"Sales Dynamics ({_selectedDynamicsYear})", fHdrTitle, bTitle, 38, 12);
+
+                // Right Legend (Sales vs Purchases)
+                int w = _pnlDynamicsHeader.Width;
+                int legX = w - 170;
+                if (legX > 220)
+                {
+                    using var bSalesDot = new SolidBrush(C_Blue);
+                    Color purchCol = isDark ? Color.FromArgb(165, 180, 252) : Color.FromArgb(99, 102, 241);
+                    using var bPurchDot = new SolidBrush(purchCol);
+                    using var bLegendTxt = new SolidBrush(ThemeManager.TextPrimary);
+                    using var fLegend = new Font("Segoe UI", 8.5f, FontStyle.Regular);
+
+                    g.FillEllipse(bSalesDot, legX, 17, 8, 8);
+                    g.DrawString("Sales", fLegend, bLegendTxt, legX + 12, 13);
+
+                    g.FillEllipse(bPurchDot, legX + 65, 17, 8, 8);
+                    g.DrawString("Purchases", fLegend, bLegendTxt, legX + 77, 13);
                 }
             };
 
+            // 2. Chart Canvas
+            pnlSalesDynamicsCard.Controls.Clear();
+            pnlSalesDynamicsCard.Controls.Add(pnlDynamicsChartCanvas);
+            pnlSalesDynamicsCard.Controls.Add(_pnlDynamicsHeader);
+            pnlDynamicsChartCanvas.Dock = DockStyle.Fill;
+            pnlDynamicsChartCanvas.BringToFront();
+
+            // Mouse Hover Tracking on Canvas
+            pnlDynamicsChartCanvas.MouseMove += (s, e) =>
+            {
+                _dynamicsMousePos = e.Location;
+                int w = pnlDynamicsChartCanvas.Width;
+                int h = pnlDynamicsChartCanvas.Height;
+                int padL = 44, padR = 16, topY = 16, padB = 26;
+                int chartW = w - padL - padR;
+                int chartH = h - topY - padB;
+                int n = _monthlyDynamics?.Count ?? 0;
+
+                int newHover = -1;
+                if (n > 0 && chartW > 0 && chartH > 0)
+                {
+                    float slotW = (float)chartW / n;
+                    if (e.X >= padL && e.X <= padL + chartW && e.Y >= topY - 10 && e.Y <= topY + chartH + 24)
+                    {
+                        int idx = (int)((e.X - padL) / slotW);
+                        if (idx >= 0 && idx < n)
+                        {
+                            newHover = idx;
+                        }
+                    }
+                }
+
+                if (newHover != _hoveredDynamicsMonthIndex)
+                {
+                    _hoveredDynamicsMonthIndex = newHover;
+                    pnlDynamicsChartCanvas.Cursor = (newHover >= 0) ? Cursors.Hand : Cursors.Default;
+                    pnlDynamicsChartCanvas.Invalidate();
+                }
+                else if (_hoveredDynamicsMonthIndex >= 0)
+                {
+                    pnlDynamicsChartCanvas.Invalidate();
+                }
+            };
+
+            pnlDynamicsChartCanvas.MouseLeave += (s, e) =>
+            {
+                if (_hoveredDynamicsMonthIndex != -1)
+                {
+                    _hoveredDynamicsMonthIndex = -1;
+                    pnlDynamicsChartCanvas.Cursor = Cursors.Default;
+                    pnlDynamicsChartCanvas.Invalidate();
+                }
+            };
+
+            // Canvas Paint Event
             pnlDynamicsChartCanvas.Paint += (s, e) =>
             {
                 var g = e.Graphics;
@@ -741,141 +939,754 @@ namespace PROJECT_SBV1.Forms
 
                 int w = pnlDynamicsChartCanvas.Width;
                 int h = pnlDynamicsChartCanvas.Height;
-                int padL = 20, padR = 20, padB = 26, topY = 46;
+                if (w <= 0 || h <= 0) return;
 
+                bool isDark = ThemeManager.IsDarkMode;
+                Color cardBg = ThemeManager.CardBackground;
+
+                // 1. Explicit full background fill to prevent any ghosting or duplication
+                using (var bCardBg = new SolidBrush(cardBg))
+                {
+                    g.FillRectangle(bCardBg, 0, 0, w, h);
+                }
+
+                int padL = 44, padR = 16, topY = 16, padB = 26;
                 int chartW = w - padL - padR;
                 int chartH = h - topY - padB;
                 if (chartW <= 0 || chartH <= 0) return;
 
-                int n = _monthLabels.Length;
-                float slotW = (float)chartW / n;
-                float barW = Math.Max(5, slotW * 0.32f);
+                if (_monthlyDynamics == null || _monthlyDynamics.Count == 0)
+                {
+                    _monthlyDynamics = DatabaseService.Get12MonthsSalesDynamics(_selectedDynamicsYear);
+                }
 
-                int maxVal = 160;
-                Color purchCol = ThemeManager.IsDarkMode ? Color.FromArgb(165, 180, 252) : Color.FromArgb(99, 102, 241);
+                int n = _monthlyDynamics.Count;
+                if (n == 0) return;
+
+                decimal maxDataVal = _monthlyDynamics.Max(m => Math.Max(m.SalesAmount, m.PurchasesAmount));
+                float maxVal = (float)(maxDataVal <= 0 ? 50000m : maxDataVal * 1.25m);
+
+                // 2. Y-Axis Subtle Horizontal Guidelines & Lakhs Labels
+                Color guideColor = isDark ? Color.FromArgb(38, 44, 64) : Color.FromArgb(235, 238, 244);
+                Color yLabelColor = isDark ? Color.FromArgb(148, 163, 184) : Color.FromArgb(100, 116, 139);
+                using (var pGuide = new Pen(guideColor, 1f))
+                using (var bYLbl = new SolidBrush(yLabelColor))
+                using (var fYLbl = new Font("Segoe UI", 7.5f, FontStyle.Regular))
+                using (var sfY = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center })
+                {
+                    float[] levels = { 1.0f, 0.66f, 0.33f, 0.0f };
+                    foreach (var lvl in levels)
+                    {
+                        float gy = topY + chartH * (1.0f - lvl);
+                        g.DrawLine(pGuide, padL, gy, padL + chartW, gy);
+
+                        decimal lvlVal = (decimal)(maxVal * lvl);
+                        string lvlText = lvlVal >= 100000m
+                            ? $"₹{(lvlVal / 100000m):0.#}L"
+                            : (lvlVal > 0 ? $"₹{lvlVal:0}" : "0");
+
+                        g.DrawString(lvlText, fYLbl, bYLbl, new RectangleF(0, gy - 8, padL - 6, 16), sfY);
+                    }
+                }
+
+                float slotW = (float)chartW / n;
+                float barW = Math.Max(6, slotW * 0.30f);
+                Color purchCol = isDark ? Color.FromArgb(165, 180, 252) : Color.FromArgb(99, 102, 241);
 
                 using var sBrush = new SolidBrush(C_Blue);
                 using var pBrush = new SolidBrush(purchCol);
                 using var bLbl = new SolidBrush(C_TextMid);
+                using var bLblHover = new SolidBrush(ThemeManager.PrimaryAccent);
+                using var fLblReg = new Font("Segoe UI", 8f, FontStyle.Regular);
+                using var fLblBold = new Font("Segoe UI", 8.2f, FontStyle.Bold);
                 using var sf = new StringFormat { Alignment = StringAlignment.Center };
+
+                int hoveredSlotX = -1;
+                float hoveredSalesY = 0f, hoveredPurchY = 0f;
 
                 for (int i = 0; i < n; i++)
                 {
                     float cx = padL + i * slotW + slotW / 2;
-                    float sVal = _salesDynamicsData[i];
-                    float pVal = _purchaseDynamicsData[i];
+                    float sVal = (float)_monthlyDynamics[i].SalesAmount;
+                    float pVal = (float)_monthlyDynamics[i].PurchasesAmount;
 
                     float sH = (sVal / maxVal) * chartH;
                     float pH = (pVal / maxVal) * chartH;
 
+                    if (sVal > 0 && sH < 4f) sH = 4f;
+                    if (pVal > 0 && pH < 4f) pH = 4f;
+
                     float sY = topY + chartH - sH;
                     float pY = topY + chartH - pH;
 
-                    // Sales Bar
-                    using var sPath = GraphicsExtensions.CreateRoundedRectanglePath((int)(cx - barW - 2), (int)sY, (int)barW, (int)sH, 4);
-                    g.FillPath(sBrush, sPath);
+                    bool isHovered = (i == _hoveredDynamicsMonthIndex);
+                    if (isHovered)
+                    {
+                        hoveredSlotX = (int)cx;
+                        hoveredSalesY = sY;
+                        hoveredPurchY = pY;
 
-                    // Purchase Bar
-                    using var pPath = GraphicsExtensions.CreateRoundedRectanglePath((int)(cx + 2), (int)pY, (int)barW, (int)pH, 4);
-                    g.FillPath(pBrush, pPath);
+                        // Sleek Translucent Column Hover Pillar
+                        int colX = (int)(padL + i * slotW + 2);
+                        int colW = (int)(slotW - 4);
+                        using var colPath = GraphicsExtensions.CreateRoundedRectanglePath(colX, topY - 4, colW, chartH + 8, 6);
+                        using var bCol = new SolidBrush(Color.FromArgb(isDark ? 35 : 22, ThemeManager.PrimaryAccent));
+                        using var pCol = new Pen(Color.FromArgb(isDark ? 70 : 45, ThemeManager.PrimaryAccent), 1f);
+                        g.FillPath(bCol, colPath);
+                        g.DrawPath(pCol, colPath);
+                    }
+
+                    // Sales Bar
+                    int sBarX = (int)(cx - barW - 2);
+                    using (var sPath = GraphicsExtensions.CreateRoundedRectanglePath(sBarX, (int)sY, (int)barW, (int)Math.Max(1, sH), 4))
+                    {
+                        if (isHovered)
+                        {
+                            using var bGlow = new SolidBrush(Color.FromArgb(96, 165, 250));
+                            using var pGlow = new Pen(Color.White, 1.2f);
+                            g.FillPath(bGlow, sPath);
+                            g.DrawPath(pGlow, sPath);
+                        }
+                        else
+                        {
+                            g.FillPath(sBrush, sPath);
+                        }
+                    }
+
+                    // Purchase/Cost Bar
+                    int pBarX = (int)(cx + 2);
+                    using (var pPath = GraphicsExtensions.CreateRoundedRectanglePath(pBarX, (int)pY, (int)barW, (int)Math.Max(1, pH), 4))
+                    {
+                        if (isHovered)
+                        {
+                            using var bGlow = new SolidBrush(Color.FromArgb(199, 210, 254));
+                            using var pGlow = new Pen(Color.White, 1.2f);
+                            g.FillPath(bGlow, pPath);
+                            g.DrawPath(pGlow, pPath);
+                        }
+                        else
+                        {
+                            g.FillPath(pBrush, pPath);
+                        }
+                    }
 
                     // Month Label
-                    g.DrawString(_monthLabels[i], s_fontMonthLbl, bLbl, cx, topY + chartH + 6, sf);
+                    g.DrawString(_monthlyDynamics[i].MonthLabel, isHovered ? fLblBold : fLblReg, isHovered ? bLblHover : bLbl, cx, topY + chartH + 6, sf);
+                }
+
+                // 3. FLOATING REAL-USER HUD TOOLTIP CARD
+                if (_hoveredDynamicsMonthIndex >= 0 && _hoveredDynamicsMonthIndex < n)
+                {
+                    var item = _monthlyDynamics[_hoveredDynamicsMonthIndex];
+                    decimal margin = item.SalesAmount - item.PurchasesAmount;
+
+                    int ttW = 196;
+                    int ttH = 82;
+                    int ttX = (int)(hoveredSlotX - ttW / 2);
+                    float highestBar = Math.Min(hoveredSalesY, hoveredPurchY);
+                    int ttY = (int)(highestBar - ttH - 12);
+
+                    // Clamp within canvas boundaries
+                    if (ttY < topY - 6) ttY = (int)(highestBar + 22);
+                    if (ttX < padL) ttX = padL;
+                    if (ttX + ttW > w - 10) ttX = w - ttW - 10;
+
+                    // Tooltip Drop Shadow
+                    using (var shPath = GraphicsExtensions.CreateRoundedRectanglePath(ttX + 2, ttY + 3, ttW, ttH, 8))
+                    using (var bSh = new SolidBrush(Color.FromArgb(50, 0, 0, 0)))
+                    {
+                        g.FillPath(bSh, shPath);
+                    }
+
+                    // Tooltip Container
+                    using (var ttPath = GraphicsExtensions.CreateRoundedRectanglePath(ttX, ttY, ttW, ttH, 8))
+                    using (var bTt = new SolidBrush(isDark ? Color.FromArgb(245, 15, 23, 42) : Color.FromArgb(248, 24, 30, 48)))
+                    using (var pTt = new Pen(isDark ? Color.FromArgb(71, 85, 105) : Color.FromArgb(51, 65, 85), 1.2f))
+                    {
+                        g.FillPath(bTt, ttPath);
+                        g.DrawPath(pTt, ttPath);
+                    }
+
+                    // Month Title in Tooltip
+                    string fullMonth = item.MonthLabel switch
+                    {
+                        "Jan" => "January", "Feb" => "February", "Mar" => "March",
+                        "Apr" => "April", "May" => "May", "Jun" => "June",
+                        "Jul" => "July", "Aug" => "August", "Sep" => "September",
+                        "Oct" => "October", "Nov" => "November", "Dec" => "December",
+                        _ => item.MonthLabel
+                    };
+
+                    using (var fTtHdr = new Font("Segoe UI", 8.5f, FontStyle.Bold))
+                    using (var fTtRow = new Font("Segoe UI", 7.8f, FontStyle.Regular))
+                    using (var bTtWhite = new SolidBrush(Color.White))
+                    using (var bTtDotS = new SolidBrush(Color.FromArgb(96, 165, 250)))
+                    using (var bTtDotP = new SolidBrush(Color.FromArgb(165, 180, 252)))
+                    using (var bTtDotM = new SolidBrush(margin >= 0 ? Color.FromArgb(52, 211, 153) : Color.FromArgb(248, 113, 113)))
+                    {
+                        g.DrawString($"{fullMonth} {_selectedDynamicsYear}", fTtHdr, bTtWhite, ttX + 12, ttY + 8);
+
+                        // Row 1: Sales
+                        g.FillEllipse(bTtDotS, ttX + 13, ttY + 28, 6, 6);
+                        g.DrawString($"Sales: ₹{item.SalesAmount:N2}", fTtRow, bTtWhite, ttX + 24, ttY + 24);
+
+                        // Row 2: Purchases
+                        g.FillEllipse(bTtDotP, ttX + 13, ttY + 44, 6, 6);
+                        g.DrawString($"Purchases: ₹{item.PurchasesAmount:N2}", fTtRow, bTtWhite, ttX + 24, ttY + 40);
+
+                        // Row 3: Net Margin
+                        g.FillEllipse(bTtDotM, ttX + 13, ttY + 60, 6, 6);
+                        string marginSign = margin >= 0 ? "+" : "";
+                        g.DrawString($"Margin: {marginSign}₹{margin:N2}", fTtRow, bTtDotM, ttX + 24, ttY + 56);
+                    }
                 }
             };
         }
 
         private void SetupCategoryDonutCard()
         {
-            pnlCategoryDonutCard.Controls.Add(pnlDonutChartCanvas);
-            pnlDonutChartCanvas.Dock = DockStyle.Fill;
+            EnableDoubleBuffering(pnlCategoryDonutCard);
+            EnableDoubleBuffering(pnlDonutChartCanvas);
 
+            pnlCategoryDonutCard.Padding = new Padding(1);
+            pnlCategoryDonutCard.BackColor = C_CardBg;
             pnlCategoryDonutCard.Paint += (s, e) =>
             {
                 var g = e.Graphics;
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                int w = pnlCategoryDonutCard.Width;
-                int h = pnlCategoryDonutCard.Height;
-                if (w <= 0 || h <= 0) return;
-
-                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, w - 1, h - 1, 10);
-                using var bg = new SolidBrush(C_CardBg);
-                g.FillPath(bg, path);
-                using var bdr = new Pen(C_Border, 1.2f);
-                g.DrawPath(bdr, path);
-
-                using var bTitle = new SolidBrush(C_TextDark);
-                g.DrawString("Category Revenue", s_fontChartTitle, bTitle, 16, 12);
+                TableDesignStandard.PaintCardContainerBorder(g, pnlCategoryDonutCard.ClientRectangle);
             };
 
+            // 1. Header Bar
+            _pnlDonutHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 44,
+                BackColor = C_CardBg,
+                Padding = new Padding(14, 0, 14, 0)
+            };
+
+            var fHdrTitle = new Font("Segoe UI", 9.8f, FontStyle.Bold);
+            _pnlDonutHeader.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                bool isDark = ThemeManager.IsDarkMode;
+
+                Color sepCol = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+                using (var pen = new Pen(sepCol, 1f))
+                {
+                    g.DrawLine(pen, 0, _pnlDonutHeader.Height - 1, _pnlDonutHeader.Width, _pnlDonutHeader.Height - 1);
+                }
+
+                // Vector Icon
+                ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Products, new Rectangle(14, 13, 18, 18), Color.FromArgb(16, 185, 129), 1.5f);
+
+                // Title
+                using var bTitle = new SolidBrush(ThemeManager.TextPrimary);
+                g.DrawString("Category Revenue", fHdrTitle, bTitle, 38, 12);
+
+                // Count Badge
+                int count = _categoryDistribution?.Count ?? 0;
+                string catBadge = $"● {count} {(count == 1 ? "Category" : "Categories")}";
+                using var bBadgeBg = new SolidBrush(isDark ? Color.FromArgb(30, 41, 59) : Color.FromArgb(238, 242, 255));
+                using var pBadgeBdr = new Pen(isDark ? Color.FromArgb(71, 85, 105) : Color.FromArgb(199, 210, 254), 1f);
+                using var bBadgeTxt = new SolidBrush(isDark ? Color.FromArgb(148, 163, 184) : Color.FromArgb(79, 70, 229));
+                using var fBadge = new Font("Segoe UI", 7.8f, FontStyle.Bold);
+                using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+
+                int bW = 104;
+                int bH = 22;
+                int bX = _pnlDonutHeader.Width - bW - 14;
+                if (bX > 180)
+                {
+                    using var bPath = GraphicsExtensions.CreateRoundedRectanglePath(bX, 11, bW, bH, 11);
+                    g.FillPath(bBadgeBg, bPath);
+                    g.DrawPath(pBadgeBdr, bPath);
+
+                    using var bDot = new SolidBrush(Color.FromArgb(99, 102, 241));
+                    g.FillEllipse(bDot, bX + 8, 11 + 8, 6, 6);
+
+                    var textRect = new Rectangle(bX + 12, 11, bW - 14, bH);
+                    g.DrawString(catBadge.Replace("● ", ""), fBadge, bBadgeTxt, textRect, sf);
+                }
+            };
+
+            // 2. Donut Canvas
+            pnlCategoryDonutCard.Controls.Clear();
+            pnlCategoryDonutCard.Controls.Add(pnlDonutChartCanvas);
+            pnlCategoryDonutCard.Controls.Add(_pnlDonutHeader);
+            pnlDonutChartCanvas.Dock = DockStyle.Fill;
+            pnlDonutChartCanvas.BringToFront();
+
+            Color[] palette = {
+                C_Blue,
+                C_Positive,
+                C_Warning,
+                Color.FromArgb(168, 85, 247),
+                Color.FromArgb(236, 72, 153),
+                Color.FromArgb(14, 165, 233)
+            };
+
+            // Mouse Hover Tracking
+            pnlDonutChartCanvas.MouseMove += (s, e) =>
+            {
+                _donutMousePos = e.Location;
+                int w = pnlDonutChartCanvas.Width;
+                int h = pnlDonutChartCanvas.Height;
+                int d = Math.Min((int)(w * 0.44f), h - 36);
+                int cx = 20 + d / 2;
+                int cy = (h - d) / 2 + d / 2;
+
+                int newHover = -1;
+                if (d > 10 && _categoryDistribution != null && _categoryDistribution.Count > 0)
+                {
+                    float dx = e.X - cx;
+                    float dy = e.Y - cy;
+                    float dist = (float)Math.Sqrt(dx * dx + dy * dy);
+                    int outerRadius = d / 2;
+                    int innerRadius = (int)(d * 0.62f) / 2;
+
+                    // Hovering on donut ring
+                    if (dist >= innerRadius - 4 && dist <= outerRadius + 14)
+                    {
+                        float angle = (float)(Math.Atan2(dy, dx) * 180.0 / Math.PI);
+                        if (angle < 0) angle += 360f;
+
+                        float currA = 0f;
+                        for (int i = 0; i < _categoryDistribution.Count; i++)
+                        {
+                            float sliceA = _categoryDistribution[i].Angle;
+                            if (angle >= currA && angle < currA + sliceA)
+                            {
+                                newHover = i;
+                                break;
+                            }
+                            currA += sliceA;
+                        }
+                    }
+                    else
+                    {
+                        // Check if hovering over Legend items on the right side
+                        int legX = cx + d / 2 + 16;
+                        int legY = 16;
+                        for (int i = 0; i < Math.Min(6, _categoryDistribution.Count); i++)
+                        {
+                            var legRect = new Rectangle(legX - 4, legY + i * 28 - 2, w - legX - 8, 26);
+                            if (legRect.Contains(e.Location))
+                            {
+                                newHover = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (newHover != _hoveredCategoryIndex)
+                {
+                    _hoveredCategoryIndex = newHover;
+                    pnlDonutChartCanvas.Cursor = (newHover >= 0) ? Cursors.Hand : Cursors.Default;
+                    pnlDonutChartCanvas.Invalidate();
+                }
+                else if (_hoveredCategoryIndex >= 0)
+                {
+                    pnlDonutChartCanvas.Invalidate();
+                }
+            };
+
+            pnlDonutChartCanvas.MouseLeave += (s, e) =>
+            {
+                if (_hoveredCategoryIndex != -1)
+                {
+                    _hoveredCategoryIndex = -1;
+                    pnlDonutChartCanvas.Cursor = Cursors.Default;
+                    pnlDonutChartCanvas.Invalidate();
+                }
+            };
+
+            // Canvas Paint Event
             pnlDonutChartCanvas.Paint += (s, e) =>
             {
                 var g = e.Graphics;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
 
                 int w = pnlDonutChartCanvas.Width;
                 int h = pnlDonutChartCanvas.Height;
+                if (w <= 0 || h <= 0) return;
 
-                int d = Math.Min(w / 2, h - 50);
-                if (d <= 0) return;
+                bool isDark = ThemeManager.IsDarkMode;
+                Color cardBg = ThemeManager.CardBackground;
 
-                int cx = 20 + d / 2;
-                int cy = 40 + d / 2;
-                var rect = new Rectangle(cx - d / 2, cy - d / 2, d, d);
-
-                float[] angles = { 144f, 108f, 65f, 43f };
-                Color[] colors = { C_Blue, C_Positive, C_Warning, Color.FromArgb(168, 85, 247) };
-                string[] cats = { "Electronics (40%)", "Groceries (30%)", "Clothing (18%)", "Hardware (12%)" };
-
-                float startA = 0f;
-                for (int i = 0; i < angles.Length; i++)
+                // 1. Explicit full background fill to prevent any ghosting or duplication
+                using (var bCardBg = new SolidBrush(cardBg))
                 {
-                    using var b = new SolidBrush(colors[i]);
-                    g.FillPie(b, rect, startA, angles[i]);
-                    startA += angles[i];
+                    g.FillRectangle(bCardBg, 0, 0, w, h);
                 }
 
-                // Inner cutout
+                int d = Math.Min((int)(w * 0.44f), h - 36);
+                if (d <= 10) return;
+
+                int cx = 20 + d / 2;
+                int cy = (h - d) / 2 + d / 2;
+                var rect = new Rectangle(cx - d / 2, cy - d / 2, d, d);
+
+                if (_categoryDistribution == null || _categoryDistribution.Count == 0)
+                {
+                    var (cats, gTotal) = DatabaseService.GetCategorySalesDistribution("ThisYear");
+                    _categoryDistribution = cats;
+                    _categoryGrandTotal = gTotal;
+                }
+
+                // 2. Draw Donut Slices (with Explosion & Glow on Hover)
+                float startA = 0f;
+                int hoveredSliceIndex = _hoveredCategoryIndex;
+                Rectangle hoveredSliceRect = Rectangle.Empty;
+                float hoveredStartA = 0f, hoveredAngle = 0f;
+                Color hoveredColor = Color.Empty;
+
+                for (int i = 0; i < _categoryDistribution.Count; i++)
+                {
+                    var item = _categoryDistribution[i];
+                    Color c = palette[i % palette.Length];
+                    using var b = new SolidBrush(c);
+
+                    if (item.Angle > 0)
+                    {
+                        if (i == hoveredSliceIndex)
+                        {
+                            hoveredStartA = startA;
+                            hoveredAngle = item.Angle;
+                            hoveredColor = c;
+
+                            float midA = (startA + item.Angle / 2f) * (float)Math.PI / 180f;
+                            float offDist = 5f;
+                            int expCx = cx + (int)(Math.Cos(midA) * offDist);
+                            int expCy = cy + (int)(Math.Sin(midA) * offDist);
+                            hoveredSliceRect = new Rectangle(expCx - d / 2 - 2, expCy - d / 2 - 2, d + 4, d + 4);
+                        }
+                        else
+                        {
+                            g.FillPie(b, rect, startA, item.Angle);
+                            using var pSliceSep = new Pen(cardBg, 1.5f);
+                            g.DrawPie(pSliceSep, rect, startA, item.Angle);
+                        }
+                        startA += item.Angle;
+                    }
+                }
+
+                // Draw Hovered Slice with Expanded Boundary and White/Bright Glow Outline
+                if (hoveredSliceIndex >= 0 && hoveredAngle > 0)
+                {
+                    using (var bHov = new SolidBrush(hoveredColor))
+                    using (var pGlow = new Pen(Color.White, 2.5f))
+                    {
+                        g.FillPie(bHov, hoveredSliceRect, hoveredStartA, hoveredAngle);
+                        g.DrawPie(pGlow, hoveredSliceRect, hoveredStartA, hoveredAngle);
+                    }
+                }
+
+                // 3. Inner Cutout Circle (Hole)
                 int holeD = (int)(d * 0.62f);
                 var holeRect = new Rectangle(cx - holeD / 2, cy - holeD / 2, holeD, holeD);
-                using var holeBrush = new SolidBrush(C_CardBg);
-                g.FillEllipse(holeBrush, holeRect);
-
-                // Center Total Text
-                using var bC1 = new SolidBrush(C_TextMid);
-                using var bC2 = new SolidBrush(C_TextDark);
-                using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                g.DrawString("TOTAL", s_fontCenterSmall, bC1, cx, cy - 8, sf);
-                g.DrawString("₹8.4L", s_fontCenterBold, bC2, cx, cy + 10, sf);
-
-                // Legend List on the right
-                int legX = cx + d / 2 + 16;
-                int legY = 50;
-                for (int i = 0; i < cats.Length; i++)
+                using (var holeBrush = new SolidBrush(cardBg))
+                using (var holePen = new Pen(isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240), 1f))
                 {
-                    using var bDot = new SolidBrush(colors[i]);
-                    using var bTxt = new SolidBrush(C_TextDark);
-                    g.FillEllipse(bDot, legX, legY + i * 24 + 3, 8, 8);
-                    g.DrawString(cats[i], s_fontLegendList, bTxt, legX + 14, legY + i * 24);
+                    g.FillEllipse(holeBrush, holeRect);
+                    g.DrawEllipse(holePen, holeRect);
+                }
+
+                // 4. REAL-USER DYNAMIC CENTER TEXT
+                using (var sfCenter = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+                {
+                    if (hoveredSliceIndex >= 0 && hoveredSliceIndex < _categoryDistribution.Count)
+                    {
+                        var hItem = _categoryDistribution[hoveredSliceIndex];
+                        Color hCol = palette[hoveredSliceIndex % palette.Length];
+                        using var bCol = new SolidBrush(hCol);
+                        using var bVal = new SolidBrush(ThemeManager.TextPrimary);
+                        using var bSub = new SolidBrush(ThemeManager.TextSecondary);
+
+                        using var fName = new Font("Segoe UI", 7.8f, FontStyle.Bold);
+                        using var fAmt = new Font("Segoe UI", 12f, FontStyle.Bold);
+                        using var fPct = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+
+                        string amtFmt = hItem.TotalSales >= 100000m
+                            ? $"₹{(hItem.TotalSales / 100000m):N1}L"
+                            : $"₹{hItem.TotalSales:N0}";
+
+                        g.DrawString(hItem.CategoryName.ToUpperInvariant(), fName, bCol, cx, cy - 18, sfCenter);
+                        g.DrawString(amtFmt, fAmt, bVal, cx, cy, sfCenter);
+                        g.DrawString($"{hItem.Percentage:0.0}% of Total", fPct, bSub, cx, cy + 18, sfCenter);
+                    }
+                    else
+                    {
+                        using var bC1 = new SolidBrush(C_TextMid);
+                        using var bC2 = new SolidBrush(C_TextDark);
+                        using var fTotalLbl = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+                        using var fTotalVal = new Font("Segoe UI", 12.5f, FontStyle.Bold);
+
+                        g.DrawString("TOTAL SALES", fTotalLbl, bC1, cx, cy - 10, sfCenter);
+
+                        string grandTotalFormatted = _categoryGrandTotal >= 100000m
+                            ? $"₹{(_categoryGrandTotal / 100000m):N1}L"
+                            : $"₹{_categoryGrandTotal:N0}";
+                        g.DrawString(grandTotalFormatted, fTotalVal, bC2, cx, cy + 10, sfCenter);
+                    }
+                }
+
+                // 5. INTERACTIVE LEGEND LIST ON THE RIGHT
+                int legX = cx + d / 2 + 18;
+                int legY = 16;
+                int maxLeg = Math.Min(6, _categoryDistribution.Count);
+
+                for (int i = 0; i < maxLeg; i++)
+                {
+                    var item = _categoryDistribution[i];
+                    Color c = palette[i % palette.Length];
+                    bool isLegHover = (i == _hoveredCategoryIndex);
+
+                    int rowY = legY + i * 28;
+
+                    // Hover Highlight Pill on Legend Row
+                    if (isLegHover)
+                    {
+                        int legW = w - legX - 10;
+                        using var path = GraphicsExtensions.CreateRoundedRectanglePath(legX - 4, rowY - 2, legW, 25, 6);
+                        using var bH = new SolidBrush(Color.FromArgb(isDark ? 40 : 22, c));
+                        using var pH = new Pen(Color.FromArgb(isDark ? 80 : 50, c), 1f);
+                        g.FillPath(bH, path);
+                        g.DrawPath(pH, path);
+                    }
+
+                    // Colored Dot
+                    using (var bDot = new SolidBrush(c))
+                    {
+                        g.FillEllipse(bDot, legX + 2, rowY + 5, 8, 8);
+                    }
+
+                    // Category Name & Percentage
+                    using (var bTxt = new SolidBrush(isLegHover ? ThemeManager.TextPrimary : ThemeManager.TextSecondary))
+                    using (var fLeg = new Font("Segoe UI", isLegHover ? 8.5f : 8.2f, isLegHover ? FontStyle.Bold : FontStyle.Regular))
+                    {
+                        g.DrawString($"{item.CategoryName} ({item.Percentage:0.#}%)", fLeg, bTxt, legX + 16, rowY + 1);
+                    }
+                }
+
+                // 6. FLOATING HUD TOOLTIP CARD FOR DONUT SLICE
+                if (hoveredSliceIndex >= 0 && hoveredSliceIndex < _categoryDistribution.Count)
+                {
+                    var hItem = _categoryDistribution[hoveredSliceIndex];
+                    Color hCol = palette[hoveredSliceIndex % palette.Length];
+
+                    int ttW = 184;
+                    int ttH = 68;
+                    int ttX = _donutMousePos.X + 14;
+                    int ttY = _donutMousePos.Y - ttH / 2;
+
+                    // Clamp
+                    if (ttX + ttW > w - 8) ttX = _donutMousePos.X - ttW - 14;
+                    if (ttX < 8) ttX = 8;
+                    if (ttY < 6) ttY = 6;
+                    if (ttY + ttH > h - 6) ttY = h - ttH - 6;
+
+                    // Drop shadow
+                    using (var shPath = GraphicsExtensions.CreateRoundedRectanglePath(ttX + 2, ttY + 3, ttW, ttH, 8))
+                    using (var bSh = new SolidBrush(Color.FromArgb(50, 0, 0, 0)))
+                    {
+                        g.FillPath(bSh, shPath);
+                    }
+
+                    // HUD Container
+                    using (var ttPath = GraphicsExtensions.CreateRoundedRectanglePath(ttX, ttY, ttW, ttH, 8))
+                    using (var bTt = new SolidBrush(isDark ? Color.FromArgb(245, 15, 23, 42) : Color.FromArgb(248, 24, 30, 48)))
+                    using (var pTt = new Pen(isDark ? Color.FromArgb(71, 85, 105) : Color.FromArgb(51, 65, 85), 1.2f))
+                    {
+                        g.FillPath(bTt, ttPath);
+                        g.DrawPath(pTt, ttPath);
+                    }
+
+                    // Tooltip Content
+                    using (var fTtHdr = new Font("Segoe UI", 8.5f, FontStyle.Bold))
+                    using (var fTtRow = new Font("Segoe UI", 7.8f, FontStyle.Regular))
+                    using (var bTtWhite = new SolidBrush(Color.White))
+                    using (var bTtSub = new SolidBrush(Color.FromArgb(148, 163, 184)))
+                    using (var bTtDot = new SolidBrush(hCol))
+                    {
+                        g.FillEllipse(bTtDot, ttX + 12, ttY + 13, 7, 7);
+                        g.DrawString(hItem.CategoryName, fTtHdr, bTtWhite, ttX + 24, ttY + 9);
+
+                        g.DrawString($"Revenue: ₹{hItem.TotalSales:N2}", fTtRow, bTtWhite, ttX + 12, ttY + 28);
+                        g.DrawString($"Contribution: {hItem.Percentage:0.0}% of total", fTtRow, bTtSub, ttX + 12, ttY + 44);
+                    }
                 }
             };
         }
+
 
         // ═══════════════════════════════════════════════════════════════════════════
         //  TABLES: RECENT INVOICES & LOW STOCK ALERTS
         // ═══════════════════════════════════════════════════════════════════════════
         private void SetupRecentInvoicesCard()
         {
-            pnlRecentInvoicesCard.Controls.Add(dgvInvoices);
-            dgvInvoices.Dock = DockStyle.Fill;
-            dgvInvoices.BringToFront();
+            pnlRecentInvoicesCard.Padding = new Padding(1);
+            pnlRecentInvoicesCard.BackColor = C_CardBg;
+            pnlRecentInvoicesCard.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                TableDesignStandard.PaintCardContainerBorder(g, pnlRecentInvoicesCard.ClientRectangle);
+            };
 
-            dgvInvoices.BorderStyle               = BorderStyle.None;
-            dgvInvoices.CellBorderStyle           = DataGridViewCellBorderStyle.SingleHorizontal;
-            dgvInvoices.EnableHeadersVisualStyles = false;
-            dgvInvoices.ColumnHeadersDefaultCellStyle.Font = s_fontGridHeader;
-            dgvInvoices.DefaultCellStyle.Font              = s_fontGrid;
+            // 1. Header Bar (Dock = Top)
+            _pnlInvoicesHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 44,
+                BackColor = C_CardBg,
+                Padding = new Padding(12, 0, 12, 0)
+            };
 
+            var fHdrTitle = new Font("Segoe UI", 9.8f, FontStyle.Bold);
+            _pnlInvoicesHeader.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                bool isDark = ThemeManager.IsDarkMode;
+
+                // Bottom hairline separator
+                Color sepCol = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+                using (var pen = new Pen(sepCol, 1f))
+                {
+                    g.DrawLine(pen, 0, _pnlInvoicesHeader.Height - 1, _pnlInvoicesHeader.Width, _pnlInvoicesHeader.Height - 1);
+                }
+
+                // Vector Icon
+                ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Sales, new Rectangle(14, 13, 18, 18), ThemeManager.PrimaryAccent, 1.5f);
+
+                // Title
+                using var bTitle = new SolidBrush(ThemeManager.TextPrimary);
+                g.DrawString("Recent Invoices & Transactions", fHdrTitle, bTitle, 38, 12);
+            };
+
+            // Badge
+            _lblInvoicesBadge = new Label
+            {
+                Text = "● 0 Invoices",
+                Font = new Font("Segoe UI", 7.8f, FontStyle.Bold),
+                Size = new Size(96, 22),
+                TextAlign = ContentAlignment.MiddleCenter,
+                BackColor = Color.Transparent
+            };
+            _lblInvoicesBadge.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                bool isDark = ThemeManager.IsDarkMode;
+                Color bg = isDark ? Color.FromArgb(30, 41, 59) : Color.FromArgb(238, 242, 255);
+                Color bdr = isDark ? Color.FromArgb(71, 85, 105) : Color.FromArgb(199, 210, 254);
+                Color txt = isDark ? Color.FromArgb(148, 163, 184) : Color.FromArgb(79, 70, 229);
+
+                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, _lblInvoicesBadge.Width - 1, _lblInvoicesBadge.Height - 1, 11);
+                using var bBg = new SolidBrush(bg);
+                using var pBdr = new Pen(bdr, 1f);
+                g.FillPath(bBg, path);
+                g.DrawPath(pBdr, path);
+
+                using var bDot = new SolidBrush(Color.FromArgb(99, 102, 241));
+                g.FillEllipse(bDot, 8, 8, 6, 6);
+
+                using var bTxt = new SolidBrush(txt);
+                using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                var rect = new Rectangle(12, 0, _lblInvoicesBadge.Width - 14, _lblInvoicesBadge.Height);
+                g.DrawString(_lblInvoicesBadge.Text.Replace("● ", ""), _lblInvoicesBadge.Font, bTxt, rect, sf);
+            };
+
+            void LayoutInvoicesBadge()
+            {
+                if (_lblInvoicesBadge == null || _pnlInvoicesHeader == null) return;
+                using var g = _pnlInvoicesHeader.CreateGraphics();
+                var sz = g.MeasureString("Recent Invoices & Transactions", fHdrTitle);
+                _lblInvoicesBadge.Location = new Point(40 + (int)sz.Width + 8, (_pnlInvoicesHeader.Height - _lblInvoicesBadge.Height) / 2);
+            }
+            _pnlInvoicesHeader.Resize += (s, e) => LayoutInvoicesBadge();
+
+            var btnViewAllInvoices = new Button
+            {
+                Text = "View All →",
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = ThemeManager.PrimaryAccent,
+                BackColor = Color.Transparent,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                AutoSize = true,
+                Height = 28,
+                Dock = DockStyle.Right
+            };
+            btnViewAllInvoices.FlatAppearance.BorderSize = 0;
+            btnViewAllInvoices.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, ThemeManager.PrimaryAccent);
+            btnViewAllInvoices.Click += (s, e) =>
+            {
+                ShowPage("Sales");
+                _salesModule?.SwitchTab("Dashboard");
+            };
+
+            _pnlInvoicesHeader.Controls.Add(_lblInvoicesBadge);
+            _pnlInvoicesHeader.Controls.Add(btnViewAllInvoices);
+
+            // 2. Footer Bar (Dock = Bottom)
+            _pnlInvoicesFooter = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 34,
+                BackColor = C_CardBg,
+                Padding = new Padding(12, 0, 12, 0)
+            };
+            _pnlInvoicesFooter.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                bool isDark = ThemeManager.IsDarkMode;
+                Color sepCol = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+                using var pen = new Pen(sepCol, 1f);
+                g.DrawLine(pen, 0, 0, _pnlInvoicesFooter.Width, 0);
+            };
+
+            _lblInvoicesFooterSummary = new Label
+            {
+                Text = "Showing latest 20 sales transactions across all accounts",
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Regular),
+                ForeColor = C_TextMid,
+                Dock = DockStyle.Left,
+                AutoSize = true,
+                Padding = new Padding(0, 9, 0, 0)
+            };
+
+            var btnNewInvoiceQuick = new Button
+            {
+                Text = "+ New Invoice",
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                ForeColor = ThemeManager.PrimaryAccent,
+                BackColor = Color.Transparent,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                AutoSize = true,
+                Height = 26,
+                Dock = DockStyle.Right
+            };
+            btnNewInvoiceQuick.FlatAppearance.BorderSize = 0;
+            btnNewInvoiceQuick.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, ThemeManager.PrimaryAccent);
+            btnNewInvoiceQuick.Click += (s, e) =>
+            {
+                ShowPage("Sales");
+                _salesModule?.SwitchTab("CreateInvoice");
+            };
+
+            _pnlInvoicesFooter.Controls.Add(_lblInvoicesFooterSummary);
+            _pnlInvoicesFooter.Controls.Add(btnNewInvoiceQuick);
+
+            // 3. Grid Columns & Layout
+            dgvInvoices.Columns.Clear();
             dgvInvoices.Columns.Add("InvoiceNo", "Invoice No");
             dgvInvoices.Columns.Add("Customer", "Customer");
             dgvInvoices.Columns.Add("Date", "Date");
@@ -883,11 +1694,19 @@ namespace PROJECT_SBV1.Forms
             dgvInvoices.Columns.Add("Amount", "Amount (₹)");
             dgvInvoices.Columns.Add("Status", "Status");
 
-            dgvInvoices.RowHeadersVisible = false;
-            dgvInvoices.AllowUserToAddRows = false;
-            dgvInvoices.ReadOnly = true;
-            dgvInvoices.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvInvoices.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvInvoices.Columns["InvoiceNo"].FillWeight = 19;
+            dgvInvoices.Columns["Customer"].FillWeight = 24;
+            dgvInvoices.Columns["Date"].FillWeight = 18;
+            dgvInvoices.Columns["Mode"].FillWeight = 12;
+            dgvInvoices.Columns["Amount"].FillWeight = 15;
+            dgvInvoices.Columns["Status"].FillWeight = 12;
+
+            dgvInvoices.Columns["Amount"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvInvoices.Columns["Amount"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvInvoices.Columns["Status"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvInvoices.Columns["Status"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+
+            TableDesignStandard.ApplyStandardGrid(dgvInvoices, new TableStyleOptions { EmptyStateMessage = "No recent invoices recorded" });
             dgvInvoices.Cursor = Cursors.Hand;
 
             dgvInvoices.CellDoubleClick += (s, e) =>
@@ -902,51 +1721,257 @@ namespace PROJECT_SBV1.Forms
                         {
                             using var dlg = new InvoiceDetailsForm(inv);
                             dlg.ShowDialog(this);
+                            RefreshDashboardAnalytics();
                             RefreshLiveKpiCards();
                             RefreshInvoicesTable();
+                            RefreshLowStockTable();
+                            _salesModule?.LoadDashboardData();
                         }
                     }
                 }
             };
 
+            pnlRecentInvoicesCard.Controls.Clear();
+            pnlRecentInvoicesCard.Controls.Add(dgvInvoices);
+            pnlRecentInvoicesCard.Controls.Add(_pnlInvoicesFooter);
+            pnlRecentInvoicesCard.Controls.Add(_pnlInvoicesHeader);
+            dgvInvoices.Dock = DockStyle.Fill;
+            dgvInvoices.BringToFront();
+
+            LayoutInvoicesBadge();
             RefreshInvoicesTable();
         }
 
         private void SetupLowStockCard()
         {
-            pnlLowStockCard.Controls.Add(dgvLowStock);
-            dgvLowStock.Dock = DockStyle.Fill;
-            dgvLowStock.BringToFront();
+            pnlLowStockCard.Padding = new Padding(1);
+            pnlLowStockCard.BackColor = C_CardBg;
+            pnlLowStockCard.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                TableDesignStandard.PaintCardContainerBorder(g, pnlLowStockCard.ClientRectangle);
+            };
 
-            dgvLowStock.BorderStyle               = BorderStyle.None;
-            dgvLowStock.CellBorderStyle           = DataGridViewCellBorderStyle.SingleHorizontal;
-            dgvLowStock.EnableHeadersVisualStyles = false;
-            dgvLowStock.ColumnHeadersDefaultCellStyle.Font = s_fontGridHeader;
-            dgvLowStock.DefaultCellStyle.Font              = s_fontGrid;
+            // 1. Header Bar (Dock = Top)
+            _pnlLowStockHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 44,
+                BackColor = C_CardBg,
+                Padding = new Padding(12, 0, 12, 0)
+            };
 
+            var fHdrTitle = new Font("Segoe UI", 9.8f, FontStyle.Bold);
+            _pnlLowStockHeader.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                bool isDark = ThemeManager.IsDarkMode;
+
+                // Bottom hairline separator
+                Color sepCol = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+                using (var pen = new Pen(sepCol, 1f))
+                {
+                    g.DrawLine(pen, 0, _pnlLowStockHeader.Height - 1, _pnlLowStockHeader.Width, _pnlLowStockHeader.Height - 1);
+                }
+
+                // Vector Icon
+                ReiconRenderer.DrawIcon(g, ReiconRenderer.IconType.Warning, new Rectangle(14, 13, 18, 18), Color.FromArgb(245, 158, 11), 1.5f);
+
+                // Title
+                using var bTitle = new SolidBrush(ThemeManager.TextPrimary);
+                g.DrawString("Inventory Stock Alerts", fHdrTitle, bTitle, 38, 12);
+            };
+
+            // Badge
+            _lblLowStockBadge = new Label
+            {
+                Text = "● 0 Low Stock",
+                Font = new Font("Segoe UI", 7.8f, FontStyle.Bold),
+                Size = new Size(100, 22),
+                TextAlign = ContentAlignment.MiddleCenter,
+                BackColor = Color.Transparent
+            };
+            _lblLowStockBadge.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                bool isDark = ThemeManager.IsDarkMode;
+                int count = _lowStockProducts?.Count ?? 0;
+                Color bg = count == 0
+                    ? (isDark ? Color.FromArgb(6, 78, 59) : Color.FromArgb(236, 253, 245))
+                    : (isDark ? Color.FromArgb(69, 26, 3) : Color.FromArgb(254, 243, 199));
+                Color bdr = count == 0
+                    ? (isDark ? Color.FromArgb(4, 120, 87) : Color.FromArgb(167, 243, 208))
+                    : (isDark ? Color.FromArgb(180, 83, 9) : Color.FromArgb(253, 230, 138));
+                Color dotCol = count == 0 ? Color.FromArgb(16, 185, 129) : Color.FromArgb(245, 158, 11);
+                Color txt = count == 0
+                    ? (isDark ? Color.FromArgb(110, 231, 183) : Color.FromArgb(4, 120, 87))
+                    : (isDark ? Color.FromArgb(253, 230, 138) : Color.FromArgb(180, 83, 9));
+
+                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, _lblLowStockBadge.Width - 1, _lblLowStockBadge.Height - 1, 11);
+                using var bBg = new SolidBrush(bg);
+                using var pBdr = new Pen(bdr, 1f);
+                g.FillPath(bBg, path);
+                g.DrawPath(pBdr, path);
+
+                using var bDot = new SolidBrush(dotCol);
+                g.FillEllipse(bDot, 8, 8, 6, 6);
+
+                using var bTxt = new SolidBrush(txt);
+                using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                var rect = new Rectangle(12, 0, _lblLowStockBadge.Width - 14, _lblLowStockBadge.Height);
+                g.DrawString(_lblLowStockBadge.Text.Replace("● ", ""), _lblLowStockBadge.Font, bTxt, rect, sf);
+            };
+
+            void LayoutLowStockBadge()
+            {
+                if (_lblLowStockBadge == null || _pnlLowStockHeader == null) return;
+                using var g = _pnlLowStockHeader.CreateGraphics();
+                var sz = g.MeasureString("Inventory Stock Alerts", fHdrTitle);
+                _lblLowStockBadge.Location = new Point(40 + (int)sz.Width + 8, (_pnlLowStockHeader.Height - _lblLowStockBadge.Height) / 2);
+            }
+            _pnlLowStockHeader.Resize += (s, e) => LayoutLowStockBadge();
+
+            var btnViewProducts = new Button
+            {
+                Text = "Catalog →",
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = ThemeManager.PrimaryAccent,
+                BackColor = Color.Transparent,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                AutoSize = true,
+                Height = 28,
+                Dock = DockStyle.Right
+            };
+            btnViewProducts.FlatAppearance.BorderSize = 0;
+            btnViewProducts.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, ThemeManager.PrimaryAccent);
+            btnViewProducts.Click += (s, e) => ShowPage("Products");
+
+            _pnlLowStockHeader.Controls.Add(_lblLowStockBadge);
+            _pnlLowStockHeader.Controls.Add(btnViewProducts);
+
+            // 2. Footer Bar (Dock = Bottom)
+            _pnlLowStockFooter = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 34,
+                BackColor = C_CardBg,
+                Padding = new Padding(12, 0, 12, 0)
+            };
+            _pnlLowStockFooter.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                bool isDark = ThemeManager.IsDarkMode;
+                Color sepCol = isDark ? Color.FromArgb(40, 46, 68) : Color.FromArgb(226, 232, 240);
+                using var pen = new Pen(sepCol, 1f);
+                g.DrawLine(pen, 0, 0, _pnlLowStockFooter.Width, 0);
+            };
+
+            _lblLowStockFooterSummary = new Label
+            {
+                Text = "All other products in catalog are healthy.",
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Regular),
+                ForeColor = C_TextMid,
+                Dock = DockStyle.Left,
+                AutoSize = true,
+                Padding = new Padding(0, 9, 0, 0)
+            };
+
+            var btnAddProductQuick = new Button
+            {
+                Text = "+ Add Product",
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                ForeColor = ThemeManager.PrimaryAccent,
+                BackColor = Color.Transparent,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                AutoSize = true,
+                Height = 26,
+                Dock = DockStyle.Right
+            };
+            btnAddProductQuick.FlatAppearance.BorderSize = 0;
+            btnAddProductQuick.FlatAppearance.MouseOverBackColor = Color.FromArgb(24, ThemeManager.PrimaryAccent);
+            btnAddProductQuick.Click += (s, e) =>
+            {
+                using var dlg = new ProductDialog();
+                if (dlg.ShowDialog(this) == DialogResult.OK)
+                {
+                    RefreshDashboardAnalytics();
+                    RefreshLowStockTable();
+                    RefreshProductsTable();
+                }
+            };
+
+            _pnlLowStockFooter.Controls.Add(_lblLowStockFooterSummary);
+            _pnlLowStockFooter.Controls.Add(btnAddProductQuick);
+
+            // 3. Grid Columns & Layout
+            dgvLowStock.Columns.Clear();
             dgvLowStock.Columns.Add("ItemName", "Item / Product");
             dgvLowStock.Columns.Add("Stock", "In Stock");
             dgvLowStock.Columns.Add("MinLevel", "Reorder Level");
             dgvLowStock.Columns.Add("Action", "Alert Level");
 
-            dgvLowStock.RowHeadersVisible = false;
-            dgvLowStock.AllowUserToAddRows = false;
-            dgvLowStock.ReadOnly = true;
-            dgvLowStock.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvLowStock.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvLowStock.Columns["ItemName"].FillWeight = 42;
+            dgvLowStock.Columns["Stock"].FillWeight = 18;
+            dgvLowStock.Columns["MinLevel"].FillWeight = 22;
+            dgvLowStock.Columns["Action"].FillWeight = 18;
 
+            dgvLowStock.Columns["Action"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvLowStock.Columns["Action"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+
+            TableDesignStandard.ApplyStandardGrid(dgvLowStock, new TableStyleOptions { EmptyStateMessage = "All stock levels are currently healthy" });
+            dgvLowStock.Cursor = Cursors.Hand;
+
+            dgvLowStock.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex >= 0 && e.RowIndex < dgvLowStock.Rows.Count)
+                {
+                    string itemName = dgvLowStock.Rows[e.RowIndex].Cells["ItemName"].Value?.ToString() ?? "";
+                    var prod = _lowStockProducts.FirstOrDefault(p => p.Name == itemName) ?? DatabaseService.GetProducts().FirstOrDefault(p => p.Name == itemName);
+                    if (prod != null)
+                    {
+                        using var dlg = new ProductDialog(prod);
+                        if (dlg.ShowDialog(this) == DialogResult.OK)
+                        {
+                            RefreshDashboardAnalytics();
+                            RefreshLowStockTable();
+                            RefreshProductsTable();
+                        }
+                    }
+                }
+            };
+
+            pnlLowStockCard.Controls.Clear();
+            pnlLowStockCard.Controls.Add(dgvLowStock);
+            pnlLowStockCard.Controls.Add(_pnlLowStockFooter);
+            pnlLowStockCard.Controls.Add(_pnlLowStockHeader);
+            dgvLowStock.Dock = DockStyle.Fill;
+            dgvLowStock.BringToFront();
+
+            LayoutLowStockBadge();
             RefreshLowStockTable();
         }
 
-        private void RefreshInvoicesTable()
+        public void RefreshInvoicesTable(string search = "")
         {
             dgvInvoices.Rows.Clear();
             try
             {
-                var list = DatabaseService.GetInvoices().Take(10).ToList();
+                var list = DatabaseService.GetRecentInvoicesWithPayment(20);
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    string s = search.ToLowerInvariant();
+                    list = list.Where(i => i.InvoiceNumber.ToLowerInvariant().Contains(s) || i.CustomerName.ToLowerInvariant().Contains(s)).ToList();
+                }
+
                 foreach (var inv in list)
                 {
-                    dgvInvoices.Rows.Add(
+                    int rowIndex = dgvInvoices.Rows.Add(
                         inv.InvoiceNumber,
                         inv.CustomerName,
                         inv.InvoiceDate.ToString("dd MMM yyyy"),
@@ -954,40 +1979,72 @@ namespace PROJECT_SBV1.Forms
                         $"₹{inv.TotalAmount:N2}",
                         inv.Status
                     );
+
+                    var statusCell = dgvInvoices.Rows[rowIndex].Cells["Status"];
+                    if (inv.Status == "Paid")
+                        statusCell.Style.ForeColor = C_Positive;
+                    else if (inv.Status == "Partially Paid")
+                        statusCell.Style.ForeColor = C_Warning;
+                    else if (inv.Status == "Cancelled")
+                        statusCell.Style.ForeColor = C_TextLight;
+                    else
+                        statusCell.Style.ForeColor = C_Negative;
+                }
+
+                if (_lblInvoicesBadge != null)
+                {
+                    _lblInvoicesBadge.Text = $"● {list.Count} Invoices";
+                    _lblInvoicesBadge.Invalidate();
+                }
+                if (_lblInvoicesFooterSummary != null)
+                {
+                    _lblInvoicesFooterSummary.Text = $"Showing latest {list.Count} sales transactions across all accounts";
                 }
             }
             catch
             {
-                foreach (var inv in _invoicesStore)
-                {
-                    dgvInvoices.Rows.Add(inv[0], inv[1], inv[2], inv[3], inv[4], inv[5]);
-                }
             }
         }
 
-        private void RefreshLowStockTable()
+        public void RefreshLowStockTable()
         {
             dgvLowStock.Rows.Clear();
-            foreach (var item in _lowStockStore)
+            try
             {
-                dgvLowStock.Rows.Add(item[0], item[1], item[2], item[3]);
+                _lowStockProducts = DatabaseService.GetLowStockProducts(15m);
+                foreach (var p in _lowStockProducts)
+                {
+                    string alertLevel = p.StockQuantity <= 5 ? "CRITICAL" : "LOW";
+                    int rowIndex = dgvLowStock.Rows.Add(
+                        p.Name,
+                        $"{p.StockQuantity:G29} {p.Unit}",
+                        $"{p.MinStockAlert:G29} {p.Unit}",
+                        alertLevel
+                    );
+
+                    var alertCell = dgvLowStock.Rows[rowIndex].Cells["Action"];
+                    alertCell.Style.ForeColor = alertLevel == "CRITICAL" ? C_Negative : C_Warning;
+                    alertCell.Style.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+                }
+
+                int count = _lowStockProducts.Count;
+                if (_lblLowStockBadge != null)
+                {
+                    _lblLowStockBadge.Text = count == 0 ? "● All Healthy" : $"● {count} {(count == 1 ? "Item Due" : "Items Due")}";
+                    _lblLowStockBadge.Invalidate();
+                }
+                if (_lblLowStockFooterSummary != null)
+                {
+                    _lblLowStockFooterSummary.Text = count == 0
+                        ? "✓ All inventory items are safely above minimum reorder levels."
+                        : $"✓ {count} urgent {(count == 1 ? "item requires" : "items require")} restocking • Catalog healthy";
+                }
+            }
+            catch
+            {
             }
         }
 
-        private void PopulateSampleData()
-        {
-            _invoicesStore.Add(new[] { "INV-2026-089", "Rajesh Sharma", "13 Oct 2026", "UPI", "₹4,250", "Paid" });
-            _invoicesStore.Add(new[] { "INV-2026-088", "Anita Patel", "13 Oct 2026", "Cash", "₹12,400", "Paid" });
-            _invoicesStore.Add(new[] { "INV-2026-087", "Kiran Traders", "12 Oct 2026", "Bank", "₹38,900", "Pending" });
-            _invoicesStore.Add(new[] { "INV-2026-086", "Amit Verma", "12 Oct 2026", "UPI", "₹2,150", "Paid" });
-            _invoicesStore.Add(new[] { "INV-2026-085", "Suresh Enterprise", "11 Oct 2026", "Cash", "₹18,500", "Paid" });
-
-            _lowStockStore.Add(new[] { "Samsung SSD 1TB 980 Pro", "2 PCS", "10 PCS", "CRITICAL" });
-            _lowStockStore.Add(new[] { "Wireless Mouse Logitech M331", "3 PCS", "15 PCS", "LOW" });
-            _lowStockStore.Add(new[] { "Cat6 LAN Cable 305M Roll", "1 Roll", "5 Rolls", "LOW" });
-            _lowStockStore.Add(new[] { "Thermal Paper Rolls 80mm", "4 Boxes", "20 Boxes", "CRITICAL" });
-            _lowStockStore.Add(new[] { "HDMI Cable 2.0 5 Meter", "2 PCS", "8 PCS", "LOW" });
-        }
 
         // ═══════════════════════════════════════════════════════════════════════════
         //  SIDEBAR NAVIGATION WITH REICON VECTOR ICONS (Zero Emojis!)
@@ -1090,28 +2147,15 @@ namespace PROJECT_SBV1.Forms
 
         public void ShowPage(string page)
         {
-            if (page == "Customers")
-            {
-                _activePage = "Sales";
-                pnlOverview.Visible = false;
-                pnlNewBill.Visible = true;
-                pnlCustomers.Visible = false;
-                pnlProducts.Visible = false;
-                pnlTransPage.Visible = false;
-
-                headerTitle.Title = "Customer Directory & Balances";
-                headerTitle.Subtitle = "Client accounts, contact info, outstanding dues & ledgers";
-                _salesModule?.SwitchTab("Customers");
-                pnlSidebar.Invalidate(true);
-                return;
-            }
-
             _activePage = page;
+
             pnlOverview.Visible = (page == "Overview");
-            pnlNewBill.Visible = (page == "Sales");
+            pnlNewBill.Visible = (page == "Sales" || page == "Purchases" || page == "Suppliers");
             pnlCustomers.Visible = (page == "Customers");
             pnlProducts.Visible = (page == "Products");
             pnlTransPage.Visible = (page == "Transactions");
+            pnlSettings.Visible = (page == "Settings");
+            pnlStatistics.Visible = (page == "Statistics");
 
             headerTitle.Title = page switch
             {
@@ -1123,7 +2167,7 @@ namespace PROJECT_SBV1.Forms
                 "Statistics" => "Statistics & Analytics",
                 "Purchases" => "Purchase Management",
                 "Suppliers" => "Suppliers & Vendors",
-                "Settings" => "System Settings",
+                "Settings" => "System Settings & Business Profile",
                 _ => page
             };
 
@@ -1133,21 +2177,45 @@ namespace PROJECT_SBV1.Forms
                 "Sales" => "Service invoicing, tax computations, A4 printing & PDF export",
                 "Customers" => "Client directory, contact details & balance ledgers",
                 "Products" => "Product catalog stock & inventory valuation",
-                "Transactions" => "Audit log of receipts and vendor payouts",
+                "Transactions" => "Audit log of receipts and payment transactions",
+                "Statistics" => "Comprehensive revenue analysis & printable financial report",
+                "Settings" => "Business profile, GSTIN, payment details & database backup",
                 _ => "Manage and monitor your business operations"
             };
 
             if (page == "Overview")
             {
+                RefreshDashboardAnalytics();
                 RefreshLiveKpiCards();
                 RefreshInvoicesTable();
+                RefreshLowStockTable();
+            }
+            else if (page == "Sales")
+            {
+                _salesModule?.SwitchTab("Dashboard");
+            }
+            else if (page == "Customers")
+            {
+                RefreshCustomersTable();
+            }
+            else if (page == "Products")
+            {
+                RefreshProductsTable();
+            }
+            else if (page == "Transactions")
+            {
+                RefreshTransactionsTable();
+            }
+            else if (page == "Statistics")
+            {
+                RefreshStatisticsPage();
             }
 
             pnlSidebar.Invalidate(true);
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
-        //  SUB PAGES (SALES, CUSTOMERS, PRODUCTS, TRANSACTIONS)
+        //  SUB PAGES (SALES, CUSTOMERS, PRODUCTS, TRANSACTIONS, SETTINGS, STATISTICS)
         // ═══════════════════════════════════════════════════════════════════════════
         private void BuildNewBillPage()
         {
@@ -1160,8 +2228,10 @@ namespace PROJECT_SBV1.Forms
             _salesModule.Dock = DockStyle.Fill;
             _salesModule.DataChanged += (s, e) =>
             {
+                RefreshDashboardAnalytics();
                 RefreshLiveKpiCards();
                 RefreshInvoicesTable();
+                RefreshLowStockTable();
             };
 
             pnlNewBill.Controls.Add(_salesModule);
@@ -1173,29 +2243,107 @@ namespace PROJECT_SBV1.Forms
             pnlCustomers.Dock = DockStyle.Fill;
             pnlCustomers.Visible = false;
             pnlCustomers.BackColor = C_PageBg;
+            pnlCustomers.Controls.Clear();
 
-            txtCustSearch.PlaceholderText = "Search customers by name or phone...";
-            txtCustSearch.SetBounds(20, 20, 300, 30);
+            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = Color.Transparent, Padding = new Padding(20, 14, 20, 10) };
+
+            txtCustSearch.PlaceholderText = "Search customers by name, company, phone, or GSTIN...";
+            txtCustSearch.SetBounds(20, 14, 380, 32);
+            txtCustSearch.Font = new Font("Segoe UI", 9.5f);
+            txtCustSearch.TextChanged += (s, e) => RefreshCustomersTable(txtCustSearch.Text.Trim());
 
             btnAddCustomer.Text = "+ Add Customer";
             btnAddCustomer.BackColor = C_Blue;
             btnAddCustomer.ForeColor = Color.White;
             btnAddCustomer.FlatStyle = FlatStyle.Flat;
-            btnAddCustomer.SetBounds(330, 20, 140, 30);
+            btnAddCustomer.FlatAppearance.BorderSize = 0;
+            btnAddCustomer.Cursor = Cursors.Hand;
+            btnAddCustomer.SetBounds(420, 14, 150, 32);
+            btnAddCustomer.Click += (s, e) =>
+            {
+                using var dlg = new CustomerDialog();
+                if (dlg.ShowDialog(this) == DialogResult.OK)
+                {
+                    RefreshCustomersTable();
+                    RefreshLiveKpiCards();
+                }
+            };
 
-            dgvCustomers.SetBounds(20, 65, 800, 480);
+            pnlTop.Controls.AddRange(new Control[] { txtCustSearch, btnAddCustomer });
+
+            dgvCustomers.Columns.Clear();
+            dgvCustomers.Columns.Add("Id", "ID");
+            dgvCustomers.Columns["Id"].Visible = false;
             dgvCustomers.Columns.Add("Name", "Customer Name");
+            dgvCustomers.Columns.Add("Company", "Company");
             dgvCustomers.Columns.Add("Phone", "Phone");
-            dgvCustomers.Columns.Add("Balance", "Current Balance (₹)");
-            dgvCustomers.Columns.Add("Status", "Account Status");
-            dgvCustomers.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvCustomers.Columns.Add("GSTIN", "GSTIN");
+            dgvCustomers.Columns.Add("Balance", "Outstanding Due (₹)");
+            dgvCustomers.Columns.Add("Status", "Status");
 
-            dgvCustomers.Rows.Add("Rajesh Sharma", "+91 98251 00112", "₹0.00", "Active");
-            dgvCustomers.Rows.Add("Anita Patel", "+91 94260 88231", "₹1,200.00", "Active");
-            dgvCustomers.Rows.Add("Kiran Traders", "+91 97245 44109", "₹38,900.00", "Overdue");
+            dgvCustomers.Columns["Balance"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvCustomers.Columns["Balance"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvCustomers.Columns["Status"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvCustomers.Columns["Status"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
 
-            pnlCustomers.Controls.AddRange(new Control[] { txtCustSearch, btnAddCustomer, dgvCustomers });
+            TableDesignStandard.ApplyStandardGrid(dgvCustomers, new TableStyleOptions { EmptyStateMessage = "No customer accounts registered" });
+            dgvCustomers.Cursor = Cursors.Hand;
+
+            dgvCustomers.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex >= 0 && e.RowIndex < dgvCustomers.Rows.Count)
+                {
+                    if (long.TryParse(dgvCustomers.Rows[e.RowIndex].Cells["Id"].Value?.ToString(), out long cid))
+                    {
+                        var cust = DatabaseService.GetCustomerById(cid);
+                        if (cust != null)
+                        {
+                            using var dlg = new CustomerDialog(cust);
+                            if (dlg.ShowDialog(this) == DialogResult.OK)
+                            {
+                                RefreshCustomersTable();
+                                RefreshLiveKpiCards();
+                            }
+                        }
+                    }
+                }
+            };
+
+            var pnlGridContainer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 0, 20, 20) };
+            pnlGridContainer.Controls.Add(dgvCustomers);
+
+            pnlCustomers.Controls.Add(pnlGridContainer);
+            pnlCustomers.Controls.Add(pnlTop);
             pnlContentHost.Controls.Add(pnlCustomers);
+            RefreshCustomersTable();
+        }
+
+        public void RefreshCustomersTable(string search = "")
+        {
+            dgvCustomers.Rows.Clear();
+            try
+            {
+                var list = DatabaseService.GetCustomers(search);
+                foreach (var c in list)
+                {
+                    string status = c.OutstandingBalance > 0 ? "Outstanding Due" : "Settled";
+                    int rIdx = dgvCustomers.Rows.Add(
+                        c.Id,
+                        c.Name,
+                        c.CompanyName,
+                        c.Phone,
+                        c.GSTIN,
+                        $"₹{c.OutstandingBalance:N2}",
+                        status
+                    );
+
+                    var stCell = dgvCustomers.Rows[rIdx].Cells["Status"];
+                    stCell.Style.ForeColor = c.OutstandingBalance > 0 ? C_Warning : C_Positive;
+                }
+            }
+            catch
+            {
+            }
         }
 
         private void BuildProductsPage()
@@ -1203,32 +2351,157 @@ namespace PROJECT_SBV1.Forms
             pnlProducts.Dock = DockStyle.Fill;
             pnlProducts.Visible = false;
             pnlProducts.BackColor = C_PageBg;
+            pnlProducts.Controls.Clear();
+
+            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = Color.Transparent, Padding = new Padding(20, 14, 20, 10) };
 
             txtProdSearch.PlaceholderText = "Search by item name, SKU, or barcode...";
-            txtProdSearch.SetBounds(20, 20, 320, 30);
+            txtProdSearch.SetBounds(20, 14, 380, 32);
+            txtProdSearch.Font = new Font("Segoe UI", 9.5f);
+            txtProdSearch.TextChanged += (s, e) => RefreshProductsTable(txtProdSearch.Text.Trim());
 
             btnAddProductPage.Text = "+ Add Product";
             btnAddProductPage.BackColor = C_Blue;
             btnAddProductPage.ForeColor = Color.White;
             btnAddProductPage.FlatStyle = FlatStyle.Flat;
-            btnAddProductPage.SetBounds(350, 20, 140, 30);
+            btnAddProductPage.FlatAppearance.BorderSize = 0;
+            btnAddProductPage.Cursor = Cursors.Hand;
+            btnAddProductPage.SetBounds(420, 14, 140, 32);
+            btnAddProductPage.Click += (s, e) =>
+            {
+                using var dlg = new ProductDialog();
+                if (dlg.ShowDialog(this) == DialogResult.OK)
+                {
+                    RefreshProductsTable();
+                    RefreshLowStockTable();
+                    RefreshDashboardAnalytics();
+                }
+            };
 
-            dgvProducts.SetBounds(20, 65, 850, 480);
-            dgvProducts.Columns.Add("Barcode", "Barcode");
+            var btnStockAdjust = new Button
+            {
+                Text = "± Quick Adjust Stock",
+                BackColor = ThemeManager.IsDarkMode ? Color.FromArgb(40, 44, 60) : Color.FromArgb(241, 245, 249),
+                ForeColor = C_TextDark,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Bounds = new Rectangle(570, 14, 160, 32)
+            };
+            btnStockAdjust.FlatAppearance.BorderColor = C_Border;
+            btnStockAdjust.Click += (s, e) =>
+            {
+                if (dgvProducts.SelectedRows.Count == 0)
+                {
+                    MessageBox.Show("Please select a product from the table first.", "Adjust Stock", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                if (long.TryParse(dgvProducts.SelectedRows[0].Cells["Id"].Value?.ToString(), out long pid))
+                {
+                    var prod = DatabaseService.GetProducts().FirstOrDefault(p => p.Id == pid);
+                    if (prod != null)
+                    {
+                        using var dlg = new ProductDialog(prod);
+                        if (dlg.ShowDialog(this) == DialogResult.OK)
+                        {
+                            RefreshProductsTable();
+                            RefreshLowStockTable();
+                            RefreshDashboardAnalytics();
+                        }
+                    }
+                }
+            };
+
+            pnlTop.Controls.AddRange(new Control[] { txtProdSearch, btnAddProductPage, btnStockAdjust });
+
+            dgvProducts.Columns.Clear();
+            dgvProducts.Columns.Add("Id", "ID");
+            dgvProducts.Columns["Id"].Visible = false;
+            dgvProducts.Columns.Add("Barcode", "Barcode / SKU");
             dgvProducts.Columns.Add("Name", "Product Name");
             dgvProducts.Columns.Add("Category", "Category");
             dgvProducts.Columns.Add("Cost", "Cost Price");
             dgvProducts.Columns.Add("Sale", "Sale Price");
             dgvProducts.Columns.Add("Stock", "In Stock");
-            dgvProducts.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvProducts.Columns.Add("MinAlert", "Alert Level");
 
-            dgvProducts.Rows.Add("8901234001", "Samsung SSD 1TB 980 Pro", "Electronics", "₹6,800", "₹8,499", "2 PCS");
-            dgvProducts.Rows.Add("8901234002", "Wireless Mouse Logitech M331", "Electronics", "₹850", "₹1,199", "3 PCS");
-            dgvProducts.Rows.Add("8901234003", "HP Laser Toner 12A Black", "Hardware", "₹550", "₹850", "24 PCS");
-            dgvProducts.Rows.Add("8901234004", "Cat6 LAN Cable 305M Roll", "Networking", "₹4,200", "₹5,600", "1 Roll");
+            dgvProducts.Columns["Cost"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvProducts.Columns["Cost"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvProducts.Columns["Sale"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvProducts.Columns["Sale"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvProducts.Columns["MinAlert"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvProducts.Columns["MinAlert"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
 
-            pnlProducts.Controls.AddRange(new Control[] { txtProdSearch, btnAddProductPage, dgvProducts });
+            TableDesignStandard.ApplyStandardGrid(dgvProducts, new TableStyleOptions { EmptyStateMessage = "No inventory items cataloged" });
+            dgvProducts.Cursor = Cursors.Hand;
+
+            dgvProducts.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex >= 0 && e.RowIndex < dgvProducts.Rows.Count)
+                {
+                    if (long.TryParse(dgvProducts.Rows[e.RowIndex].Cells["Id"].Value?.ToString(), out long pid))
+                    {
+                        var prod = DatabaseService.GetProducts().FirstOrDefault(p => p.Id == pid);
+                        if (prod != null)
+                        {
+                            using var dlg = new ProductDialog(prod);
+                            if (dlg.ShowDialog(this) == DialogResult.OK)
+                            {
+                                RefreshProductsTable();
+                                RefreshLowStockTable();
+                                RefreshDashboardAnalytics();
+                            }
+                        }
+                    }
+                }
+            };
+
+            var pnlGridContainer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 0, 20, 20) };
+            pnlGridContainer.Controls.Add(dgvProducts);
+
+            pnlProducts.Controls.Add(pnlGridContainer);
+            pnlProducts.Controls.Add(pnlTop);
             pnlContentHost.Controls.Add(pnlProducts);
+            RefreshProductsTable();
+        }
+
+        public void RefreshProductsTable(string search = "")
+        {
+            dgvProducts.Rows.Clear();
+            try
+            {
+                var list = DatabaseService.GetProducts();
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    string s = search.ToLowerInvariant();
+                    list = list.Where(p => p.Name.ToLowerInvariant().Contains(s) || p.Barcode.ToLowerInvariant().Contains(s) || p.Category.ToLowerInvariant().Contains(s)).ToList();
+                }
+
+                foreach (var p in list)
+                {
+                    int rIdx = dgvProducts.Rows.Add(
+                        p.Id,
+                        p.Barcode,
+                        p.Name,
+                        p.Category,
+                        $"₹{p.CostPrice:N2}",
+                        $"₹{p.SalePrice:N2}",
+                        $"{p.StockQuantity:G29} {p.Unit}",
+                        $"{p.MinStockAlert:G29} {p.Unit}"
+                    );
+
+                    var stockCell = dgvProducts.Rows[rIdx].Cells["Stock"];
+                    if (p.StockQuantity <= 5)
+                        stockCell.Style.ForeColor = C_Negative;
+                    else if (p.StockQuantity <= p.MinStockAlert)
+                        stockCell.Style.ForeColor = C_Warning;
+                    else
+                        stockCell.Style.ForeColor = C_Positive;
+                }
+            }
+            catch
+            {
+            }
         }
 
         private void BuildTransactionsPage()
@@ -1236,25 +2509,314 @@ namespace PROJECT_SBV1.Forms
             pnlTransPage.Dock = DockStyle.Fill;
             pnlTransPage.Visible = false;
             pnlTransPage.BackColor = C_PageBg;
+            pnlTransPage.Controls.Clear();
 
-            txtTransSearch.PlaceholderText = "Filter transactions by reference, party, or date...";
-            txtTransSearch.SetBounds(20, 20, 350, 30);
+            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = Color.Transparent, Padding = new Padding(20, 14, 20, 10) };
 
-            dgvAllTransactions.SetBounds(20, 65, 850, 480);
+            txtTransSearch.PlaceholderText = "Filter transactions by reference, customer, or payment mode...";
+            txtTransSearch.SetBounds(20, 14, 420, 32);
+            txtTransSearch.Font = new Font("Segoe UI", 9.5f);
+            txtTransSearch.TextChanged += (s, e) => RefreshTransactionsTable(txtTransSearch.Text.Trim());
+
+            pnlTop.Controls.Add(txtTransSearch);
+
+            dgvAllTransactions.Columns.Clear();
             dgvAllTransactions.Columns.Add("Date", "Date & Time");
             dgvAllTransactions.Columns.Add("Type", "Type");
-            dgvAllTransactions.Columns.Add("Party", "Party Name");
+            dgvAllTransactions.Columns.Add("Party", "Customer / Party");
+            dgvAllTransactions.Columns.Add("Invoice", "Invoice No");
             dgvAllTransactions.Columns.Add("Mode", "Payment Mode");
             dgvAllTransactions.Columns.Add("Amount", "Amount (₹)");
             dgvAllTransactions.Columns.Add("Ref", "Reference No");
-            dgvAllTransactions.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
 
-            dgvAllTransactions.Rows.Add("13 Oct 2026 14:22", "Sale Receipt", "Rajesh Sharma", "UPI", "+₹4,250", "UPI/628109");
-            dgvAllTransactions.Rows.Add("13 Oct 2026 11:05", "Sale Receipt", "Anita Patel", "Cash", "+₹12,400", "CSH/00912");
-            dgvAllTransactions.Rows.Add("12 Oct 2026 16:40", "Vendor Pay", "Microtech Wholesalers", "Bank", "-₹24,500", "NEFT/8812");
+            dgvAllTransactions.Columns["Amount"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvAllTransactions.Columns["Amount"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
 
-            pnlTransPage.Controls.AddRange(new Control[] { txtTransSearch, dgvAllTransactions });
+            TableDesignStandard.ApplyStandardGrid(dgvAllTransactions, new TableStyleOptions { EmptyStateMessage = "No payment transactions recorded" });
+            dgvAllTransactions.Cursor = Cursors.Hand;
+
+            var pnlGridContainer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 0, 20, 20) };
+            pnlGridContainer.Controls.Add(dgvAllTransactions);
+
+            pnlTransPage.Controls.Add(pnlGridContainer);
+            pnlTransPage.Controls.Add(pnlTop);
             pnlContentHost.Controls.Add(pnlTransPage);
+            RefreshTransactionsTable();
+        }
+
+        public void RefreshTransactionsTable(string search = "")
+        {
+            dgvAllTransactions.Rows.Clear();
+            try
+            {
+                var list = DatabaseService.GetPaymentTransactions(search);
+                foreach (var tx in list)
+                {
+                    int rIdx = dgvAllTransactions.Rows.Add(
+                        tx.PaymentDate.ToString("dd MMM yyyy HH:mm"),
+                        "Payment Receipt",
+                        tx.CustomerName,
+                        tx.InvoiceNumber,
+                        tx.PaymentMethod,
+                        $"₹{tx.Amount:N2}",
+                        tx.ReferenceNumber
+                    );
+
+                    var amtCell = dgvAllTransactions.Rows[rIdx].Cells["Amount"];
+                    amtCell.Style.ForeColor = C_Positive;
+                    amtCell.Style.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private void BuildSettingsPage()
+        {
+            pnlSettings.Dock = DockStyle.Fill;
+            pnlSettings.Visible = false;
+            pnlSettings.BackColor = C_PageBg;
+            pnlSettings.AutoScroll = true;
+            pnlSettings.Padding = new Padding(32);
+
+            var pnlBox = new Panel
+            {
+                Width = 720,
+                Height = 650,
+                Location = new Point(24, 20),
+                BackColor = C_CardBg,
+                Padding = new Padding(24)
+            };
+
+            pnlBox.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, pnlBox.Width - 1, pnlBox.Height - 1, 12);
+                using var pen = new Pen(C_Border, 1.2f);
+                g.DrawPath(pen, path);
+            };
+
+            var profile = DatabaseService.GetBusinessProfile();
+
+            int y = 20;
+            var lblTitle = new Label { Text = "Business Profile & System Settings", Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y, 600, 30) };
+            pnlBox.Controls.Add(lblTitle);
+            y += 45;
+
+            var txtName = new TextBox { Text = profile.BusinessName, Bounds = new Rectangle(200, y, 480, 28), Font = new Font("Segoe UI", 9.5f) };
+            pnlBox.Controls.Add(new Label { Text = "Business Name *", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
+            pnlBox.Controls.Add(txtName);
+            y += 44;
+
+            var txtPhone = new TextBox { Text = profile.Phone, Bounds = new Rectangle(200, y, 480, 28), Font = new Font("Segoe UI", 9.5f) };
+            pnlBox.Controls.Add(new Label { Text = "Contact Phone *", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
+            pnlBox.Controls.Add(txtPhone);
+            y += 44;
+
+            var txtEmail = new TextBox { Text = profile.Email, Bounds = new Rectangle(200, y, 480, 28), Font = new Font("Segoe UI", 9.5f) };
+            pnlBox.Controls.Add(new Label { Text = "Email Address *", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
+            pnlBox.Controls.Add(txtEmail);
+            y += 44;
+
+            var txtGSTIN = new TextBox { Text = profile.GSTIN, Bounds = new Rectangle(200, y, 480, 28), Font = new Font("Segoe UI", 9.5f) };
+            pnlBox.Controls.Add(new Label { Text = "GSTIN / Tax ID", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
+            pnlBox.Controls.Add(txtGSTIN);
+            y += 44;
+
+            var txtAddress = new TextBox { Text = profile.Address, Bounds = new Rectangle(200, y, 480, 50), Multiline = true, Font = new Font("Segoe UI", 9.5f) };
+            pnlBox.Controls.Add(new Label { Text = "Billing Address", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
+            pnlBox.Controls.Add(txtAddress);
+            y += 66;
+
+            var txtUPI = new TextBox { Text = profile.UPIId, Bounds = new Rectangle(200, y, 480, 28), Font = new Font("Segoe UI", 9.5f) };
+            pnlBox.Controls.Add(new Label { Text = "UPI ID for Payments", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
+            pnlBox.Controls.Add(txtUPI);
+            y += 44;
+
+            var txtBank = new TextBox { Text = profile.BankDetails, Bounds = new Rectangle(200, y, 480, 28), Font = new Font("Segoe UI", 9.5f) };
+            pnlBox.Controls.Add(new Label { Text = "Bank Details", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
+            pnlBox.Controls.Add(txtBank);
+            y += 44;
+
+            var txtTerms = new TextBox { Text = profile.DefaultTerms, Bounds = new Rectangle(200, y, 480, 50), Multiline = true, Font = new Font("Segoe UI", 9.5f) };
+            pnlBox.Controls.Add(new Label { Text = "Default Terms & Cond.", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
+            pnlBox.Controls.Add(txtTerms);
+            y += 66;
+
+            var btnSave = new Button
+            {
+                Text = "Save Business Settings",
+                BackColor = C_Blue,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                Bounds = new Rectangle(200, y, 220, 38)
+            };
+            btnSave.FlatAppearance.BorderSize = 0;
+            btnSave.Click += (s, e) =>
+            {
+                profile.BusinessName = txtName.Text.Trim();
+                profile.Phone = txtPhone.Text.Trim();
+                profile.Email = txtEmail.Text.Trim();
+                profile.GSTIN = txtGSTIN.Text.Trim();
+                profile.Address = txtAddress.Text.Trim();
+                profile.UPIId = txtUPI.Text.Trim();
+                profile.BankDetails = txtBank.Text.Trim();
+                profile.DefaultTerms = txtTerms.Text.Trim();
+
+                DatabaseService.SaveBusinessProfile(profile);
+                MessageBox.Show("Business profile and settings have been saved to database successfully!", "Settings Saved — S TOM'S", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            };
+
+            var btnBackup = new Button
+            {
+                Text = "Backup Database",
+                BackColor = ThemeManager.IsDarkMode ? Color.FromArgb(40, 44, 60) : Color.FromArgb(241, 245, 249),
+                ForeColor = C_TextDark,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 10f),
+                Cursor = Cursors.Hand,
+                Bounds = new Rectangle(435, y, 180, 38)
+            };
+            btnBackup.FlatAppearance.BorderColor = C_Border;
+            btnBackup.Click += (s, e) =>
+            {
+                try
+                {
+                    string docDir = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                    string target = System.IO.Path.Combine(docDir, $"TEAMSOFT_Backup_{DateTime.Now:yyyyMMdd_HHmmss}.db");
+                    string dbPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TEAMSOFT", "teamsoft_sales.db");
+                    if (System.IO.File.Exists(dbPath))
+                    {
+                        System.IO.File.Copy(dbPath, target, true);
+                        MessageBox.Show($"SQLite Database backup created successfully!\n\nLocation:\n{target}", "Database Backup Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Backup error: {ex.Message}", "Backup Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
+
+            pnlBox.Controls.AddRange(new Control[] { btnSave, btnBackup });
+            pnlSettings.Controls.Add(pnlBox);
+            pnlContentHost.Controls.Add(pnlSettings);
+        }
+
+        private void BuildStatisticsPage()
+        {
+            pnlStatistics.Dock = DockStyle.Fill;
+            pnlStatistics.Visible = false;
+            pnlStatistics.BackColor = C_PageBg;
+            pnlStatistics.AutoScroll = true;
+            pnlStatistics.Padding = new Padding(24);
+
+            pnlContentHost.Controls.Add(pnlStatistics);
+            RefreshStatisticsPage();
+        }
+
+        public void RefreshStatisticsPage()
+        {
+            pnlStatistics.Controls.Clear();
+            var metrics = DatabaseService.GetSalesDashboardMetrics();
+            var (cats, gTotal) = DatabaseService.GetCategorySalesDistribution("ThisYear");
+
+            var pnlHeader = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = Color.Transparent };
+            var lblTitle = new Label { Text = "Business Analytics & Audit Reports", Font = new Font("Segoe UI", 14f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(0, 10, 400, 30) };
+
+            var btnExport = new Button
+            {
+                Text = "Print / Export Financial Summary",
+                BackColor = C_Blue,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                Bounds = new Rectangle(450, 10, 240, 34)
+            };
+            btnExport.FlatAppearance.BorderSize = 0;
+            btnExport.Click += (s, e) =>
+            {
+                string reportHtml = $@"
+                    <html><head><style>
+                    body {{ font-family: Segoe UI, sans-serif; padding: 24px; color: #1e293b; }}
+                    h1 {{ color: #4338ca; }}
+                    table {{ border-collapse: collapse; width: 100%; margin-top: 16px; }}
+                    th, td {{ border: 1px solid #cbd5e1; padding: 10px; text-align: left; }}
+                    th {{ background-color: #f8fafc; font-weight: bold; }}
+                    .highlight {{ font-weight: bold; color: #10b981; }}
+                    </style></head><body>
+                    <h1>TEAM SOFT — Executive Financial & Sales Report</h1>
+                    <p>Generated on: {DateTime.Now:dd MMM yyyy HH:mm}</p>
+                    <hr/>
+                    <h2>Key Financial Indicators</h2>
+                    <table>
+                        <tr><th>Metric</th><th>Value</th></tr>
+                        <tr><td>Total Lifetime Billings</td><td class='highlight'>{metrics.TotalSalesFormatted}</td></tr>
+                        <tr><td>Total Invoices Issued</td><td>{metrics.TotalInvoices}</td></tr>
+                        <tr><td>Settled In Full</td><td>{metrics.PaidInvoices}</td></tr>
+                        <tr><td>Unpaid / Overdue Invoices</td><td>{metrics.UnpaidInvoices}</td></tr>
+                        <tr><td>Total Outstanding Receivables</td><td style='color:#ef4444;font-weight:bold;'>{metrics.OutstandingDueFormatted}</td></tr>
+                        <tr><td>Active Client Accounts</td><td>{metrics.TotalCustomers}</td></tr>
+                    </table>
+                    <h2>Category Distribution</h2>
+                    <table>
+                        <tr><th>Category</th><th>Revenue</th><th>Percentage</th></tr>
+                        {string.Join("", cats.Select(c => $"<tr><td>{c.CategoryName}</td><td>₹{c.TotalSales:N2}</td><td>{c.Percentage:0.0}%</td></tr>"))}
+                    </table>
+                    <p style='margin-top:30px; font-size:12px; color:#64748b;'>Certified by TEAM SOFT Database Engine — 0 Discrepancy Reconciliation</p>
+                    </body></html>
+                ";
+
+                string tempFile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"TEAMSOFT_Financial_Report_{DateTime.Now:yyyyMMdd}.html");
+                System.IO.File.WriteAllText(tempFile, reportHtml);
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = tempFile, UseShellExecute = true });
+            };
+
+            pnlHeader.Controls.AddRange(new Control[] { lblTitle, btnExport });
+            pnlStatistics.Controls.Add(pnlHeader);
+
+            var tlpStats = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 180,
+                ColumnCount = 3,
+                RowCount = 2,
+                Margin = new Padding(0, 16, 0, 16)
+            };
+            for (int i = 0; i < 3; i++) tlpStats.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333f));
+            tlpStats.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+            tlpStats.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+
+            Panel MakeStatTile(string label, string val, Color col)
+            {
+                var p = new Panel { Dock = DockStyle.Fill, Margin = new Padding(6), BackColor = C_CardBg };
+                p.Paint += (s, e) =>
+                {
+                    var g = e.Graphics;
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, p.Width - 1, p.Height - 1, 8);
+                    using var bdr = new Pen(C_Border, 1.2f);
+                    g.DrawPath(bdr, path);
+                    using var bL = new SolidBrush(C_TextMid);
+                    using var bV = new SolidBrush(col);
+                    g.DrawString(label, s_fontStatTitle, bL, 14, 12);
+                    g.DrawString(val, new Font("Segoe UI", 14f, FontStyle.Bold), bV, 14, 34);
+                };
+                return p;
+            }
+
+            tlpStats.Controls.Add(MakeStatTile("Total Lifetime Billings", metrics.TotalSalesFormatted, C_Positive), 0, 0);
+            tlpStats.Controls.Add(MakeStatTile("Outstanding Dues Balance", metrics.OutstandingDueFormatted, C_Warning), 1, 0);
+            tlpStats.Controls.Add(MakeStatTile("Total Issued Invoices", $"{metrics.TotalInvoices} Invoices", C_Blue), 2, 0);
+            tlpStats.Controls.Add(MakeStatTile("Settled Invoices", $"{metrics.PaidInvoices} Invoices", C_Positive), 0, 1);
+            tlpStats.Controls.Add(MakeStatTile("Unsettled Invoices", $"{metrics.UnpaidInvoices} Invoices", C_Negative), 1, 1);
+            tlpStats.Controls.Add(MakeStatTile("Registered Customers", $"{metrics.TotalCustomers} Accounts", C_TextDark), 2, 1);
+
+            pnlStatistics.Controls.Add(tlpStats);
         }
 
         private static void EnableDoubleBuffering(Control c)

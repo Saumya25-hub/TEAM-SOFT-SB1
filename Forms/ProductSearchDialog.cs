@@ -100,15 +100,6 @@ namespace PROJECT_SBV1.Forms
 
             // Products Grid
             _dgvProducts.Dock = DockStyle.Fill;
-            _dgvProducts.BackgroundColor = ThemeManager.IsDarkMode ? Color.FromArgb(20, 24, 36) : Color.White;
-            _dgvProducts.BorderStyle = BorderStyle.None;
-            _dgvProducts.RowHeadersVisible = false;
-            _dgvProducts.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            _dgvProducts.MultiSelect = false;
-            _dgvProducts.AllowUserToAddRows = false;
-            _dgvProducts.ReadOnly = true;
-            _dgvProducts.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            _dgvProducts.RowTemplate.Height = 36;
             _dgvProducts.CellDoubleClick += (s, e) => SelectCurrentRow();
             _dgvProducts.KeyDown += (s, e) =>
             {
@@ -133,6 +124,13 @@ namespace PROJECT_SBV1.Forms
             _dgvProducts.Columns["Price"].FillWeight = 14;
             _dgvProducts.Columns.Add("Stock", "Stock");
             _dgvProducts.Columns["Stock"].FillWeight = 14;
+
+            _dgvProducts.Columns["Price"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            _dgvProducts.Columns["Price"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            _dgvProducts.Columns["Stock"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            _dgvProducts.Columns["Stock"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+
+            TableDesignStandard.ApplyStandardGrid(_dgvProducts, new TableStyleOptions { HeaderHeight = 32, RowHeight = 28, EmptyStateMessage = "No matching products found" });
 
             // Footer Panel
             var pnlFooter = new Panel

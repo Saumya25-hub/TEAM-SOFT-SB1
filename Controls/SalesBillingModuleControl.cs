@@ -633,6 +633,22 @@ namespace PROJECT_SBV1.Controls
 
         }
 
+        public void FilterInvoicesByStatus(string status)
+        {
+            SwitchTab("Dashboard");
+            if (cmbStatusFilter != null)
+            {
+                for (int i = 0; i < cmbStatusFilter.Items.Count; i++)
+                {
+                    if (cmbStatusFilter.Items[i]?.ToString()?.IndexOf(status, StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        cmbStatusFilter.SelectedIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+
 
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -2688,11 +2704,11 @@ namespace PROJECT_SBV1.Controls
 
             dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
 
-            dgv.RowTemplate.Height = 50;
+            dgv.RowTemplate.Height = 30;
 
             dgv.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
 
-            dgv.ColumnHeadersHeight = 44;
+            dgv.ColumnHeadersHeight = 32;
 
             dgv.StandardTab = true;
 
@@ -2820,11 +2836,15 @@ namespace PROJECT_SBV1.Controls
 
 
 
-                // Feather-soft 1px bottom border line (NO vertical lines!)
-
+                // Feather-soft 1px top & bottom border line and vertical column separator matching reference screenshot
                 using (var pBorder = new Pen(borderBottom, 1f))
-
+                {
+                    g.DrawLine(pBorder, e.CellBounds.Left, e.CellBounds.Top, e.CellBounds.Right, e.CellBounds.Top);
                     g.DrawLine(pBorder, e.CellBounds.Left, e.CellBounds.Bottom - 1, e.CellBounds.Right, e.CellBounds.Bottom - 1);
+                    g.DrawLine(pBorder, e.CellBounds.Right - 1, e.CellBounds.Top, e.CellBounds.Right - 1, e.CellBounds.Bottom - 1);
+                    if (e.ColumnIndex == 0)
+                        g.DrawLine(pBorder, e.CellBounds.Left, e.CellBounds.Top, e.CellBounds.Left, e.CellBounds.Bottom - 1);
+                }
 
 
 
@@ -2986,9 +3006,9 @@ namespace PROJECT_SBV1.Controls
 
                 {
 
-                    int btnW = 68;
+                    int btnW = 60;
 
-                    int btnH = 26;
+                    int btnH = 22;
 
                     int btnX = e.CellBounds.X + (e.CellBounds.Width - btnW) / 2;
 
@@ -3046,9 +3066,9 @@ namespace PROJECT_SBV1.Controls
 
                     string initials = GetInitials(val);
 
-                    int avaSize = 26;
+                    int avaSize = 20;
 
-                    int avaX = e.CellBounds.X + 16;
+                    int avaX = e.CellBounds.X + 8;
 
                     int avaY = e.CellBounds.Y + (e.CellBounds.Height - avaSize) / 2;
 
@@ -3328,7 +3348,7 @@ namespace PROJECT_SBV1.Controls
 
 
 
-            int pillH = 24;
+            int pillH = 20;
 
             int pillW = status == "Partially Paid" ? 104 : (status == "Overdue" ? 82 : (status == "Unpaid" ? 78 : 72));
 

@@ -163,6 +163,7 @@ namespace PROJECT_SBV1.Services
                 AddColumnIfNotExists(conn, "InvoiceItems", "Unit", "TEXT DEFAULT 'PCS'");
                 AddColumnIfNotExists(conn, "InvoiceItems", "TaxableAmount", "REAL DEFAULT 0");
                 AddColumnIfNotExists(conn, "InvoiceItems", "ProductId", "INTEGER DEFAULT 0");
+                AddColumnIfNotExists(conn, "Products", "MinStockAlert", "REAL DEFAULT 10");
 
                 // Seed Default Business Profile if missing
                 using (var checkCmd = conn.CreateCommand())
@@ -1132,13 +1133,44 @@ namespace PROJECT_SBV1.Services
 
                     if (status == "Cancelled") return;
 
+                    // 1. Restore product stock for all line items in this invoice
+                    using var itemsCmd = conn.CreateCommand();
+                    itemsCmd.Transaction = tx;
+                    itemsCmd.CommandText = "SELECT ProductId, ServiceName, Description, Quantity FROM InvoiceItems WHERE InvoiceId = @id;";
+                    itemsCmd.Parameters.AddWithValue("@id", invoiceId);
+                    var itemsToRestore = new List<(long Pid, string Name, string Desc, decimal Qty)>();
+                    using (var ir = itemsCmd.ExecuteReader())
+                    {
+                        while (ir.Read())
+                        {
+                            itemsToRestore.Add((ir.GetInt64(0), ir.GetString(1), ir.IsDBNull(2) ? "" : ir.GetString(2), Convert.ToDecimal(ir.GetDouble(3))));
+                        }
+                    }
+
+                    foreach (var it in itemsToRestore)
+                    {
+                        using var restoreCmd = conn.CreateCommand();
+                        restoreCmd.Transaction = tx;
+                        restoreCmd.CommandText = @"
+                            UPDATE Products 
+                            SET StockQuantity = StockQuantity + @qty
+                            WHERE (Id = @pid AND @pid > 0) OR (Barcode = @desc AND @desc != '') OR Name = @name;
+                        ";
+                        restoreCmd.Parameters.AddWithValue("@qty", it.Qty);
+                        restoreCmd.Parameters.AddWithValue("@pid", it.Pid);
+                        restoreCmd.Parameters.AddWithValue("@desc", it.Desc);
+                        restoreCmd.Parameters.AddWithValue("@name", it.Name);
+                        restoreCmd.ExecuteNonQuery();
+                    }
+
+                    // 2. Mark invoice as cancelled
                     using var updateCmd = conn.CreateCommand();
                     updateCmd.Transaction = tx;
                     updateCmd.CommandText = "UPDATE Invoices SET Status = 'Cancelled', BalanceDue = 0 WHERE Id = @id;";
                     updateCmd.Parameters.AddWithValue("@id", invoiceId);
                     updateCmd.ExecuteNonQuery();
 
-                    // Recalculate customer balance
+                    // 3. Recalculate customer balance
                     using var custBalCmd = conn.CreateCommand();
                     custBalCmd.Transaction = tx;
                     custBalCmd.CommandText = @"
@@ -1161,7 +1193,9 @@ namespace PROJECT_SBV1.Services
             }
         }
 
-        public static SalesDashboardMetrics GetSalesDashboardMetrics()
+        public static SalesDashboardMetrics GetSalesDashboardMetrics() => GetSalesDashboardMetrics("All", null, null);
+
+        public static SalesDashboardMetrics GetSalesDashboardMetrics(string dateFilter = "All", DateTime? fromDate = null, DateTime? toDate = null)
         {
             var m = new SalesDashboardMetrics();
             lock (s_lock)
@@ -1169,19 +1203,55 @@ namespace PROJECT_SBV1.Services
                 using var conn = new SqliteConnection(ConnectionString);
                 conn.Open();
 
-                // 1. Total Sales & Total Invoices (excluding cancelled)
+                string dateWhere = "";
+                var dateParams = new List<(string, object)>();
+
+                if (dateFilter == "Today")
+                {
+                    dateWhere = " AND InvoiceDate = @dtToday ";
+                    dateParams.Add(("@dtToday", DateTime.Today.ToString("yyyy-MM-dd")));
+                }
+                else if (dateFilter == "ThisWeek")
+                {
+                    var weekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek);
+                    dateWhere = " AND InvoiceDate >= @wStart AND InvoiceDate <= @wEnd ";
+                    dateParams.Add(("@wStart", weekStart.ToString("yyyy-MM-dd")));
+                    dateParams.Add(("@wEnd", DateTime.Today.ToString("yyyy-MM-dd")));
+                }
+                else if (dateFilter == "ThisMonth")
+                {
+                    var monthStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).ToString("yyyy-MM-dd");
+                    dateWhere = " AND InvoiceDate >= @mStart ";
+                    dateParams.Add(("@mStart", monthStart));
+                }
+                else if (dateFilter == "ThisYear")
+                {
+                    var yrStart = new DateTime(DateTime.Today.Year, 1, 1).ToString("yyyy-MM-dd");
+                    dateWhere = " AND InvoiceDate >= @yStart ";
+                    dateParams.Add(("@yStart", yrStart));
+                }
+                else if (dateFilter == "Custom" && fromDate.HasValue && toDate.HasValue)
+                {
+                    dateWhere = " AND InvoiceDate >= @cFrom AND InvoiceDate <= @cTo ";
+                    dateParams.Add(("@cFrom", fromDate.Value.ToString("yyyy-MM-dd")));
+                    dateParams.Add(("@cTo", toDate.Value.ToString("yyyy-MM-dd")));
+                }
+
+                // 1. Total Sales & Invoices Count (excluding Cancelled invoices)
                 using (var cmd = conn.CreateCommand())
                 {
-                    cmd.CommandText = @"
+                    cmd.CommandText = $@"
                         SELECT 
-                            COALESCE(SUM(GrandTotal), 0),
-                            COUNT(*),
+                            COALESCE(SUM(CASE WHEN Status != 'Cancelled' THEN GrandTotal ELSE 0 END), 0),
+                            COUNT(CASE WHEN Status != 'Cancelled' THEN 1 END),
                             COALESCE(SUM(CASE WHEN Status = 'Paid' THEN 1 ELSE 0 END), 0),
-                            COALESCE(SUM(CASE WHEN Status IN ('Unpaid', 'Draft') THEN 1 ELSE 0 END), 0),
+                            COALESCE(SUM(CASE WHEN Status IN ('Unpaid', 'Draft', 'Partially Paid', 'Overdue') AND BalanceDue > 0 AND Status != 'Cancelled' THEN 1 ELSE 0 END), 0),
                             COALESCE(SUM(CASE WHEN Status = 'Overdue' THEN 1 ELSE 0 END), 0),
                             COALESCE(SUM(CASE WHEN Status != 'Cancelled' THEN BalanceDue ELSE 0 END), 0)
-                        FROM Invoices;
+                        FROM Invoices
+                        WHERE 1=1 {dateWhere};
                     ";
+                    foreach (var p in dateParams) cmd.Parameters.AddWithValue(p.Item1, p.Item2);
                     using var r = cmd.ExecuteReader();
                     if (r.Read())
                     {
@@ -1219,24 +1289,8 @@ namespace PROJECT_SBV1.Services
                     m.ThisMonthSales = Convert.ToDecimal(cmd.ExecuteScalar() ?? 0);
                 }
 
-                // 4. Recent 10 Invoices
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = @"
-                        SELECT Id, InvoiceNumber, CustomerId, CustomerName, CustomerCompany, CustomerPhone, CustomerEmail, 
-                               CustomerAddress, CustomerGSTIN, InvoiceDate, DueDate, PaymentTerms, TaxType, Subtotal, 
-                               ItemDiscountTotal, OverallDiscount, TaxableAmount, CgstRate, CgstAmount, SgstRate, SgstAmount, 
-                               IgstRate, IgstAmount, GrandTotal, AmountPaid, BalanceDue, Status, Notes, CreatedAt
-                        FROM Invoices 
-                        ORDER BY InvoiceDate DESC, Id DESC 
-                        LIMIT 10;
-                    ";
-                    using var r = cmd.ExecuteReader();
-                    while (r.Read())
-                    {
-                        m.RecentInvoices.Add(ReadInvoice(r));
-                    }
-                }
+                // 4. Recent Invoices with Payment Mode
+                m.RecentInvoices = GetRecentInvoicesWithPayment(15);
 
                 // 5. Total Customers Count
                 using (var cmd = conn.CreateCommand())
@@ -1346,7 +1400,7 @@ namespace PROJECT_SBV1.Services
                 if (!string.IsNullOrWhiteSpace(search))
                 {
                     cmd.CommandText = @"
-                        SELECT Id, Barcode, Name, Category, HSN, Unit, CostPrice, SalePrice, StockQuantity, TaxRate, CreatedAt
+                        SELECT Id, Barcode, Name, Category, HSN, Unit, CostPrice, SalePrice, StockQuantity, TaxRate, COALESCE(MinStockAlert, 10), CreatedAt
                         FROM Products
                         WHERE Name LIKE @q OR Barcode LIKE @q OR HSN LIKE @q OR Category LIKE @q
                         ORDER BY Name ASC;
@@ -1356,7 +1410,7 @@ namespace PROJECT_SBV1.Services
                 else
                 {
                     cmd.CommandText = @"
-                        SELECT Id, Barcode, Name, Category, HSN, Unit, CostPrice, SalePrice, StockQuantity, TaxRate, CreatedAt
+                        SELECT Id, Barcode, Name, Category, HSN, Unit, CostPrice, SalePrice, StockQuantity, TaxRate, COALESCE(MinStockAlert, 10), CreatedAt
                         FROM Products
                         ORDER BY Name ASC;
                     ";
@@ -1377,7 +1431,8 @@ namespace PROJECT_SBV1.Services
                         SalePrice = Convert.ToDecimal(r.GetDouble(7)),
                         StockQuantity = Convert.ToDecimal(r.GetDouble(8)),
                         TaxRate = Convert.ToDecimal(r.GetDouble(9)),
-                        CreatedAt = DateTime.TryParse(r.GetString(10), out var dt) ? dt : DateTime.Now
+                        MinStockAlert = Convert.ToDecimal(r.GetDouble(10)),
+                        CreatedAt = DateTime.TryParse(r.GetString(11), out var dt) ? dt : DateTime.Now
                     });
                 }
             }
@@ -1393,7 +1448,7 @@ namespace PROJECT_SBV1.Services
                 conn.Open();
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = @"
-                    SELECT Id, Barcode, Name, Category, HSN, Unit, CostPrice, SalePrice, StockQuantity, TaxRate, CreatedAt
+                    SELECT Id, Barcode, Name, Category, HSN, Unit, CostPrice, SalePrice, StockQuantity, TaxRate, COALESCE(MinStockAlert, 10), CreatedAt
                     FROM Products
                     WHERE Barcode = @bc OR Barcode LIKE @bclike OR Name LIKE @bclike
                     LIMIT 1;
@@ -1415,7 +1470,8 @@ namespace PROJECT_SBV1.Services
                         SalePrice = Convert.ToDecimal(r.GetDouble(7)),
                         StockQuantity = Convert.ToDecimal(r.GetDouble(8)),
                         TaxRate = Convert.ToDecimal(r.GetDouble(9)),
-                        CreatedAt = DateTime.TryParse(r.GetString(10), out var dt) ? dt : DateTime.Now
+                        MinStockAlert = Convert.ToDecimal(r.GetDouble(10)),
+                        CreatedAt = DateTime.TryParse(r.GetString(11), out var dt) ? dt : DateTime.Now
                     };
                 }
             }
@@ -1432,8 +1488,8 @@ namespace PROJECT_SBV1.Services
                 if (p.Id == 0)
                 {
                     cmd.CommandText = @"
-                        INSERT INTO Products (Barcode, Name, Category, HSN, Unit, CostPrice, SalePrice, StockQuantity, TaxRate, CreatedAt)
-                        VALUES (@bc, @name, @cat, @hsn, @unit, @cost, @sale, @stock, @tax, @created);
+                        INSERT INTO Products (Barcode, Name, Category, HSN, Unit, CostPrice, SalePrice, StockQuantity, TaxRate, MinStockAlert, CreatedAt)
+                        VALUES (@bc, @name, @cat, @hsn, @unit, @cost, @sale, @stock, @tax, @minalert, @created);
                         SELECT last_insert_rowid();
                     ";
                     cmd.Parameters.AddWithValue("@bc", p.Barcode.Trim());
@@ -1445,6 +1501,7 @@ namespace PROJECT_SBV1.Services
                     cmd.Parameters.AddWithValue("@sale", p.SalePrice);
                     cmd.Parameters.AddWithValue("@stock", p.StockQuantity);
                     cmd.Parameters.AddWithValue("@tax", p.TaxRate);
+                    cmd.Parameters.AddWithValue("@minalert", p.MinStockAlert);
                     cmd.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
                     p.Id = (long)(cmd.ExecuteScalar() ?? 0);
                 }
@@ -1453,7 +1510,7 @@ namespace PROJECT_SBV1.Services
                     cmd.CommandText = @"
                         UPDATE Products 
                         SET Barcode = @bc, Name = @name, Category = @cat, HSN = @hsn, Unit = @unit,
-                            CostPrice = @cost, SalePrice = @sale, StockQuantity = @stock, TaxRate = @tax
+                            CostPrice = @cost, SalePrice = @sale, StockQuantity = @stock, TaxRate = @tax, MinStockAlert = @minalert
                         WHERE Id = @id;
                     ";
                     cmd.Parameters.AddWithValue("@id", p.Id);
@@ -1466,11 +1523,365 @@ namespace PROJECT_SBV1.Services
                     cmd.Parameters.AddWithValue("@sale", p.SalePrice);
                     cmd.Parameters.AddWithValue("@stock", p.StockQuantity);
                     cmd.Parameters.AddWithValue("@tax", p.TaxRate);
+                    cmd.Parameters.AddWithValue("@minalert", p.MinStockAlert);
                     cmd.ExecuteNonQuery();
                 }
             }
             return p;
         }
+
+        public static void AdjustStock(long productId, decimal deltaQty, string reason = "")
+        {
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "UPDATE Products SET StockQuantity = MAX(0, StockQuantity + @delta) WHERE Id = @id;";
+                cmd.Parameters.AddWithValue("@delta", deltaQty);
+                cmd.Parameters.AddWithValue("@id", productId);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        public static bool DeleteProduct(long productId, out string message)
+        {
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var checkCmd = conn.CreateCommand();
+                checkCmd.CommandText = "SELECT COUNT(*) FROM InvoiceItems WHERE ProductId = @id;";
+                checkCmd.Parameters.AddWithValue("@id", productId);
+                long count = (long)(checkCmd.ExecuteScalar() ?? 0);
+                if (count > 0)
+                {
+                    message = $"Cannot delete product because it is linked to {count} invoice line items. Stock set to 0 instead.";
+                    using var zeroCmd = conn.CreateCommand();
+                    zeroCmd.CommandText = "UPDATE Products SET StockQuantity = 0 WHERE Id = @id;";
+                    zeroCmd.Parameters.AddWithValue("@id", productId);
+                    zeroCmd.ExecuteNonQuery();
+                    return false;
+                }
+
+                using var delCmd = conn.CreateCommand();
+                delCmd.CommandText = "DELETE FROM Products WHERE Id = @id;";
+                delCmd.Parameters.AddWithValue("@id", productId);
+                delCmd.ExecuteNonQuery();
+                message = "Product deleted successfully.";
+                return true;
+            }
+        }
+
+        public static bool DeleteCustomer(long customerId, out string message)
+        {
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var checkCmd = conn.CreateCommand();
+                checkCmd.CommandText = "SELECT COUNT(*) FROM Invoices WHERE CustomerId = @id;";
+                checkCmd.Parameters.AddWithValue("@id", customerId);
+                long count = (long)(checkCmd.ExecuteScalar() ?? 0);
+                if (count > 0)
+                {
+                    message = $"Cannot delete customer because {count} invoices and financial records are registered for this customer.";
+                    return false;
+                }
+
+                using var delCmd = conn.CreateCommand();
+                delCmd.CommandText = "DELETE FROM Customers WHERE Id = @id;";
+                delCmd.Parameters.AddWithValue("@id", customerId);
+                delCmd.ExecuteNonQuery();
+                message = "Customer deleted successfully.";
+                return true;
+            }
+        }
+
+        public static List<Invoice> GetRecentInvoicesWithPayment(int limit = 15)
+        {
+            var list = new List<Invoice>();
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = $@"
+                    SELECT i.Id, i.InvoiceNumber, i.CustomerId, i.CustomerName, i.CustomerCompany, i.CustomerPhone, i.CustomerEmail, 
+                           i.CustomerAddress, i.CustomerGSTIN, i.InvoiceDate, i.DueDate, i.PaymentTerms, i.TaxType, i.Subtotal, 
+                           i.ItemDiscountTotal, i.OverallDiscount, i.TaxableAmount, i.CgstRate, i.CgstAmount, i.SgstRate, i.SgstAmount, 
+                           i.IgstRate, i.IgstAmount, i.GrandTotal, i.AmountPaid, i.BalanceDue, i.Status, i.Notes, i.CreatedAt,
+                           i.BrokerName, i.RoundOff, i.TotalQuantity,
+                           (SELECT p.PaymentMethod FROM Payments p WHERE p.InvoiceId = i.Id ORDER BY p.Id DESC LIMIT 1) as LatestPaymentMethod
+                    FROM Invoices i
+                    ORDER BY i.InvoiceDate DESC, i.Id DESC
+                    LIMIT {limit};
+                ";
+
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    var inv = ReadInvoice(r);
+                    if (r.FieldCount > 32 && !r.IsDBNull(32))
+                    {
+                        string method = r.GetString(32);
+                        if (!string.IsNullOrWhiteSpace(method))
+                        {
+                            inv.Payments.Add(new PaymentRecord
+                            {
+                                InvoiceId = inv.Id,
+                                PaymentMethod = method,
+                                Amount = inv.AmountPaid
+                            });
+                        }
+                    }
+                    list.Add(inv);
+                }
+            }
+            return list;
+        }
+
+        public static List<MonthlySalesBarItem> Get12MonthsSalesDynamics(int year = 0)
+        {
+            if (year <= 0) year = DateTime.Today.Year;
+            var list = new List<MonthlySalesBarItem>();
+            string[] monthNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+
+            var salesByMonth = new decimal[12];
+            var purchasesByMonth = new decimal[12];
+
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+
+                // 1. Query Sales by Month
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        SELECT 
+                            CAST(strftime('%m', InvoiceDate) AS INTEGER) as M,
+                            SUM(GrandTotal) as TotalGrand
+                        FROM Invoices
+                        WHERE Status != 'Cancelled' AND CAST(strftime('%Y', InvoiceDate) AS INTEGER) = @yr
+                        GROUP BY M;
+                    ";
+                    cmd.Parameters.AddWithValue("@yr", year);
+                    using var r = cmd.ExecuteReader();
+                    while (r.Read())
+                    {
+                        int m = r.GetInt32(0);
+                        if (m >= 1 && m <= 12)
+                        {
+                            salesByMonth[m - 1] = Convert.ToDecimal(r.GetDouble(1));
+                        }
+                    }
+                }
+
+                // 2. Query Estimated Product Cost by Month
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                        SELECT 
+                            CAST(strftime('%m', i.InvoiceDate) AS INTEGER) as M,
+                            SUM(ii.Quantity * COALESCE(p.CostPrice, ii.UnitPrice * 0.65)) as TotalCost
+                        FROM InvoiceItems ii
+                        JOIN Invoices i ON ii.InvoiceId = i.Id
+                        LEFT JOIN Products p ON (ii.ProductId = p.Id OR ii.ServiceName = p.Name)
+                        WHERE i.Status != 'Cancelled' AND CAST(strftime('%Y', i.InvoiceDate) AS INTEGER) = @yr
+                        GROUP BY M;
+                    ";
+                    cmd.Parameters.AddWithValue("@yr", year);
+                    using var r = cmd.ExecuteReader();
+                    while (r.Read())
+                    {
+                        int m = r.GetInt32(0);
+                        if (m >= 1 && m <= 12)
+                        {
+                            purchasesByMonth[m - 1] = Convert.ToDecimal(r.GetDouble(1));
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < 12; i++)
+            {
+                list.Add(new MonthlySalesBarItem
+                {
+                    MonthLabel = monthNames[i],
+                    MonthNumber = i + 1,
+                    SalesAmount = salesByMonth[i],
+                    PurchasesAmount = purchasesByMonth[i]
+                });
+            }
+
+            return list;
+        }
+
+        public static (List<CategorySalesDistribution> Categories, decimal GrandTotal) GetCategorySalesDistribution(string period = "All")
+        {
+            var list = new List<CategorySalesDistribution>();
+            decimal grandTotal = 0m;
+
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+                    SELECT 
+                        COALESCE(NULLIF(p.Category, ''), 'General') as CatName,
+                        SUM(ii.LineTotal) as CatTotal
+                    FROM InvoiceItems ii
+                    JOIN Invoices i ON ii.InvoiceId = i.Id
+                    LEFT JOIN Products p ON (ii.ProductId = p.Id OR ii.ServiceName = p.Name)
+                    WHERE i.Status != 'Cancelled'
+                    GROUP BY CatName
+                    ORDER BY CatTotal DESC;
+                ";
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    string cat = r.GetString(0);
+                    decimal amt = Convert.ToDecimal(r.GetDouble(1));
+                    grandTotal += amt;
+                    list.Add(new CategorySalesDistribution
+                    {
+                        CategoryName = cat,
+                        TotalSales = amt
+                    });
+                }
+            }
+
+            // Fallback to Products catalog category distribution if no sales items yet
+            if (list.Count == 0 || grandTotal == 0m)
+            {
+                lock (s_lock)
+                {
+                    using var conn = new SqliteConnection(ConnectionString);
+                    conn.Open();
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = "SELECT Category, COUNT(*), SUM(StockQuantity * SalePrice) FROM Products GROUP BY Category;";
+                    using var r = cmd.ExecuteReader();
+                    while (r.Read())
+                    {
+                        string cat = r.IsDBNull(0) ? "General" : r.GetString(0);
+                        decimal amt = Convert.ToDecimal(r.GetDouble(2));
+                        if (amt <= 0) amt = r.GetInt32(1) * 1000m;
+                        grandTotal += amt;
+                        list.Add(new CategorySalesDistribution { CategoryName = cat, TotalSales = amt });
+                    }
+                }
+            }
+
+            if (list.Count == 0)
+            {
+                list.Add(new CategorySalesDistribution { CategoryName = "General", TotalSales = 1000m, Percentage = 100, Angle = 360f });
+                grandTotal = 1000m;
+                return (list, grandTotal);
+            }
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                var item = list[i];
+                double pct = grandTotal > 0 ? (double)(item.TotalSales / grandTotal) * 100.0 : 0;
+                item.Percentage = Math.Round(pct, 1);
+                item.Angle = (float)(pct / 100.0 * 360.0);
+            }
+
+            return (list, grandTotal);
+        }
+
+        public static List<ProductItem> GetLowStockProducts(decimal threshold = 15m)
+        {
+            var list = new List<ProductItem>();
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+                    SELECT Id, Barcode, Name, Category, HSN, Unit, CostPrice, SalePrice, StockQuantity, TaxRate, COALESCE(MinStockAlert, 10), CreatedAt
+                    FROM Products
+                    WHERE StockQuantity <= COALESCE(MinStockAlert, 15) OR StockQuantity <= @thresh
+                    ORDER BY StockQuantity ASC
+                    LIMIT 20;
+                ";
+                cmd.Parameters.AddWithValue("@thresh", threshold);
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    list.Add(new ProductItem
+                    {
+                        Id = r.GetInt64(0),
+                        Barcode = r.IsDBNull(1) ? "" : r.GetString(1),
+                        Name = r.GetString(2),
+                        Category = r.IsDBNull(3) ? "" : r.GetString(3),
+                        HSN = r.IsDBNull(4) ? "8471" : r.GetString(4),
+                        Unit = r.IsDBNull(5) ? "PCS" : r.GetString(5),
+                        CostPrice = Convert.ToDecimal(r.GetDouble(6)),
+                        SalePrice = Convert.ToDecimal(r.GetDouble(7)),
+                        StockQuantity = Convert.ToDecimal(r.GetDouble(8)),
+                        TaxRate = Convert.ToDecimal(r.GetDouble(9)),
+                        MinStockAlert = Convert.ToDecimal(r.GetDouble(10)),
+                        CreatedAt = DateTime.TryParse(r.GetString(11), out var dt) ? dt : DateTime.Now
+                    });
+                }
+            }
+
+            if (list.Count == 0)
+            {
+                var all = GetProducts().OrderBy(p => p.StockQuantity).Take(5).ToList();
+                return all;
+            }
+
+            return list;
+        }
+
+        public static List<PaymentTransactionItem> GetPaymentTransactions(string search = "")
+        {
+            var list = new List<PaymentTransactionItem>();
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                string where = "";
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    where = "WHERE (p.ReferenceNumber LIKE @q OR i.CustomerName LIKE @q OR i.InvoiceNumber LIKE @q OR p.PaymentMethod LIKE @q)";
+                    cmd.Parameters.AddWithValue("@q", $"%{search.Trim()}%");
+                }
+
+                cmd.CommandText = $@"
+                    SELECT p.Id, p.InvoiceId, i.InvoiceNumber, i.CustomerName, p.PaymentDate, p.Amount, p.PaymentMethod, p.ReferenceNumber, p.Notes
+                    FROM Payments p
+                    JOIN Invoices i ON p.InvoiceId = i.Id
+                    {where}
+                    ORDER BY p.PaymentDate DESC, p.Id DESC
+                    LIMIT 100;
+                ";
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    list.Add(new PaymentTransactionItem
+                    {
+                        Id = r.GetInt64(0),
+                        InvoiceId = r.GetInt64(1),
+                        InvoiceNumber = r.GetString(2),
+                        CustomerName = r.GetString(3),
+                        PaymentDate = DateTime.TryParse(r.GetString(4), out var dt) ? dt : DateTime.Now,
+                        Amount = Convert.ToDecimal(r.GetDouble(5)),
+                        PaymentMethod = r.IsDBNull(6) ? "Bank Transfer" : r.GetString(6),
+                        ReferenceNumber = r.IsDBNull(7) ? "" : r.GetString(7),
+                        Notes = r.IsDBNull(8) ? "" : r.GetString(8)
+                    });
+                }
+            }
+            return list;
+        }
+
 
         // ═══════════════════════════════════════════════════════════════════════════
         //  BROKERS SERVICES

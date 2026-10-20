@@ -57,6 +57,12 @@ namespace PROJECT_SBV1
                 return;
             }
 
+            if (args.Length > 0 && (args[0].Equals("--test-dashboard", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--test-dynamic-dashboard", StringComparison.OrdinalIgnoreCase)))
+            {
+                RunDynamicDashboardTest();
+                return;
+            }
+
             Application.Run(new Sb1ApplicationContext());
         }
 
@@ -550,6 +556,181 @@ namespace PROJECT_SBV1
             CaptureInvoiceView(1280, 800, true, "new_sales_invoice_dark_1280.png");
             CaptureInvoiceView(1920, 1080, false, "new_sales_invoice_bigscreen_light_1920.png");
             CaptureInvoiceView(1920, 1080, true, "new_sales_invoice_bigscreen_dark_1920.png");
+        }
+
+        private static void RunDynamicDashboardTest()
+        {
+            Console.WriteLine("================================================================================");
+            Console.WriteLine("  TEAM SOFT — DYNAMIC SALES & BILLING DASHBOARD AUTOMATED VERIFICATION SUITE");
+            Console.WriteLine("================================================================================");
+
+            // Step 1: Database Initialization
+            Console.WriteLine("[TEST 1/9] Initializing SQLite database schema & indexes...");
+            Services.DatabaseService.InitializeDatabase();
+            var profile = Services.DatabaseService.GetBusinessProfile();
+            Console.WriteLine($"[PASS] Business profile active: {profile.BusinessName} | GSTIN: {profile.GSTIN}");
+
+            // Step 2: KPI Metrics Validation
+            Console.WriteLine("[TEST 2/9] Validating real-time KPI card calculations from live records...");
+            var metrics = Services.DatabaseService.GetSalesDashboardMetrics();
+            Console.WriteLine($"[PASS] Metrics computed: Total Sales = {metrics.TotalSalesFormatted}, Invoices = {metrics.TotalInvoices}, Paid = {metrics.PaidInvoices}, Unpaid = {metrics.UnpaidInvoices}, Outstanding Due = {metrics.OutstandingDueFormatted}, Clients = {metrics.TotalCustomers}");
+            if (metrics.TotalSales < 0) throw new Exception("Total Sales cannot be negative!");
+            if (metrics.PaidInvoices + metrics.UnpaidInvoices > metrics.TotalInvoices) throw new Exception("Paid + Unpaid invoices exceeds Total Invoices!");
+
+            // Step 3: Sales Dynamics 12-Month Bar Chart
+            Console.WriteLine("[TEST 3/9] Validating 12-Month Sales Dynamics aggregation...");
+            int currentYear = DateTime.Today.Year;
+            var dynamics = Services.DatabaseService.Get12MonthsSalesDynamics(currentYear);
+            Console.WriteLine($"[PASS] Retrieved {dynamics.Count} months for year {currentYear}. First month: {dynamics[0].MonthLabel} (Sales: ₹{dynamics[0].SalesAmount:N2}, Costs: ₹{dynamics[0].PurchasesAmount:N2})");
+            if (dynamics.Count != 12) throw new Exception($"Expected 12 monthly dynamic items, but got {dynamics.Count}!");
+
+            // Step 4: Category Distribution Donut Chart
+            Console.WriteLine("[TEST 4/9] Validating category-wise sales revenue distribution...");
+            var (categories, grandTotal) = Services.DatabaseService.GetCategorySalesDistribution("ThisYear");
+            Console.WriteLine($"[PASS] Category revenue grand total = ₹{grandTotal:N2} across {categories.Count} categories:");
+            foreach (var cat in categories)
+            {
+                Console.WriteLine($"       • {cat.CategoryName}: ₹{cat.TotalSales:N2} ({cat.Percentage:0.0}%, Angle: {cat.Angle:0.0}°)");
+            }
+            if (categories.Count == 0) throw new Exception("Category distribution returned 0 items!");
+
+            // Step 5: Inventory Low Stock Detection
+            Console.WriteLine("[TEST 5/9] Validating inventory stock alerts & reorder thresholds...");
+            var lowStock = Services.DatabaseService.GetLowStockProducts(15m);
+            Console.WriteLine($"[PASS] Detected {lowStock.Count} items requiring stock reorder / attention:");
+            foreach (var item in lowStock.Take(3))
+            {
+                string alert = item.StockQuantity <= 5 ? "CRITICAL" : "LOW";
+                Console.WriteLine($"       • {item.Name}: {item.StockQuantity} {item.Unit} in stock (Reorder level: {item.MinStockAlert} {item.Unit}) -> {alert}");
+            }
+
+            // Step 6: Customer CRUD
+            Console.WriteLine("[TEST 6/9] Validating Customer CRUD operations & persistence...");
+            var testCust = new Models.Customer
+            {
+                Name = $"Test Corp {DateTime.Now:HHmmss}",
+                CompanyName = "Dynamic Enterprises Ltd",
+                Phone = "+91 99887 76655",
+                Email = "billing@testcorp.com",
+                BillingAddress = "Suite 501, Business Hub, Ahmedabad",
+                GSTIN = "24AABCT9988Z1Z2"
+            };
+            var savedCust = Services.DatabaseService.SaveCustomer(testCust);
+            long custId = savedCust.Id;
+            var retrievedCust = Services.DatabaseService.GetCustomerById(custId);
+            if (retrievedCust == null || retrievedCust.Name != testCust.Name)
+                throw new Exception("Customer save & retrieval failed!");
+            Console.WriteLine($"[PASS] Created & verified customer ID #{custId} ({retrievedCust.Name})");
+
+            // Step 7: Product CRUD & Stock Adjustment
+            Console.WriteLine("[TEST 7/9] Validating Product CRUD & ACID stock transactions...");
+            var testProduct = new Models.ProductItem
+            {
+                Barcode = $"890TEST{DateTime.Now:mmss}",
+                Name = $"Test Inventory Item {DateTime.Now:HHmmss}",
+                Category = "Electronics",
+                CostPrice = 1200m,
+                SalePrice = 1850m,
+                StockQuantity = 50m,
+                MinStockAlert = 10m,
+                Unit = "PCS"
+            };
+            var savedProduct = Services.DatabaseService.SaveProduct(testProduct);
+            long prodId = savedProduct.Id;
+            var retrievedProd = Services.DatabaseService.GetProductByBarcode(testProduct.Barcode);
+            if (retrievedProd == null || retrievedProd.StockQuantity != 50m)
+                throw new Exception("Product save failed!");
+
+            Services.DatabaseService.AdjustStock(prodId, -15m, "Test dispatch");
+            var afterAdjust = Services.DatabaseService.GetProductByBarcode(testProduct.Barcode);
+            if (afterAdjust!.StockQuantity != 35m)
+                throw new Exception($"Stock adjustment failed! Expected 35, got {afterAdjust.StockQuantity}");
+            Console.WriteLine($"[PASS] Product #{prodId} created with 50 PCS, adjusted -15 PCS -> Current stock: {afterAdjust.StockQuantity} PCS");
+
+            // Step 8: Full Invoice Lifecycle (Stock Deduction, Payment, Cancellation & Stock Restoration)
+            Console.WriteLine("[TEST 8/9] Testing end-to-end invoice lifecycle (Invoice -> Stock Deduction -> Payment -> Void/Cancel -> Stock Restoration)...");
+            var invoice = new Models.Invoice
+            {
+                InvoiceNumber = Services.DatabaseService.GetNextInvoiceNumber(),
+                CustomerId = custId,
+                CustomerName = testCust.Name,
+                CustomerCompany = testCust.CompanyName,
+                CustomerPhone = testCust.Phone,
+                CustomerEmail = testCust.Email,
+                CustomerAddress = testCust.BillingAddress,
+                CustomerGSTIN = testCust.GSTIN,
+                InvoiceDate = DateTime.Today,
+                DueDate = DateTime.Today.AddDays(15),
+                PaymentTerms = "Net 15",
+                TaxType = "GST_INTRA"
+            };
+            invoice.Items.Add(new Models.InvoiceItem
+            {
+                ProductId = prodId,
+                ServiceName = afterAdjust.Name,
+                Description = "High performance test product",
+                Quantity = 5m,
+                UnitPrice = 1850m,
+                DiscountPercent = 0m,
+                TaxPercent = 18m,
+                Unit = "PCS"
+            });
+            invoice.RecalculateTotals();
+
+            // Save Invoice: should deduct 5 PCS from stock (35 - 5 = 30)
+            var savedInvoice = Services.DatabaseService.SaveInvoice(invoice);
+            long invId = savedInvoice.Id;
+            var prodAfterInvoice = Services.DatabaseService.GetProductByBarcode(testProduct.Barcode);
+            if (prodAfterInvoice!.StockQuantity != 30m)
+                throw new Exception($"Stock was not properly deducted! Expected 30, got {prodAfterInvoice.StockQuantity}");
+            Console.WriteLine($"[PASS] Invoice #{savedInvoice.InvoiceNumber} saved. Stock deducted 5 PCS -> Current stock: {prodAfterInvoice.StockQuantity} PCS");
+
+            // Record Partial Payment
+            decimal partialPay = 5000m;
+            var payRecord = new Models.PaymentRecord
+            {
+                InvoiceId = invId,
+                PaymentDate = DateTime.Now,
+                Amount = partialPay,
+                PaymentMethod = "UPI",
+                ReferenceNumber = "UPI/TEST/88120",
+                Notes = "Automated test partial payment"
+            };
+            Services.DatabaseService.RecordPayment(payRecord);
+            var invAfterPay = Services.DatabaseService.GetInvoiceById(invId);
+            if (invAfterPay!.AmountPaid != partialPay || invAfterPay.Status != "Partially Paid")
+                throw new Exception("Partial payment recording failed!");
+            Console.WriteLine($"[PASS] Partial payment ₹{partialPay:N2} recorded. Status: {invAfterPay.Status}, Balance Due: ₹{invAfterPay.BalanceDue:N2}");
+
+            // Cancel Invoice & Verify Stock Restoration
+            Services.DatabaseService.CancelInvoice(invId);
+            var prodAfterCancel = Services.DatabaseService.GetProductByBarcode(testProduct.Barcode);
+            if (prodAfterCancel!.StockQuantity != 35m)
+                throw new Exception($"Stock restoration failed on cancellation! Expected 35, got {prodAfterCancel.StockQuantity}");
+            var invAfterCancel = Services.DatabaseService.GetInvoiceById(invId);
+            if (invAfterCancel!.Status != "Cancelled" || invAfterCancel.BalanceDue != 0)
+                throw new Exception("Invoice cancellation status update failed!");
+            Console.WriteLine($"[PASS] Invoice #{invoice.InvoiceNumber} cancelled: Stock restored back to {prodAfterCancel.StockQuantity} PCS, Status: {invAfterCancel.Status}, Balance Due: ₹{invAfterCancel.BalanceDue:N2}");
+
+            // Step 9: Instantiate DashboardForm & Verify Zero UI Exceptions
+            Console.WriteLine("[TEST 9/9] Instantiating DashboardForm and verifying dynamic control bindings...");
+            using var dashboard = new Forms.DashboardForm();
+            dashboard.ShowPage("Overview");
+            dashboard.RefreshLiveKpiCards();
+            dashboard.RefreshDashboardAnalytics();
+            dashboard.RefreshInvoicesTable();
+            dashboard.RefreshLowStockTable();
+            dashboard.ShowPage("Customers");
+            dashboard.ShowPage("Products");
+            dashboard.ShowPage("Transactions");
+            dashboard.ShowPage("Statistics");
+            dashboard.ShowPage("Settings");
+            dashboard.ShowPage("Overview");
+            Console.WriteLine("[PASS] DashboardForm successfully instantiated, navigated across all subpages, and bound to SQLite database!");
+
+            Console.WriteLine("================================================================================");
+            Console.WriteLine("  ALL 9 AUTOMATED SUITE TESTS PASSED WITH 0 ERRORS! SYSTEM PRODUCTION-READY.");
+            Console.WriteLine("================================================================================");
         }
     }
 

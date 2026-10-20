@@ -27,6 +27,7 @@ namespace PROJECT_SBV1.Models
         public decimal SalePrice { get; set; } = 0m;
         public decimal StockQuantity { get; set; } = 0m;
         public decimal TaxRate { get; set; } = 18m;
+        public decimal MinStockAlert { get; set; } = 10m;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         public string DisplayText => $"{Name} [Barcode: {Barcode}] (Rate: ₹{SalePrice:N2} | Stock: {StockQuantity} {Unit})";
@@ -267,5 +268,34 @@ namespace PROJECT_SBV1.Models
         public int PaidInvoices => PaidInvoicesCount;
         public int UnpaidInvoices => UnpaidInvoicesCount;
         public int TotalCustomers { get; set; } = 0;
+    }
+
+    public class MonthlySalesBarItem
+    {
+        public string MonthLabel { get; set; } = string.Empty;
+        public int MonthNumber { get; set; }
+        public decimal SalesAmount { get; set; } = 0m;
+        public decimal PurchasesAmount { get; set; } = 0m;
+    }
+
+    public class CategorySalesDistribution
+    {
+        public string CategoryName { get; set; } = string.Empty;
+        public decimal TotalSales { get; set; } = 0m;
+        public double Percentage { get; set; } = 0;
+        public float Angle { get; set; } = 0f;
+    }
+
+    public class PaymentTransactionItem
+    {
+        public long Id { get; set; }
+        public long InvoiceId { get; set; }
+        public string InvoiceNumber { get; set; } = string.Empty;
+        public string CustomerName { get; set; } = string.Empty;
+        public DateTime PaymentDate { get; set; } = DateTime.Now;
+        public decimal Amount { get; set; } = 0m;
+        public string PaymentMethod { get; set; } = "Bank Transfer";
+        public string ReferenceNumber { get; set; } = string.Empty;
+        public string Notes { get; set; } = string.Empty;
     }
 }
