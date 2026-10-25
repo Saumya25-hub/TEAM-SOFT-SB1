@@ -107,6 +107,8 @@ namespace PROJECT_SBV1.Forms
 
         private SalesBillingModuleControl? _salesModule;
         public SalesBillingModuleControl? SalesModule => _salesModule;
+        private SettingsModuleControl? _settingsModule;
+        public SettingsModuleControl? SettingsModule => _settingsModule;
         private SalesDashboardMetrics? _currentMetrics;
         private readonly (string Title, string Value, string Subtitle, Color StatusCol, ReiconRenderer.IconType Icon)[] _kpiCardData = new (string, string, string, Color, ReiconRenderer.IconType)[6];
 
@@ -541,6 +543,7 @@ namespace PROJECT_SBV1.Forms
                 if (pnlTransPage != null) pnlTransPage.BackColor = pageBg;
 
                 _salesModule?.ApplyTheme();
+                _settingsModule?.ApplyTheme();
 
                 headerTitle.TitleColor    = textDark;
                 headerTitle.SubtitleColor = textMid;
@@ -2197,7 +2200,7 @@ namespace PROJECT_SBV1.Forms
                 "Statistics" => "Comprehensive revenue analysis & printable financial report",
                 "Purchases" => "Vendor purchase bills, stock addition & payables tracking",
                 "Suppliers" => "Vendor catalog, payables ledgers & procurement contacts",
-                "Settings" => "Business profile, GSTIN, payment details & database backup",
+                "Settings" => "Preferences, company profile, GST, security, backup & integrations",
                 _ => "Manage and monitor your business operations"
             };
 
@@ -2235,6 +2238,10 @@ namespace PROJECT_SBV1.Forms
             else if (page == "Statistics")
             {
                 RefreshStatisticsPage();
+            }
+            else if (page == "Settings")
+            {
+                _settingsModule?.RefreshAllSettings();
             }
 
             pnlSidebar.Invalidate(true);
@@ -2870,132 +2877,20 @@ namespace PROJECT_SBV1.Forms
             pnlSettings.Dock = DockStyle.Fill;
             pnlSettings.Visible = false;
             pnlSettings.BackColor = C_PageBg;
-            pnlSettings.AutoScroll = true;
-            pnlSettings.Padding = new Padding(32);
+            pnlSettings.AutoScroll = false;
+            pnlSettings.Padding = new Padding(0);
+            pnlSettings.Controls.Clear();
 
-            var pnlBox = new Panel
+            _settingsModule = new SettingsModuleControl();
+            _settingsModule.Dock = DockStyle.Fill;
+            _settingsModule.SettingsSaved += () =>
             {
-                Width = 720,
-                Height = 650,
-                Location = new Point(24, 20),
-                BackColor = C_CardBg,
-                Padding = new Padding(24)
+                var profile = DatabaseService.GetBusinessProfile();
+                lblSidebarBrand.Text = !string.IsNullOrWhiteSpace(profile.BusinessName) ? profile.BusinessName : "TEAM SOFT";
+                ApplyThemeFast();
             };
 
-            pnlBox.Paint += (s, e) =>
-            {
-                var g = e.Graphics;
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, pnlBox.Width - 1, pnlBox.Height - 1, 12);
-                using var pen = new Pen(C_Border, 1.2f);
-                g.DrawPath(pen, path);
-            };
-
-            var profile = DatabaseService.GetBusinessProfile();
-
-            int y = 20;
-            var lblTitle = new Label { Text = "Business Profile & System Settings", Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y, 600, 30) };
-            pnlBox.Controls.Add(lblTitle);
-            y += 45;
-
-            var txtName = new TextBox { Text = profile.BusinessName, Bounds = new Rectangle(200, y, 480, 28), Font = new Font("Segoe UI", 9.5f) };
-            pnlBox.Controls.Add(new Label { Text = "Business Name *", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
-            pnlBox.Controls.Add(txtName);
-            y += 44;
-
-            var txtPhone = new TextBox { Text = profile.Phone, Bounds = new Rectangle(200, y, 480, 28), Font = new Font("Segoe UI", 9.5f) };
-            pnlBox.Controls.Add(new Label { Text = "Contact Phone *", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
-            pnlBox.Controls.Add(txtPhone);
-            y += 44;
-
-            var txtEmail = new TextBox { Text = profile.Email, Bounds = new Rectangle(200, y, 480, 28), Font = new Font("Segoe UI", 9.5f) };
-            pnlBox.Controls.Add(new Label { Text = "Email Address *", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
-            pnlBox.Controls.Add(txtEmail);
-            y += 44;
-
-            var txtGSTIN = new TextBox { Text = profile.GSTIN, Bounds = new Rectangle(200, y, 480, 28), Font = new Font("Segoe UI", 9.5f) };
-            pnlBox.Controls.Add(new Label { Text = "GSTIN / Tax ID", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
-            pnlBox.Controls.Add(txtGSTIN);
-            y += 44;
-
-            var txtAddress = new TextBox { Text = profile.Address, Bounds = new Rectangle(200, y, 480, 50), Multiline = true, Font = new Font("Segoe UI", 9.5f) };
-            pnlBox.Controls.Add(new Label { Text = "Billing Address", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
-            pnlBox.Controls.Add(txtAddress);
-            y += 66;
-
-            var txtUPI = new TextBox { Text = profile.UPIId, Bounds = new Rectangle(200, y, 480, 28), Font = new Font("Segoe UI", 9.5f) };
-            pnlBox.Controls.Add(new Label { Text = "UPI ID for Payments", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
-            pnlBox.Controls.Add(txtUPI);
-            y += 44;
-
-            var txtBank = new TextBox { Text = profile.BankDetails, Bounds = new Rectangle(200, y, 480, 28), Font = new Font("Segoe UI", 9.5f) };
-            pnlBox.Controls.Add(new Label { Text = "Bank Details", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
-            pnlBox.Controls.Add(txtBank);
-            y += 44;
-
-            var txtTerms = new TextBox { Text = profile.DefaultTerms, Bounds = new Rectangle(200, y, 480, 50), Multiline = true, Font = new Font("Segoe UI", 9.5f) };
-            pnlBox.Controls.Add(new Label { Text = "Default Terms & Cond.", Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = C_TextDark, Bounds = new Rectangle(24, y + 4, 170, 24) });
-            pnlBox.Controls.Add(txtTerms);
-            y += 66;
-
-            var btnSave = new Button
-            {
-                Text = "Save Business Settings",
-                BackColor = C_Blue,
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
-                Cursor = Cursors.Hand,
-                Bounds = new Rectangle(200, y, 220, 38)
-            };
-            btnSave.FlatAppearance.BorderSize = 0;
-            btnSave.Click += (s, e) =>
-            {
-                profile.BusinessName = txtName.Text.Trim();
-                profile.Phone = txtPhone.Text.Trim();
-                profile.Email = txtEmail.Text.Trim();
-                profile.GSTIN = txtGSTIN.Text.Trim();
-                profile.Address = txtAddress.Text.Trim();
-                profile.UPIId = txtUPI.Text.Trim();
-                profile.BankDetails = txtBank.Text.Trim();
-                profile.DefaultTerms = txtTerms.Text.Trim();
-
-                DatabaseService.SaveBusinessProfile(profile);
-                MessageBox.Show("Business profile and settings have been saved to database successfully!", "Settings Saved — S TOM'S", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            };
-
-            var btnBackup = new Button
-            {
-                Text = "Backup Database",
-                BackColor = ThemeManager.IsDarkMode ? Color.FromArgb(40, 44, 60) : Color.FromArgb(241, 245, 249),
-                ForeColor = C_TextDark,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 10f),
-                Cursor = Cursors.Hand,
-                Bounds = new Rectangle(435, y, 180, 38)
-            };
-            btnBackup.FlatAppearance.BorderColor = C_Border;
-            btnBackup.Click += (s, e) =>
-            {
-                try
-                {
-                    string docDir = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                    string target = System.IO.Path.Combine(docDir, $"TEAMSOFT_Backup_{DateTime.Now:yyyyMMdd_HHmmss}.db");
-                    string dbPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TEAMSOFT", "teamsoft_sales.db");
-                    if (System.IO.File.Exists(dbPath))
-                    {
-                        System.IO.File.Copy(dbPath, target, true);
-                        MessageBox.Show($"SQLite Database backup created successfully!\n\nLocation:\n{target}", "Database Backup Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Backup error: {ex.Message}", "Backup Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            };
-
-            pnlBox.Controls.AddRange(new Control[] { btnSave, btnBackup });
-            pnlSettings.Controls.Add(pnlBox);
+            pnlSettings.Controls.Add(_settingsModule);
             pnlContentHost.Controls.Add(pnlSettings);
         }
 

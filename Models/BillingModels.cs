@@ -13,6 +13,15 @@ namespace PROJECT_SBV1.Models
         public string DefaultTerms { get; set; } = "Payment due within 15 days of invoice date. Late payments attract 1.5% interest per month.";
         public string UPIId { get; set; } = "teamsoft@icici";
         public string BankDetails { get; set; } = "HDFC Bank | A/C: 50200088912344 | IFSC: HDFC0001025";
+        public string LogoPath { get; set; } = "";
+        public string Website { get; set; } = "https://teamsoft.in";
+        public string AuthorizedSignatory { get; set; } = "Saumya Chaudhari";
+        public string SignatoryTitle { get; set; } = "Lead Architect & Director";
+        public string InvoiceFooter { get; set; } = "Thank you for choosing TEAM SOFT. Computer generated invoice, signature not required.";
+        public string BankName { get; set; } = "HDFC Bank";
+        public string AccountNumber { get; set; } = "50200088912344";
+        public string IFSCCode { get; set; } = "HDFC0001025";
+        public string BranchName { get; set; } = "SG Highway, Ahmedabad";
     }
 
     public class ProductItem

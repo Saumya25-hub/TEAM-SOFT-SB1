@@ -63,6 +63,11 @@ namespace PROJECT_SBV1.Services
         /// <summary>
         /// Applies the standardized table design to the specified DataGridView.
         /// </summary>
+        public static void ApplyStandardStyle(DataGridView dgv, TableStyleOptions? options = null) => ApplyStandardGrid(dgv, options);
+
+        /// <summary>
+        /// Applies the standardized table design to the specified DataGridView.
+        /// </summary>
         public static void ApplyStandardGrid(DataGridView dgv, TableStyleOptions? options = null)
         {
             if (dgv == null) return;

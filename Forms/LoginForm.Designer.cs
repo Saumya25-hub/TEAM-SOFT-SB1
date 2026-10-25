@@ -245,10 +245,8 @@ namespace PROJECT_SBV1.Forms
                 string username = txtUser.Text.Trim();
                 string password = txtPass.Text;
 
-                // Hardcoded default credentials verification
-                bool isValid = (string.Equals(username, "admin", System.StringComparison.OrdinalIgnoreCase) ||
-                                string.Equals(username, "admin@sb1.com", System.StringComparison.OrdinalIgnoreCase)) &&
-                               password == "admin123";
+                // Database-backed verification with SHA-256 hash & fallback
+                bool isValid = PROJECT_SBV1.Services.DatabaseService.VerifyUserCredentials(username, password);
 
                 if (isValid)
                 {

@@ -116,13 +116,96 @@ namespace PROJECT_SBV1.Services
             ? Color.FromArgb(161, 165, 179)
             : Color.FromArgb(123, 129, 144);
 
-        public static Color PrimaryAccent => _isDarkMode
-            ? Color.FromArgb(102, 135, 255)
-            : Color.FromArgb(65, 105, 245);
+        private static string _accentColorName = "RoyalBlue";
+        private static string _themeMode = "Light"; // "Light", "Dark", "System"
+        private static string _uiDensity = "Comfortable";
 
-        public static Color AccentHover => _isDarkMode
-            ? Color.FromArgb(124, 155, 255)
-            : Color.FromArgb(50, 85, 209);
+        public static string AccentColorName
+        {
+            get => _accentColorName;
+            set
+            {
+                if (_accentColorName != value)
+                {
+                    _accentColorName = value;
+                    SaveTheme();
+                    ThemeChanged?.Invoke();
+                }
+            }
+        }
+
+        public static string ThemeMode
+        {
+            get => _themeMode;
+            set
+            {
+                _themeMode = value;
+                if (value == "Dark")
+                {
+                    IsDarkMode = true;
+                }
+                else if (value == "Light")
+                {
+                    IsDarkMode = false;
+                }
+                else // System
+                {
+                    try
+                    {
+                        using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+                        var val = key?.GetValue("AppsUseLightTheme");
+                        IsDarkMode = (val != null && Convert.ToInt32(val) == 0);
+                    }
+                    catch
+                    {
+                        IsDarkMode = false;
+                    }
+                }
+            }
+        }
+
+        public static string UiDensity
+        {
+            get => _uiDensity;
+            set
+            {
+                if (_uiDensity != value)
+                {
+                    _uiDensity = value;
+                    ThemeChanged?.Invoke();
+                }
+            }
+        }
+
+        public static Color PrimaryAccent
+        {
+            get
+            {
+                return _accentColorName switch
+                {
+                    "Indigo" => _isDarkMode ? Color.FromArgb(129, 140, 248) : Color.FromArgb(99, 102, 241),
+                    "Emerald" => _isDarkMode ? Color.FromArgb(52, 211, 153) : Color.FromArgb(16, 185, 129),
+                    "Crimson" => _isDarkMode ? Color.FromArgb(248, 113, 113) : Color.FromArgb(239, 68, 68),
+                    "Amber" => _isDarkMode ? Color.FromArgb(251, 191, 36) : Color.FromArgb(245, 158, 11),
+                    _ => _isDarkMode ? Color.FromArgb(102, 135, 255) : Color.FromArgb(65, 105, 245)
+                };
+            }
+        }
+
+        public static Color AccentHover
+        {
+            get
+            {
+                return _accentColorName switch
+                {
+                    "Indigo" => _isDarkMode ? Color.FromArgb(165, 180, 252) : Color.FromArgb(79, 70, 229),
+                    "Emerald" => _isDarkMode ? Color.FromArgb(110, 231, 183) : Color.FromArgb(5, 150, 105),
+                    "Crimson" => _isDarkMode ? Color.FromArgb(252, 165, 165) : Color.FromArgb(220, 38, 38),
+                    "Amber" => _isDarkMode ? Color.FromArgb(253, 230, 138) : Color.FromArgb(217, 119, 6),
+                    _ => _isDarkMode ? Color.FromArgb(124, 155, 255) : Color.FromArgb(50, 85, 209)
+                };
+            }
+        }
 
         public static Color NavHover => _isDarkMode
             ? Color.FromArgb(37, 40, 54)

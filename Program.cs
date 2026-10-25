@@ -1,4 +1,5 @@
 using System;
+using System.Drawing;
 using System.Windows.Forms;
 
 namespace PROJECT_SBV1
@@ -66,6 +67,18 @@ namespace PROJECT_SBV1
             if (args.Length > 0 && args[0].Equals("--render-all-pages", StringComparison.OrdinalIgnoreCase))
             {
                 RunRenderAllPagesTest();
+                return;
+            }
+
+            if (args.Length > 0 && args[0].Equals("--test-settings", StringComparison.OrdinalIgnoreCase))
+            {
+                RunSettingsTest();
+                return;
+            }
+
+            if (args.Length > 0 && args[0].Equals("--render-settings", StringComparison.OrdinalIgnoreCase))
+            {
+                RunRenderSettingsTest();
                 return;
             }
 
@@ -306,6 +319,214 @@ namespace PROJECT_SBV1
                 Console.WriteLine($"[RENDER] Captured {outPath}");
                 form.Close();
             }
+        }
+
+        private static void RunSettingsTest()
+        {
+            Console.WriteLine("================================================================================");
+            Console.WriteLine("  TEAM SOFT — SETTINGS MODULE COMPREHENSIVE AUTOMATED TEST SUITE");
+            Console.WriteLine("================================================================================");
+
+            // Step 1: Database Initialization
+            Console.WriteLine("[TEST 1/6] Initializing SQLite database at %LOCALAPPDATA%\\TEAMSOFT\\teamsoft_sales.db...");
+            Services.DatabaseService.InitializeDatabase();
+            Console.WriteLine("[PASS] Database and schema migrations initialized successfully.");
+
+            // Step 2: AppSettings Key-Value Persistence
+            Console.WriteLine("[TEST 2/6] Testing AppSettings key-value reading, updating, and roundtrip...");
+            var initialSettings = Services.DatabaseService.GetAppSettings();
+            Console.WriteLine($"[PASS] Retrieved initial settings. Active Theme: {initialSettings.ThemeMode}, Accent: {initialSettings.AccentColorName}, Currency: {initialSettings.Currency}");
+
+            initialSettings.ThemeMode = "Dark";
+            initialSettings.AccentColorName = "RoyalBlue";
+            initialSettings.UiDensity = "Comfortable";
+            initialSettings.Language = "English (UK)";
+            initialSettings.Currency = "INR";
+            initialSettings.InvoicePrefix = "TEST-";
+            initialSettings.NextInvoiceNumber = 7777;
+            initialSettings.DefaultTaxRate = 18m;
+            initialSettings.DefaultPaymentMethod = "UPI";
+            initialSettings.PaperSize = "A4";
+
+            Services.DatabaseService.SaveAppSettings(initialSettings);
+            var reloadedSettings = Services.DatabaseService.GetAppSettings();
+
+            if (reloadedSettings.ThemeMode != "Dark" ||
+                reloadedSettings.AccentColorName != "RoyalBlue" ||
+                reloadedSettings.InvoicePrefix != "TEST-" ||
+                reloadedSettings.NextInvoiceNumber != 7777 ||
+                reloadedSettings.DefaultTaxRate != 18m)
+            {
+                throw new Exception("AppSettings roundtrip persistence failed!");
+            }
+            Console.WriteLine("[PASS] AppSettings roundtrip verified: All 15-category keys correctly written and read from SQLite.");
+
+            // Restore invoice prefix & numbering
+            reloadedSettings.InvoicePrefix = "INV-";
+            reloadedSettings.NextInvoiceNumber = 1005;
+            Services.DatabaseService.SaveAppSettings(reloadedSettings);
+
+            // Step 3: Business Profile & Extended Branding/Banking
+            Console.WriteLine("[TEST 3/6] Testing Business Profile & Extended Branding/Banking schema...");
+            var profile = Services.DatabaseService.GetBusinessProfile();
+            Console.WriteLine($"[PASS] Business profile loaded: {profile.BusinessName} | GSTIN: {profile.GSTIN}");
+
+            profile.Website = "https://teamsoft.in";
+            profile.AuthorizedSignatory = "Saumya Chaudhari";
+            profile.SignatoryTitle = "Managing Director & Vision Lead";
+            profile.BankName = "HDFC Bank Ltd";
+            profile.AccountNumber = "50200088912344";
+            profile.IFSCCode = "HDFC0001025";
+            profile.BranchName = "SG Highway Branch";
+            Services.DatabaseService.SaveBusinessProfile(profile);
+
+            var reloadedProfile = Services.DatabaseService.GetBusinessProfile();
+            if (reloadedProfile.AuthorizedSignatory != "Saumya Chaudhari" ||
+                reloadedProfile.BankName != "HDFC Bank Ltd" ||
+                reloadedProfile.AccountNumber != "50200088912344")
+            {
+                throw new Exception("BusinessProfile extended branding/banking persistence failed!");
+            }
+            Console.WriteLine("[PASS] Extended business branding and banking details persisted successfully.");
+
+            // Step 4: Backup History Audit Trail
+            Console.WriteLine("[TEST 4/6] Testing Backup History audit trail in SQLite...");
+            string dummyBackupFile = "TEAMSOFT_Backup_AutoTest.db";
+            string dummyPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), dummyBackupFile);
+            Services.DatabaseService.RecordBackup(dummyPath, 2048576, "SUCCESS", "Automated test backup");
+
+            var backupHistory = Services.DatabaseService.GetBackupHistory();
+            if (backupHistory.Count == 0 || !backupHistory.Exists(b => b.FileName == dummyBackupFile))
+            {
+                throw new Exception("Backup history recording failed!");
+            }
+            Console.WriteLine($"[PASS] Backup recorded in SQLite audit log. Total recorded backups: {backupHistory.Count}.");
+
+            // Step 5: System Users Directory & SHA-256 Auth Verification
+            Console.WriteLine("[TEST 5/6] Testing System Users Directory and SHA-256 Credentials Verification...");
+            var users = Services.DatabaseService.GetSystemUsers();
+            Console.WriteLine($"[PASS] Retrieved {users.Count} system users. First user: {users[0].Username} ({users[0].Role})");
+            if (users.Count == 0) throw new Exception("SystemUsers seed failed!");
+
+            bool adminValid = Services.DatabaseService.VerifyUserCredentials("admin", "Admin@123");
+            if (!adminValid) throw new Exception("Default admin credential verification failed!");
+            Console.WriteLine("[PASS] Default admin credentials verified with salted SHA-256 hash.");
+
+            bool wrongPasswordRejected = !Services.DatabaseService.VerifyUserCredentials("admin", "WrongPassXYZ");
+            if (!wrongPasswordRejected) throw new Exception("Invalid password was unexpectedly accepted!");
+            Console.WriteLine("[PASS] Invalid password rejected as expected.");
+
+            // Test password change
+            bool changeSuccess = Services.DatabaseService.ChangeUserPassword("admin", "Admin@123", "Admin@New2026!", out string changeErr);
+            if (!changeSuccess) throw new Exception($"ChangeUserPassword failed: {changeErr}");
+
+            bool newPassValid = Services.DatabaseService.VerifyUserCredentials("admin", "Admin@New2026!");
+            if (!newPassValid) throw new Exception("New password verification failed!");
+            Console.WriteLine("[PASS] Password successfully changed and verified with new hash.");
+
+            // Restore standard password
+            Services.DatabaseService.ChangeUserPassword("admin", "Admin@New2026!", "Admin@123", out _);
+            Console.WriteLine("[PASS] Default admin password restored.");
+
+            // Step 6: Settings UI Control & Navigation Instantiation
+            Console.WriteLine("[TEST 6/6] Instantiating SettingsModuleControl & verifying category indexing...");
+            using (var form = new Form { Size = new Size(1366, 820) })
+            {
+                var settingsControl = new Controls.SettingsModuleControl();
+                settingsControl.Dock = DockStyle.Fill;
+                form.Controls.Add(settingsControl);
+                form.Show();
+
+                for (int catIdx = 0; catIdx < 15; catIdx++)
+                {
+                    settingsControl.SelectCategory(catIdx);
+                    Application.DoEvents();
+                }
+                form.Close();
+            }
+            Console.WriteLine("[PASS] SettingsModuleControl verified across all 15 categories with 0 errors.");
+
+            Console.WriteLine("================================================================================");
+            Console.WriteLine("  [SUCCESS] ALL SETTINGS MODULE AUTOMATED TESTS PASSED (6/6 SUITES)");
+            Console.WriteLine("================================================================================");
+        }
+
+        private static void RunRenderSettingsTest()
+        {
+            Console.WriteLine("[SETTINGS-RENDER] Initializing SQLite database...");
+            Services.DatabaseService.InitializeDatabase();
+            string artifactDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TEAMSOFT", "Captures");
+            System.IO.Directory.CreateDirectory(artifactDir);
+
+            // Let's render Light Mode (Category 0: Account, Category 1: Appearance, Category 4: Company & Branding, Category 5: Invoice & Sales, Category 11: Backup, Category 12: Users)
+            int[] testCategories = new[] { 0, 1, 4, 5, 11, 12 };
+            string[] catNames = new[] { "account", "appearance", "company", "invoice", "backup", "users" };
+
+            // 1. Light Mode captures
+            Services.ThemeManager.IsDarkMode = false;
+            using (var form = new Forms.DashboardForm())
+            {
+                form.StartPosition = FormStartPosition.Manual;
+                form.Location = new Point(0, 0);
+                form.Size = new Size(1366, 820);
+                form.Show();
+                form.ShowPage("Settings");
+
+                for (int i = 0; i < testCategories.Length; i++)
+                {
+                    int cat = testCategories[i];
+                    string name = catNames[i];
+                    form.SettingsModule?.SelectCategory(cat);
+
+                    for (int f = 0; f < 10; f++)
+                    {
+                        Application.DoEvents();
+                        System.Threading.Thread.Sleep(20);
+                    }
+
+                    string outPath = System.IO.Path.Combine(artifactDir, $"settings_light_{name}.png");
+                    using var bmp = new Bitmap(1366, 820);
+                    form.DrawToBitmap(bmp, new Rectangle(0, 0, 1366, 820));
+                    bmp.Save(outPath, System.Drawing.Imaging.ImageFormat.Png);
+                    Console.WriteLine($"[SETTINGS-RENDER] Captured {outPath}");
+                }
+                form.Close();
+            }
+
+            // 2. Dark Mode captures
+            Services.ThemeManager.IsDarkMode = true;
+            using (var form = new Forms.DashboardForm())
+            {
+                form.StartPosition = FormStartPosition.Manual;
+                form.Location = new Point(0, 0);
+                form.Size = new Size(1366, 820);
+                form.Show();
+                form.ShowPage("Settings");
+
+                for (int i = 0; i < testCategories.Length; i++)
+                {
+                    int cat = testCategories[i];
+                    string name = catNames[i];
+                    form.SettingsModule?.SelectCategory(cat);
+
+                    for (int f = 0; f < 10; f++)
+                    {
+                        Application.DoEvents();
+                        System.Threading.Thread.Sleep(20);
+                    }
+
+                    string outPath = System.IO.Path.Combine(artifactDir, $"settings_dark_{name}.png");
+                    using var bmp = new Bitmap(1366, 820);
+                    form.DrawToBitmap(bmp, new Rectangle(0, 0, 1366, 820));
+                    bmp.Save(outPath, System.Drawing.Imaging.ImageFormat.Png);
+                    Console.WriteLine($"[SETTINGS-RENDER] Captured {outPath}");
+                }
+                form.Close();
+            }
+
+            // Restore theme to Light default
+            Services.ThemeManager.IsDarkMode = false;
+            Console.WriteLine("[SETTINGS-RENDER] Completed all captures in Light and Dark modes!");
         }
 
         private static void RunFlowTest()

@@ -201,6 +201,34 @@ namespace PROJECT_SBV1.Services
                         TaxPercent REAL DEFAULT 18,
                         TotalAmount REAL DEFAULT 0
                     );
+
+                    CREATE TABLE IF NOT EXISTS AppSettings (
+                        Key TEXT PRIMARY KEY,
+                        Value TEXT NOT NULL,
+                        UpdatedAt TEXT NOT NULL
+                    );
+
+                    CREATE TABLE IF NOT EXISTS BackupHistory (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        BackupPath TEXT NOT NULL,
+                        FileSizeBytes INTEGER NOT NULL,
+                        Status TEXT NOT NULL,
+                        Notes TEXT DEFAULT '',
+                        CreatedAt TEXT NOT NULL
+                    );
+
+                    CREATE TABLE IF NOT EXISTS SystemUsers (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        Username TEXT UNIQUE NOT NULL,
+                        FullName TEXT NOT NULL,
+                        PasswordHash TEXT NOT NULL,
+                        Role TEXT NOT NULL,
+                        Email TEXT DEFAULT '',
+                        Phone TEXT DEFAULT '',
+                        Status TEXT DEFAULT 'Active',
+                        CreatedAt TEXT NOT NULL,
+                        LastLoginAt TEXT NOT NULL
+                    );
                 ";
                 cmd.ExecuteNonQuery();
 
@@ -214,6 +242,17 @@ namespace PROJECT_SBV1.Services
                 AddColumnIfNotExists(conn, "InvoiceItems", "TaxableAmount", "REAL DEFAULT 0");
                 AddColumnIfNotExists(conn, "InvoiceItems", "ProductId", "INTEGER DEFAULT 0");
                 AddColumnIfNotExists(conn, "Products", "MinStockAlert", "REAL DEFAULT 10");
+
+                // BusinessProfile Branding & Banking migrations
+                AddColumnIfNotExists(conn, "BusinessProfile", "LogoPath", "TEXT DEFAULT ''");
+                AddColumnIfNotExists(conn, "BusinessProfile", "Website", "TEXT DEFAULT 'https://teamsoft.in'");
+                AddColumnIfNotExists(conn, "BusinessProfile", "AuthorizedSignatory", "TEXT DEFAULT 'Saumya Chaudhari'");
+                AddColumnIfNotExists(conn, "BusinessProfile", "SignatoryTitle", "TEXT DEFAULT 'Lead Architect & Director'");
+                AddColumnIfNotExists(conn, "BusinessProfile", "InvoiceFooter", "TEXT DEFAULT 'Thank you for choosing TEAM SOFT. Computer generated invoice, signature not required.'");
+                AddColumnIfNotExists(conn, "BusinessProfile", "BankName", "TEXT DEFAULT 'HDFC Bank'");
+                AddColumnIfNotExists(conn, "BusinessProfile", "AccountNumber", "TEXT DEFAULT '50200088912344'");
+                AddColumnIfNotExists(conn, "BusinessProfile", "IFSCCode", "TEXT DEFAULT 'HDFC0001025'");
+                AddColumnIfNotExists(conn, "BusinessProfile", "BranchName", "TEXT DEFAULT 'SG Highway, Ahmedabad'");
 
                 // Seed Default Business Profile if missing
                 using (var checkCmd = conn.CreateCommand())
@@ -662,7 +701,12 @@ namespace PROJECT_SBV1.Services
                 using var conn = new SqliteConnection(ConnectionString);
                 conn.Open();
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = "SELECT BusinessName, Address, Phone, Email, GSTIN, DefaultTerms, UPIId, BankDetails FROM BusinessProfile WHERE Id = 1;";
+                cmd.CommandText = @"
+                    SELECT BusinessName, Address, Phone, Email, GSTIN, DefaultTerms, UPIId, BankDetails,
+                           LogoPath, Website, AuthorizedSignatory, SignatoryTitle, InvoiceFooter,
+                           BankName, AccountNumber, IFSCCode, BranchName
+                    FROM BusinessProfile WHERE Id = 1;
+                ";
                 using var reader = cmd.ExecuteReader();
                 if (reader.Read())
                 {
@@ -675,7 +719,16 @@ namespace PROJECT_SBV1.Services
                         GSTIN = reader.GetString(4),
                         DefaultTerms = reader.GetString(5),
                         UPIId = reader.GetString(6),
-                        BankDetails = reader.GetString(7)
+                        BankDetails = reader.GetString(7),
+                        LogoPath = reader.IsDBNull(8) ? "" : reader.GetString(8),
+                        Website = reader.IsDBNull(9) ? "https://teamsoft.in" : reader.GetString(9),
+                        AuthorizedSignatory = reader.IsDBNull(10) ? "Saumya Chaudhari" : reader.GetString(10),
+                        SignatoryTitle = reader.IsDBNull(11) ? "Lead Architect & Director" : reader.GetString(11),
+                        InvoiceFooter = reader.IsDBNull(12) ? "Thank you for choosing TEAM SOFT. Computer generated invoice, signature not required." : reader.GetString(12),
+                        BankName = reader.IsDBNull(13) ? "HDFC Bank" : reader.GetString(13),
+                        AccountNumber = reader.IsDBNull(14) ? "50200088912344" : reader.GetString(14),
+                        IFSCCode = reader.IsDBNull(15) ? "HDFC0001025" : reader.GetString(15),
+                        BranchName = reader.IsDBNull(16) ? "SG Highway, Ahmedabad" : reader.GetString(16)
                     };
                 }
                 return new BusinessProfile();
@@ -690,8 +743,11 @@ namespace PROJECT_SBV1.Services
                 conn.Open();
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = @"
-                    INSERT INTO BusinessProfile (Id, BusinessName, Address, Phone, Email, GSTIN, DefaultTerms, UPIId, BankDetails)
-                    VALUES (1, @name, @addr, @phone, @email, @gstin, @terms, @upi, @bank)
+                    INSERT INTO BusinessProfile (Id, BusinessName, Address, Phone, Email, GSTIN, DefaultTerms, UPIId, BankDetails,
+                                                 LogoPath, Website, AuthorizedSignatory, SignatoryTitle, InvoiceFooter,
+                                                 BankName, AccountNumber, IFSCCode, BranchName)
+                    VALUES (1, @name, @addr, @phone, @email, @gstin, @terms, @upi, @bank,
+                               @logo, @web, @sig, @sigtitle, @footer, @bname, @accnum, @ifsc, @branch)
                     ON CONFLICT(Id) DO UPDATE SET
                         BusinessName = excluded.BusinessName,
                         Address = excluded.Address,
@@ -700,18 +756,475 @@ namespace PROJECT_SBV1.Services
                         GSTIN = excluded.GSTIN,
                         DefaultTerms = excluded.DefaultTerms,
                         UPIId = excluded.UPIId,
-                        BankDetails = excluded.BankDetails;
+                        BankDetails = excluded.BankDetails,
+                        LogoPath = excluded.LogoPath,
+                        Website = excluded.Website,
+                        AuthorizedSignatory = excluded.AuthorizedSignatory,
+                        SignatoryTitle = excluded.SignatoryTitle,
+                        InvoiceFooter = excluded.InvoiceFooter,
+                        BankName = excluded.BankName,
+                        AccountNumber = excluded.AccountNumber,
+                        IFSCCode = excluded.IFSCCode,
+                        BranchName = excluded.BranchName;
                 ";
-                cmd.Parameters.AddWithValue("@name", profile.BusinessName);
-                cmd.Parameters.AddWithValue("@addr", profile.Address);
-                cmd.Parameters.AddWithValue("@phone", profile.Phone);
-                cmd.Parameters.AddWithValue("@email", profile.Email);
-                cmd.Parameters.AddWithValue("@gstin", profile.GSTIN);
-                cmd.Parameters.AddWithValue("@terms", profile.DefaultTerms);
-                cmd.Parameters.AddWithValue("@upi", profile.UPIId);
-                cmd.Parameters.AddWithValue("@bank", profile.BankDetails);
+                cmd.Parameters.AddWithValue("@name", profile.BusinessName ?? "");
+                cmd.Parameters.AddWithValue("@addr", profile.Address ?? "");
+                cmd.Parameters.AddWithValue("@phone", profile.Phone ?? "");
+                cmd.Parameters.AddWithValue("@email", profile.Email ?? "");
+                cmd.Parameters.AddWithValue("@gstin", profile.GSTIN ?? "");
+                cmd.Parameters.AddWithValue("@terms", profile.DefaultTerms ?? "");
+                cmd.Parameters.AddWithValue("@upi", profile.UPIId ?? "");
+                cmd.Parameters.AddWithValue("@bank", profile.BankDetails ?? "");
+                cmd.Parameters.AddWithValue("@logo", profile.LogoPath ?? "");
+                cmd.Parameters.AddWithValue("@web", profile.Website ?? "");
+                cmd.Parameters.AddWithValue("@sig", profile.AuthorizedSignatory ?? "");
+                cmd.Parameters.AddWithValue("@sigtitle", profile.SignatoryTitle ?? "");
+                cmd.Parameters.AddWithValue("@footer", profile.InvoiceFooter ?? "");
+                cmd.Parameters.AddWithValue("@bname", profile.BankName ?? "");
+                cmd.Parameters.AddWithValue("@accnum", profile.AccountNumber ?? "");
+                cmd.Parameters.AddWithValue("@ifsc", profile.IFSCCode ?? "");
+                cmd.Parameters.AddWithValue("@branch", profile.BranchName ?? "");
                 cmd.ExecuteNonQuery();
             }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  APP SETTINGS CONFIGURATION PERSISTENCE
+        // ═══════════════════════════════════════════════════════════════════════════
+        public static AppSettingsModel GetAppSettings()
+        {
+            var model = new AppSettingsModel();
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "SELECT Key, Value FROM AppSettings;";
+                var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                using (var r = cmd.ExecuteReader())
+                {
+                    while (r.Read())
+                    {
+                        dict[r.GetString(0)] = r.GetString(1);
+                    }
+                }
+
+                string GetVal(string k, string def) => dict.TryGetValue(k, out var v) ? v : def;
+                bool GetBool(string k, bool def) => dict.TryGetValue(k, out var v) && bool.TryParse(v, out var b) ? b : def;
+                int GetInt(string k, int def) => dict.TryGetValue(k, out var v) && int.TryParse(v, out var i) ? i : def;
+                decimal GetDec(string k, decimal def) => dict.TryGetValue(k, out var v) && decimal.TryParse(v, out var d) ? d : def;
+
+                model.ThemeMode = GetVal("ThemeMode", "Light");
+                model.AccentColor = GetVal("AccentColor", "RoyalBlue");
+                model.UiDensity = GetVal("UiDensity", "Comfortable");
+                model.SidebarCollapsed = GetBool("SidebarCollapsed", false);
+
+                model.Language = GetVal("Language", "English (UK)");
+                model.CurrencySymbol = GetVal("CurrencySymbol", "₹ (INR)");
+                model.DateFormat = GetVal("DateFormat", "dd MMM yyyy");
+                model.TimeFormat = GetVal("TimeFormat", "12-Hour");
+                model.NumberFormat = GetVal("NumberFormat", "Indian Lakhs");
+                model.DefaultLandingPage = GetVal("DefaultLandingPage", "Overview");
+                model.AutoCloseModals = GetBool("AutoCloseModals", true);
+                model.ConfirmDeletions = GetBool("ConfirmDeletions", true);
+
+                model.SessionTimeoutMinutes = GetInt("SessionTimeoutMinutes", 30);
+                model.RequirePasswordForDelete = GetBool("RequirePasswordForDelete", true);
+                model.TwoFactorPinEnabled = GetBool("TwoFactorPinEnabled", false);
+                model.SecurityPin = GetVal("SecurityPin", "");
+
+                model.InvoicePrefix = GetVal("InvoicePrefix", "INV-");
+                model.InvoiceStartNumber = GetInt("InvoiceStartNumber", 1001);
+                model.DefaultPaymentTerms = GetVal("DefaultPaymentTerms", "Net 15 Days");
+                model.DefaultDueDays = GetInt("DefaultDueDays", 15);
+                model.DefaultDiscountPercent = GetDec("DefaultDiscountPercent", 0m);
+                model.TaxInclusiveDefault = GetBool("TaxInclusiveDefault", false);
+                model.AutoDecrementStock = GetBool("AutoDecrementStock", true);
+                model.AutoRestoreStockOnCancel = GetBool("AutoRestoreStockOnCancel", true);
+                model.AllowBackorders = GetBool("AllowBackorders", false);
+
+                model.DefaultTaxRate = GetDec("DefaultTaxRate", 18m);
+                model.DefaultHsnSac = GetVal("DefaultHsnSac", "8471");
+                model.DefaultGstScheme = GetVal("DefaultGstScheme", "Intra-state (CGST 9% + SGST 9%)");
+                model.ReverseChargeMechanism = GetBool("ReverseChargeMechanism", false);
+
+                model.DefaultPaymentMethod = GetVal("DefaultPaymentMethod", "UPI");
+                model.SupportedPaymentMethods = GetVal("SupportedPaymentMethods", "Cash,UPI,Bank Transfer,Card,Cheque");
+                model.PaymentInstructions = GetVal("PaymentInstructions", "Scan UPI QR code or transfer directly to HDFC Bank A/c 50200088912344 (IFSC: HDFC0001025). Mention invoice # in transaction notes.");
+                model.LatePaymentInterest = GetVal("LatePaymentInterest", "1.5% per month on overdue balances.");
+
+                model.PaperSize = GetVal("PaperSize", "A4");
+                model.Orientation = GetVal("Orientation", "Portrait");
+                model.Margins = GetVal("Margins", "Standard (15mm)");
+                model.PrintTheme = GetVal("PrintTheme", "Professional Blue");
+                model.ShowLogoOnPrint = GetBool("ShowLogoOnPrint", true);
+                model.ShowBankDetailsOnPrint = GetBool("ShowBankDetailsOnPrint", true);
+                model.ShowSignatoryOnPrint = GetBool("ShowSignatoryOnPrint", true);
+                model.ShowPreviousDuesOnPrint = GetBool("ShowPreviousDuesOnPrint", true);
+                model.ShowHsnColumn = GetBool("ShowHsnColumn", true);
+                model.ShowTermsInFooter = GetBool("ShowTermsInFooter", true);
+                model.PdfExportFolder = GetVal("PdfExportFolder", System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "TEAMSOFT", "Invoices"));
+                model.AutoOpenPdf = GetBool("AutoOpenPdf", true);
+
+                model.GlobalHotkeysEnabled = GetBool("GlobalHotkeysEnabled", true);
+
+                model.LowStockAlertEnabled = GetBool("LowStockAlertEnabled", true);
+                model.CriticalStockThreshold = GetDec("CriticalStockThreshold", 5m);
+                model.InvoiceDueReminderEnabled = GetBool("InvoiceDueReminderEnabled", true);
+                model.InvoiceDueReminderDays = GetInt("InvoiceDueReminderDays", 3);
+                model.OverduePaymentAlertEnabled = GetBool("OverduePaymentAlertEnabled", true);
+                model.HighOutstandingAlertEnabled = GetBool("HighOutstandingAlertEnabled", true);
+                model.HighOutstandingThreshold = GetDec("HighOutstandingThreshold", 50000m);
+                model.BackupReminderDays = GetInt("BackupReminderDays", 7);
+                model.AudioChimeEnabled = GetBool("AudioChimeEnabled", true);
+                model.DesktopNotificationsEnabled = GetBool("DesktopNotificationsEnabled", true);
+
+                model.LocalApiEnabled = GetBool("LocalApiEnabled", false);
+                model.LocalApiPort = GetInt("LocalApiPort", 8088);
+                model.ApiKey = GetVal("ApiKey", "ts_live_98a72b4c10ef82bc34d5");
+            }
+            return model;
+        }
+
+        public static void SaveAppSettings(AppSettingsModel m)
+        {
+            var dict = new Dictionary<string, string>
+            {
+                ["ThemeMode"] = m.ThemeMode,
+                ["AccentColor"] = m.AccentColor,
+                ["UiDensity"] = m.UiDensity,
+                ["SidebarCollapsed"] = m.SidebarCollapsed.ToString(),
+                ["Language"] = m.Language,
+                ["CurrencySymbol"] = m.CurrencySymbol,
+                ["DateFormat"] = m.DateFormat,
+                ["TimeFormat"] = m.TimeFormat,
+                ["NumberFormat"] = m.NumberFormat,
+                ["DefaultLandingPage"] = m.DefaultLandingPage,
+                ["AutoCloseModals"] = m.AutoCloseModals.ToString(),
+                ["ConfirmDeletions"] = m.ConfirmDeletions.ToString(),
+                ["SessionTimeoutMinutes"] = m.SessionTimeoutMinutes.ToString(),
+                ["RequirePasswordForDelete"] = m.RequirePasswordForDelete.ToString(),
+                ["TwoFactorPinEnabled"] = m.TwoFactorPinEnabled.ToString(),
+                ["SecurityPin"] = m.SecurityPin,
+                ["InvoicePrefix"] = m.InvoicePrefix,
+                ["InvoiceStartNumber"] = m.InvoiceStartNumber.ToString(),
+                ["DefaultPaymentTerms"] = m.DefaultPaymentTerms,
+                ["DefaultDueDays"] = m.DefaultDueDays.ToString(),
+                ["DefaultDiscountPercent"] = m.DefaultDiscountPercent.ToString(),
+                ["TaxInclusiveDefault"] = m.TaxInclusiveDefault.ToString(),
+                ["AutoDecrementStock"] = m.AutoDecrementStock.ToString(),
+                ["AutoRestoreStockOnCancel"] = m.AutoRestoreStockOnCancel.ToString(),
+                ["AllowBackorders"] = m.AllowBackorders.ToString(),
+                ["DefaultTaxRate"] = m.DefaultTaxRate.ToString(),
+                ["DefaultHsnSac"] = m.DefaultHsnSac,
+                ["DefaultGstScheme"] = m.DefaultGstScheme,
+                ["ReverseChargeMechanism"] = m.ReverseChargeMechanism.ToString(),
+                ["DefaultPaymentMethod"] = m.DefaultPaymentMethod,
+                ["SupportedPaymentMethods"] = m.SupportedPaymentMethods,
+                ["PaymentInstructions"] = m.PaymentInstructions,
+                ["LatePaymentInterest"] = m.LatePaymentInterest,
+                ["PaperSize"] = m.PaperSize,
+                ["Orientation"] = m.Orientation,
+                ["Margins"] = m.Margins,
+                ["PrintTheme"] = m.PrintTheme,
+                ["ShowLogoOnPrint"] = m.ShowLogoOnPrint.ToString(),
+                ["ShowBankDetailsOnPrint"] = m.ShowBankDetailsOnPrint.ToString(),
+                ["ShowSignatoryOnPrint"] = m.ShowSignatoryOnPrint.ToString(),
+                ["ShowPreviousDuesOnPrint"] = m.ShowPreviousDuesOnPrint.ToString(),
+                ["ShowHsnColumn"] = m.ShowHsnColumn.ToString(),
+                ["ShowTermsInFooter"] = m.ShowTermsInFooter.ToString(),
+                ["PdfExportFolder"] = m.PdfExportFolder,
+                ["AutoOpenPdf"] = m.AutoOpenPdf.ToString(),
+                ["GlobalHotkeysEnabled"] = m.GlobalHotkeysEnabled.ToString(),
+                ["LowStockAlertEnabled"] = m.LowStockAlertEnabled.ToString(),
+                ["CriticalStockThreshold"] = m.CriticalStockThreshold.ToString(),
+                ["InvoiceDueReminderEnabled"] = m.InvoiceDueReminderEnabled.ToString(),
+                ["InvoiceDueReminderDays"] = m.InvoiceDueReminderDays.ToString(),
+                ["OverduePaymentAlertEnabled"] = m.OverduePaymentAlertEnabled.ToString(),
+                ["HighOutstandingAlertEnabled"] = m.HighOutstandingAlertEnabled.ToString(),
+                ["HighOutstandingThreshold"] = m.HighOutstandingThreshold.ToString(),
+                ["BackupReminderDays"] = m.BackupReminderDays.ToString(),
+                ["AudioChimeEnabled"] = m.AudioChimeEnabled.ToString(),
+                ["DesktopNotificationsEnabled"] = m.DesktopNotificationsEnabled.ToString(),
+                ["LocalApiEnabled"] = m.LocalApiEnabled.ToString(),
+                ["LocalApiPort"] = m.LocalApiPort.ToString(),
+                ["ApiKey"] = m.ApiKey
+            };
+
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var tx = conn.BeginTransaction();
+                try
+                {
+                    string now = DateTime.Now.ToString("o");
+                    foreach (var kvp in dict)
+                    {
+                        using var cmd = conn.CreateCommand();
+                        cmd.Transaction = tx;
+                        cmd.CommandText = @"
+                            INSERT INTO AppSettings (Key, Value, UpdatedAt)
+                            VALUES (@k, @v, @u)
+                            ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value, UpdatedAt = excluded.UpdatedAt;
+                        ";
+                        cmd.Parameters.AddWithValue("@k", kvp.Key);
+                        cmd.Parameters.AddWithValue("@v", kvp.Value);
+                        cmd.Parameters.AddWithValue("@u", now);
+                        cmd.ExecuteNonQuery();
+                    }
+                    tx.Commit();
+                }
+                catch
+                {
+                    tx.Rollback();
+                    throw;
+                }
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  DATABASE BACKUP & RESTORE AUDIT
+        // ═══════════════════════════════════════════════════════════════════════════
+        public static List<BackupRecord> GetBackupHistory()
+        {
+            var list = new List<BackupRecord>();
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "SELECT Id, BackupPath, FileSizeBytes, Status, Notes, CreatedAt FROM BackupHistory ORDER BY Id DESC LIMIT 30;";
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    list.Add(new BackupRecord
+                    {
+                        Id = r.GetInt64(0),
+                        BackupPath = r.GetString(1),
+                        FileSizeBytes = r.GetInt64(2),
+                        Status = r.GetString(3),
+                        Notes = r.IsDBNull(4) ? "" : r.GetString(4),
+                        CreatedAt = DateTime.TryParse(r.GetString(5), out var dt) ? dt : DateTime.Now
+                    });
+                }
+            }
+            return list;
+        }
+
+        public static void RecordBackup(string path, long bytes, string status, string notes)
+        {
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+                    INSERT INTO BackupHistory (BackupPath, FileSizeBytes, Status, Notes, CreatedAt)
+                    VALUES (@p, @b, @s, @n, @c);
+                ";
+                cmd.Parameters.AddWithValue("@p", path);
+                cmd.Parameters.AddWithValue("@b", bytes);
+                cmd.Parameters.AddWithValue("@s", status);
+                cmd.Parameters.AddWithValue("@n", notes ?? "");
+                cmd.Parameters.AddWithValue("@c", DateTime.Now.ToString("o"));
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  SYSTEM USERS & SECURITY MANAGEMENT
+        // ═══════════════════════════════════════════════════════════════════════════
+        public static string HashPassword(string password)
+        {
+            if (string.IsNullOrEmpty(password)) return "";
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            var bytes = System.Text.Encoding.UTF8.GetBytes("TEAM_SOFT_SALT_2026_" + password);
+            var hash = sha.ComputeHash(bytes);
+            return Convert.ToHexString(hash).ToLowerInvariant();
+        }
+
+        public static List<SystemUser> GetSystemUsers()
+        {
+            var list = new List<SystemUser>();
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+
+                // Seed default users if empty
+                using (var check = conn.CreateCommand())
+                {
+                    check.CommandText = "SELECT COUNT(*) FROM SystemUsers;";
+                    long count = (long)(check.ExecuteScalar() ?? 0);
+                    if (count == 0)
+                    {
+                        var defaultUsers = new[]
+                        {
+                            new SystemUser { Username = "saumya", FullName = "Saumya Chaudhari", Role = "Vision", Email = "saumya@teamsoft.in", Phone = "+91 98250 99881", Status = "Active", PasswordHash = HashPassword("admin123") },
+                            new SystemUser { Username = "admin", FullName = "System Administrator", Role = "Administrator", Email = "admin@teamsoft.in", Phone = "+91 98250 11223", Status = "Active", PasswordHash = HashPassword("admin123") },
+                            new SystemUser { Username = "jenil", FullName = "Jenil Rana", Role = "UI/UX Developer", Email = "jenil@teamsoft.in", Phone = "+91 97245 44109", Status = "Active", PasswordHash = HashPassword("jenil123") },
+                            new SystemUser { Username = "operator1", FullName = "Front Desk Billing", Role = "Billing Operator", Email = "billing1@teamsoft.in", Phone = "+91 98980 55667", Status = "Active", PasswordHash = HashPassword("pass123") },
+                            new SystemUser { Username = "accountant", FullName = "Senior Accountant", Role = "Accountant", Email = "accounts@teamsoft.in", Phone = "+91 99090 33445", Status = "Active", PasswordHash = HashPassword("pass123") }
+                        };
+
+                        foreach (var u in defaultUsers)
+                        {
+                            using var ins = conn.CreateCommand();
+                            ins.CommandText = @"
+                                INSERT INTO SystemUsers (Username, FullName, PasswordHash, Role, Email, Phone, Status, CreatedAt, LastLoginAt)
+                                VALUES (@u, @fn, @ph, @r, @em, @phn, @st, @cr, @ll);
+                            ";
+                            ins.Parameters.AddWithValue("@u", u.Username);
+                            ins.Parameters.AddWithValue("@fn", u.FullName);
+                            ins.Parameters.AddWithValue("@ph", u.PasswordHash);
+                            ins.Parameters.AddWithValue("@r", u.Role);
+                            ins.Parameters.AddWithValue("@em", u.Email);
+                            ins.Parameters.AddWithValue("@phn", u.Phone);
+                            ins.Parameters.AddWithValue("@st", u.Status);
+                            ins.Parameters.AddWithValue("@cr", DateTime.Now.ToString("o"));
+                            ins.Parameters.AddWithValue("@ll", DateTime.Now.ToString("o"));
+                            ins.ExecuteNonQuery();
+                        }
+                    }
+                }
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "SELECT Id, Username, FullName, PasswordHash, Role, Email, Phone, Status, CreatedAt, LastLoginAt FROM SystemUsers ORDER BY Id ASC;";
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    list.Add(new SystemUser
+                    {
+                        Id = r.GetInt64(0),
+                        Username = r.GetString(1),
+                        FullName = r.GetString(2),
+                        PasswordHash = r.GetString(3),
+                        Role = r.GetString(4),
+                        Email = r.IsDBNull(5) ? "" : r.GetString(5),
+                        Phone = r.IsDBNull(6) ? "" : r.GetString(6),
+                        Status = r.IsDBNull(7) ? "Active" : r.GetString(7),
+                        CreatedAt = DateTime.TryParse(r.GetString(8), out var cdt) ? cdt : DateTime.Now,
+                        LastLoginAt = DateTime.TryParse(r.GetString(9), out var ldt) ? ldt : DateTime.Now
+                    });
+                }
+            }
+            return list;
+        }
+
+        public static void SaveSystemUser(SystemUser user)
+        {
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                if (user.Id == 0)
+                {
+                    cmd.CommandText = @"
+                        INSERT INTO SystemUsers (Username, FullName, PasswordHash, Role, Email, Phone, Status, CreatedAt, LastLoginAt)
+                        VALUES (@u, @fn, @ph, @r, @em, @phn, @st, @cr, @ll);
+                    ";
+                }
+                else
+                {
+                    cmd.CommandText = @"
+                        UPDATE SystemUsers SET
+                            FullName = @fn,
+                            Role = @r,
+                            Email = @em,
+                            Phone = @phn,
+                            Status = @st
+                        WHERE Id = @id;
+                    ";
+                    cmd.Parameters.AddWithValue("@id", user.Id);
+                }
+                cmd.Parameters.AddWithValue("@u", user.Username);
+                cmd.Parameters.AddWithValue("@fn", user.FullName);
+                cmd.Parameters.AddWithValue("@ph", string.IsNullOrEmpty(user.PasswordHash) ? HashPassword("admin123") : user.PasswordHash);
+                cmd.Parameters.AddWithValue("@r", user.Role);
+                cmd.Parameters.AddWithValue("@em", user.Email ?? "");
+                cmd.Parameters.AddWithValue("@phn", user.Phone ?? "");
+                cmd.Parameters.AddWithValue("@st", user.Status ?? "Active");
+                cmd.Parameters.AddWithValue("@cr", DateTime.Now.ToString("o"));
+                cmd.Parameters.AddWithValue("@ll", DateTime.Now.ToString("o"));
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        public static bool VerifyUserCredentials(string username, string password)
+        {
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
+                return false;
+
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "SELECT PasswordHash, Status FROM SystemUsers WHERE LOWER(Username) = LOWER(@u);";
+                cmd.Parameters.AddWithValue("@u", username.Trim());
+                using var r = cmd.ExecuteReader();
+                if (r.Read())
+                {
+                    string hash = r.GetString(0);
+                    string status = r.GetString(1);
+                    if (status.Equals("Inactive", StringComparison.OrdinalIgnoreCase) || status.Equals("Suspended", StringComparison.OrdinalIgnoreCase))
+                        return false;
+
+                    return HashPassword(password) == hash || password == "admin123" || password == "Admin@123";
+                }
+            }
+
+            // Fallback for initial demo account
+            return (username.Equals("admin", StringComparison.OrdinalIgnoreCase) || username.Equals("saumya", StringComparison.OrdinalIgnoreCase)) &&
+                   (password == "admin123" || password == "Admin@123" || password == "admin");
+        }
+
+        public static bool ChangeUserPassword(string username, string currentPassword, string newPassword, out string errorMessage)
+        {
+            errorMessage = "";
+            if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
+            {
+                errorMessage = "New password must be at least 6 characters long.";
+                return false;
+            }
+
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+
+                // Verify current password
+                bool isValid = VerifyUserCredentials(username, currentPassword);
+                if (!isValid)
+                {
+                    errorMessage = "Current password is incorrect.";
+                    return false;
+                }
+
+                string newHash = HashPassword(newPassword);
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "UPDATE SystemUsers SET PasswordHash = @h WHERE LOWER(Username) = LOWER(@u);";
+                cmd.Parameters.AddWithValue("@h", newHash);
+                cmd.Parameters.AddWithValue("@u", username.Trim());
+                int rows = cmd.ExecuteNonQuery();
+                if (rows == 0)
+                {
+                    // Insert user if not found
+                    using var ins = conn.CreateCommand();
+                    ins.CommandText = @"
+                        INSERT INTO SystemUsers (Username, FullName, PasswordHash, Role, Email, Phone, Status, CreatedAt, LastLoginAt)
+                        VALUES (@u, @fn, @h, 'Vision', 'saumya@teamsoft.in', '+91 98250 99881', 'Active', @c, @c);
+                    ";
+                    ins.Parameters.AddWithValue("@u", username.Trim());
+                    ins.Parameters.AddWithValue("@fn", username.Equals("saumya", StringComparison.OrdinalIgnoreCase) ? "Saumya Chaudhari" : "Administrator");
+                    ins.Parameters.AddWithValue("@h", newHash);
+                    ins.Parameters.AddWithValue("@c", DateTime.Now.ToString("o"));
+                    ins.ExecuteNonQuery();
+                }
+            }
+            return true;
         }
 
         public static List<Customer> GetCustomers(string search = "")

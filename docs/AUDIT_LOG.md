@@ -219,5 +219,50 @@ This log records verifiable project events, role authorizations, task transition
      - Visual rendering captures verified across Customers, Purchases, Suppliers, and Sales pages with zero overlapping elements.
 - **Authorization / Approver**: Vision (Project Owner)
 
+---
+
+### [AUDIT-20261025-013] — Enterprise Settings Module Redesign, 15 Categories Implementation, Theme Tokens & Database Persistence
+- **Timestamp**: 2026-10-25 15:40:00 IST
+- **Event Category**: UI/UX Architecture, Security & Production Implementation
+- **Actor**: Saumya Chaudhari (@Saumya25-hub) / Antigravity AI Assistant Pair Programming
+- **Role**: Vision (Project Owner) & Senior Desktop Software Architect / AI Pair Programmer
+- **Target / Reference**: `Controls/SettingsModuleControl.cs`, `Models/SettingsModels.cs`, `Models/BillingModels.cs`, `Services/DatabaseService.cs`, `Services/ThemeManager.cs`, `Forms/DashboardForm.cs`, `Forms/LoginForm.Designer.cs`, `Program.cs`
+- **Details**: 
+  1. **Professional 3-Part Settings Architecture**:
+     - Preserved TEAM SOFT application navigation and integrated a dedicated 260px left sub-sidebar with dynamic live search filtering, vector outline icons, category titles, subtitles, and selection pills.
+     - Implemented clean content panels for each category with grouped rounded cards, readable form labels (185px width), inline hints, and a docked bottom action bar (`Save Changes`, `Cancel`, `Reset to Defaults`).
+     - Added unsaved changes detection badge and toast confirmation.
+  2. **Implemented All 15 Settings Categories**:
+     - `01. Account`: Displays authenticated user identity (Saumya Chaudhari, Vision), contact phone, workstation info, active session timestamp, and quick link to password management.
+     - `02. Appearance`: Global Light, Dark, and System theme switching, 5 accent colors (`RoyalBlue`, `Indigo`, `Emerald`, `Crimson`, `Amber`), UI density (`Comfortable` vs `Compact`), and sidebar collapse preference.
+     - `03. General`: Language localization, currency symbol (`₹ INR`, `$ USD`, etc.), date/time format, Indian Lakhs vs International numbering, default landing page, modal and deletion safety.
+     - `04. Security & Password`: Current password verification, salted SHA-256 hash updates, live visual password strength meter (5 segments with color grading), session timeout, and deletion safety.
+     - `05. Company & Branding`: Business legal name, logo upload/clear/preview, business email, contact phone, website, registered addresses, authorized signatory, and invoice footer branding.
+     - `06. Invoice & Sales`: Prefix (`INV-`), sequence numbering with collision safety, payment terms, due days, discounts, tax-inclusive defaults, stock auto-decrement, and cancel rollback.
+     - `07. Tax & GST`: GSTIN registration, legal trade name, tax supply scheme (Intra vs Inter), tax rates (0%, 5%, 12%, 18%, 28%), default HSN/SAC (`8471`), and regex GSTIN format validator.
+     - `08. Payments`: Default method (`UPI`), UPI ID for QR, bank details (Name, A/C, IFSC, Branch), supported methods, invoice payment instructions, and late penalty terms.
+     - `09. PDF & Print`: Paper sizes (A4, Letter, Thermal), orientation, margins, print theme, document layout visibility toggles, and PDF export destination folder picker.
+     - `10. Keyboard Shortcuts`: Filterable table of hotkeys (`Ctrl+N`, `Ctrl+S`, `Ctrl+F`, `Ctrl+P`, `Ctrl+B`, `Ctrl+D`, `Ctrl+T`, `F5`, `Esc`, `Ctrl+Tab`).
+     - `11. Notifications`: Low stock alert & critical threshold, due date reminders & advance days, overdue alerts, backup reminder interval, audio chime, and desktop toasts.
+     - `12. Backup & Data Privacy`: SQLite database backup action (timestamped file with destination picker), restore database action (confirmation prompt, pre-restore safety copy, SQLite format validation), and backup history table.
+     - `13. Users & Permissions`: User directory table, `+ Add New User` modal dialog, role management (`Vision`, `Administrator`, `Billing Operator`, `Accountant`), and permissions matrix.
+     - `14. Integrations`: Direct CSV exports for clients and catalog, Tally Prime XML export, local REST webhook API server toggle (Port 8088), API secret key display/copy/regenerate.
+     - `15. About & Support`: Application identity (`v2.4.0 Professional Edition`), .NET 8 runtime, SQLite 3.45, MIT Open Engineering license, credits, support email, diagnostics log folder opener, and update check.
+  3. **Global Theme System & Dark Mode Input Fix**:
+     - Defined semantic tokens for background, cards, text, inputs, buttons, borders, and accents in `ThemeManager.cs`.
+     - Built recursive `StyleControlHierarchy` ensuring dark surfaces (`#1c202d`), high-contrast text (`#f1f5f9`), and clean borders across all input controls in Dark Mode.
+  4. **Database Schema & SQLite Persistence**:
+     - Created `AppSettings`, `BackupHistory`, and `SystemUsers` tables in SQLite with atomic parameterized queries.
+     - Extended `BusinessProfile` with branding, signatory, and banking fields.
+  5. **Verification & Testing**:
+     - `dotnet build`: Succeeded with 0 warnings, 0 errors.
+     - `dotnet run -- --test-settings`: 6/6 automated test suites passed (100% success).
+     - `dotnet run -- --test-sales`: 8/8 automated tests passed.
+     - `dotnet run -- --test-dynamic-dashboard`: 9/9 automated tests passed.
+     - `dotnet run -- --test-flow`: End-to-end lifecycle and theme toggle verified in 180ms.
+     - Rendered 12 high-resolution screenshots across Light and Dark modes.
+- **Authorization / Approver**: Vision (Project Owner)
+
+
 
 
