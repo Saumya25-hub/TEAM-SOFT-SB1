@@ -663,4 +663,30 @@ This log records daily development sessions, code changes, verification test res
   - `dotnet run -- --test-sales`: 8/8 automated tests passed.
   - `git push origin feature/ui-splash-login-dashboard`: Up to date at `0019ce7`.
 - **Status**: COMPLETE & VERIFIED.
+ 
+---
+ 
++## Session: 2026-10-25 — Purchase Management & Suppliers Separation, Full-Width Table Layouts & UI Collision Fixes
++
++- **Developer**: Saumya Chaudhari (@Saumya25-hub) / Antigravity AI Assistant Pair Programming
++- **Role**: Vision (Project Owner) & AI Pair Programmer
++- **Branch**: `feature/ui-splash-login-dashboard`
++- **Assigned Task**: `TASK-BUGFIX-PURCHASE-TABLES-001` (Purchase Management Separation & Table Presentation Fixes)
++- **Objective**: Separate Purchase Management & Suppliers from Sales & Billing; resolve Customer table container squish defect; eliminate Sales table vertical text overlap collisions.
++- **Files Created / Modified**:
++  - `Models/BillingModels.cs`: Added `Supplier`, `PurchaseBill`, `PurchaseBillItem`, and `PurchaseDashboardMetrics` classes with auto-recalculation logic.
++  - `Services/DatabaseService.cs`: Added SQLite tables (`Suppliers`, `PurchaseBills`, `PurchaseItems`), seed records, query and CRUD methods with stock increment upon purchase.
++  - `Forms/SupplierDialog.cs`: Modal form for adding/editing vendors.
++  - `Forms/PurchaseBillDialog.cs`: Modal form for creating purchase bills with vendor selection, line items, and GST computation.
++  - `Forms/DashboardForm.cs`: Created `pnlPurchases` and `pnlSuppliers` views with KPI cards, filter toolbars, and full-width tables; fixed customer, product, and transaction table `Dock = DockStyle.Fill;` defect.
++  - `Controls/SalesBillingModuleControl.cs`: Increased row height to 44px with `StringFormatFlags.NoWrap` and `EllipsisCharacter`, preventing invoice and date multiline overlap.
++  - `Program.cs`: Fixed hardcoded paths and added `--render-all-pages` visual testing support.
++  - `docs/AUDIT_LOG.md`: Logged audit entry `[AUDIT-20261025-012]`.
++- **Verification & Test Status**:
++  - `dotnet build`: Succeeded (0 warnings, 0 errors).
++  - `dotnet run -- --test-dynamic-dashboard`: 9/9 automated tests passed cleanly.
++  - `dotnet run -- --test-sales`: 8/8 automated tests passed cleanly.
++  - UI visual captures verified across Customers, Purchases, Suppliers, and Sales pages with 100% full-width responsive scaling and zero clipping.
++- **Status**: COMPLETE & VERIFIED.
+
 

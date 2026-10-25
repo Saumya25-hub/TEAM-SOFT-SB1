@@ -191,6 +191,33 @@ This log records verifiable project events, role authorizations, task transition
   4. Upgraded Category Revenue donut chart with polar coordinate hover detection, slice explosion/offset (5-6px), glowing white boundary pen, dynamic center cutout updating live with hovered category details, and floating HUD tooltip card.
   5. Verified 0 compilation errors/warnings and 100% test pass (9/9 dashboard tests, 8/8 sales tests).
   6. Successfully pushed verified commits to remote origin `https://github.com/Saumya25-hub/TEAM-SOFT-SB1.git` on branch `feature/ui-splash-login-dashboard`.
-- **Authorization / Approver**: Active Sprint Directive / Master Prompt (GitHub Push)
+---
+
+### [AUDIT-20261025-012] — Purchase Management & Suppliers Separation, Full-Width Table Layouts & Text Collision Fixes
+- **Timestamp**: 2026-10-25 14:48:00 IST
+- **Event Category**: Bug Fix & Production Architecture Delivery
+- **Actor**: Saumya Chaudhari (@Saumya25-hub) / Antigravity AI Assistant Pair Programming
+- **Role**: Vision (Project Owner) & AI Pair Programmer
+- **Target / Reference**: `Forms/DashboardForm.cs`, `Controls/SalesBillingModuleControl.cs`, `Services/DatabaseService.cs`, `Models/BillingModels.cs`, `Forms/PurchaseBillDialog.cs`, `Forms/SupplierDialog.cs`, `Program.cs`
+- **Details**: 
+  1. **Separated Purchase Management and Suppliers from Sales**:
+     - Corrected navigation routing in `DashboardForm.cs`: Purchases and Suppliers now route to independent dedicated views (`pnlPurchases` and `pnlSuppliers`) rather than erroneously redirecting to the Sales module.
+     - Added domain models: `Supplier`, `PurchaseBill`, `PurchaseBillItem`, and `PurchaseDashboardMetrics` in `Models/BillingModels.cs`.
+     - Implemented SQLite tables (`Suppliers`, `PurchaseBills`, `PurchaseItems`) with foreign keys, seed records, and ACID queries in `Services/DatabaseService.cs`. Saving a purchase bill automatically increments product inventory in the catalog.
+     - Created modal dialogs `Forms/PurchaseBillDialog.cs` and `Forms/SupplierDialog.cs` for creating purchase entries, calculating intra/inter-state GST, selecting vendors, and adding catalog items.
+     - Added 4 purchase KPI metric cards (`Total Purchases`, `Total Vendor Bills`, `Paid to Vendors`, `Pending Payables Due`) on the Purchase Management screen.
+  2. **Fixed Customer Accounts & Products Table Collapse**:
+     - Resolved the layout defect where `dgvCustomers` was compressed into a narrow 200px box on the left.
+     - Added `dgvCustomers.Dock = DockStyle.Fill;` and `pnlGridContainer.BringToFront();`, expanding the customer table across 100% of the screen width with clear column headers and status badges. Applied identical responsive filling to `dgvProducts` and `dgvAllTransactions`.
+  3. **Eliminated Sales & Billing Table Vertical Text Collisions**:
+     - Resolved multiline text collision in `Controls/SalesBillingModuleControl.cs` caused by Jenil's 30px row height reduction.
+     - Increased row height to 44px (header 36px) and added `StringFormatFlags.NoWrap` and `StringTrimming.EllipsisCharacter` to prevent invoice numbers and dates from wrapping over each other.
+  4. **Automated & Visual Verification**:
+     - `dotnet build`: Succeeded with 0 warnings, 0 errors.
+     - `dotnet run -- --test-dynamic-dashboard`: 9/9 automated tests passed (100% success).
+     - `dotnet run -- --test-sales`: 8/8 automated tests passed (100% success).
+     - Visual rendering captures verified across Customers, Purchases, Suppliers, and Sales pages with zero overlapping elements.
+- **Authorization / Approver**: Vision (Project Owner)
+
 
 

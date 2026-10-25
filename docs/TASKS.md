@@ -165,5 +165,22 @@ Allowed Statuses:
 - **Verification Evidence**: Automated test suite `dotnet run -- --test-sales` passed 8/8 tests. Visual rendering test passed (`dotnet run -- --render-sales`). Build verified (`dotnet build`: 0 warnings, 0 errors). Recorded in `docs/TEST_REPORT.md` (Test Run `TR-20261016-004`).
 - **Blockers**: None.
 
+---
+
+### [x] `TASK-BUGFIX-PURCHASE-TABLES-001`: Purchase Management Separation & Table Presentation Fixes
+- **Owner**: Saumya Chaudhari (@Saumya25-hub) / Antigravity AI Assistant Pair Programming
+- **Role**: Vision & AI Pair Programmer
+- **Description**: Separate Purchase Management and Suppliers from Sales & Billing into dedicated database-backed views and modals; resolve Customer table container squish defect; eliminate Sales table vertical text overlap collisions.
+- **Acceptance Criteria**:
+  1. Purchases and Suppliers navigation correctly route to independent views with their own KPI cards and DataGridViews.
+  2. Domain models `Supplier`, `PurchaseBill`, `PurchaseBillItem`, and SQLite tables `Suppliers`, `PurchaseBills`, `PurchaseItems` created with ACID transactions and stock addition on purchase.
+  3. Customer, Product, and Transaction tables use `Dock = DockStyle.Fill;` with `pnlGridContainer.BringToFront();`, expanding to 100% full width.
+  4. Sales table row height increased to 44px with `StringFormatFlags.NoWrap` and `EllipsisCharacter`, preventing invoice and date multiline overlap.
+  5. 0 build warnings/errors, all automated tests pass, and visual captures confirmed.
+- **Status**: Done
+- **Verification Evidence**: `dotnet build` succeeded (0 warnings, 0 errors). Automated test suites `dotnet run -- --test-dynamic-dashboard` (9/9 pass) and `dotnet run -- --test-sales` (8/8 pass) completed with 100% success. Screen captures verified in `Captures/`.
+- **Blockers**: None.
+
+
 
 

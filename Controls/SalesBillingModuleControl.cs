@@ -2704,11 +2704,11 @@ namespace PROJECT_SBV1.Controls
 
             dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
 
-            dgv.RowTemplate.Height = 30;
+            dgv.RowTemplate.Height = 44;
 
             dgv.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
 
-            dgv.ColumnHeadersHeight = 32;
+            dgv.ColumnHeadersHeight = 36;
 
             dgv.StandardTab = true;
 
@@ -3112,7 +3112,12 @@ namespace PROJECT_SBV1.Controls
 
                     using var bName = new SolidBrush(nameCol);
 
-                    using var sfName = new StringFormat { LineAlignment = StringAlignment.Center };
+                    using var sfName = new StringFormat 
+                    { 
+                        LineAlignment = StringAlignment.Center,
+                        FormatFlags = StringFormatFlags.NoWrap,
+                        Trimming = StringTrimming.EllipsisCharacter
+                    };
 
                     g.DrawString(val, fName, bName, new RectangleF(textX, e.CellBounds.Y, Math.Max(10, e.CellBounds.Width - (textX - e.CellBounds.X) - 8), e.CellBounds.Height), sfName);
 
@@ -3138,9 +3143,14 @@ namespace PROJECT_SBV1.Controls
 
                     using var bInv = new SolidBrush(invCol);
 
-                    using var sfInv = new StringFormat { LineAlignment = StringAlignment.Center };
+                    using var sfInv = new StringFormat 
+                    { 
+                        LineAlignment = StringAlignment.Center,
+                        FormatFlags = StringFormatFlags.NoWrap,
+                        Trimming = StringTrimming.EllipsisCharacter
+                    };
 
-                    g.DrawString(val, fInv, bInv, new RectangleF(e.CellBounds.X + 16, e.CellBounds.Y, Math.Max(10, e.CellBounds.Width - 20), e.CellBounds.Height), sfInv);
+                    g.DrawString(val, fInv, bInv, new RectangleF(e.CellBounds.X + 10, e.CellBounds.Y, Math.Max(10, e.CellBounds.Width - 14), e.CellBounds.Height), sfInv);
 
 
 
@@ -3226,11 +3236,17 @@ namespace PROJECT_SBV1.Controls
 
                     using (var bAmt = new SolidBrush(amtCol))
 
-                    using (var sfAmt = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center })
+                    using (var sfAmt = new StringFormat 
+                    { 
+                        Alignment = StringAlignment.Far, 
+                        LineAlignment = StringAlignment.Center,
+                        FormatFlags = StringFormatFlags.NoWrap,
+                        Trimming = StringTrimming.EllipsisCharacter
+                    })
 
                     {
 
-                        g.DrawString(val, fAmt, bAmt, new RectangleF(e.CellBounds.X, e.CellBounds.Y, Math.Max(10, e.CellBounds.Width - 16), e.CellBounds.Height), sfAmt);
+                        g.DrawString(val, fAmt, bAmt, new RectangleF(e.CellBounds.X, e.CellBounds.Y, Math.Max(10, e.CellBounds.Width - 12), e.CellBounds.Height), sfAmt);
 
                     }
 
@@ -3255,16 +3271,13 @@ namespace PROJECT_SBV1.Controls
                     using var bGen = new SolidBrush(genCol);
 
                     var sfGen = new StringFormat
-
                     {
-
                         LineAlignment = StringAlignment.Center,
-
-                        Alignment = (align == DataGridViewContentAlignment.MiddleCenter) ? StringAlignment.Center : StringAlignment.Near
-
+                        Alignment = (align == DataGridViewContentAlignment.MiddleCenter) ? StringAlignment.Center : StringAlignment.Near,
+                        FormatFlags = StringFormatFlags.NoWrap,
+                        Trimming = StringTrimming.EllipsisCharacter
                     };
-
-                    g.DrawString(val, fGen, bGen, new RectangleF(e.CellBounds.X + 16, e.CellBounds.Y, Math.Max(10, e.CellBounds.Width - 20), e.CellBounds.Height), sfGen);
+                    g.DrawString(val, fGen, bGen, new RectangleF(e.CellBounds.X + 8, e.CellBounds.Y, Math.Max(10, e.CellBounds.Width - 12), e.CellBounds.Height), sfGen);
 
 
 

@@ -137,6 +137,18 @@ namespace PROJECT_SBV1.Forms
 
         private readonly Panel pnlSettings = new();
         private readonly Panel pnlStatistics = new();
+        private readonly Panel pnlPurchases = new();
+        private readonly Panel pnlSuppliers = new();
+
+        private readonly DataGridView dgvPurchases = new();
+        private readonly DataGridView dgvSuppliers = new();
+        private readonly TextBox txtPurchaseSearch = new();
+        private readonly TextBox txtSupplierSearch = new();
+        private readonly ComboBox cmbPurchaseStatus = new();
+        private readonly Label lblPurchasesKpi1 = new();
+        private readonly Label lblPurchasesKpi2 = new();
+        private readonly Label lblPurchasesKpi3 = new();
+        private readonly Label lblPurchasesKpi4 = new();
 
         private bool _isDragging;
         private Point _dragCursorPoint;
@@ -162,6 +174,8 @@ namespace PROJECT_SBV1.Forms
             BuildCustomersPage();
             BuildProductsPage();
             BuildTransactionsPage();
+            BuildPurchasesPage();
+            BuildSuppliersPage();
             BuildSettingsPage();
             BuildStatisticsPage();
             SetupSidebarNav();
@@ -2150,7 +2164,9 @@ namespace PROJECT_SBV1.Forms
             _activePage = page;
 
             pnlOverview.Visible = (page == "Overview");
-            pnlNewBill.Visible = (page == "Sales" || page == "Purchases" || page == "Suppliers");
+            pnlNewBill.Visible = (page == "Sales");
+            pnlPurchases.Visible = (page == "Purchases");
+            pnlSuppliers.Visible = (page == "Suppliers");
             pnlCustomers.Visible = (page == "Customers");
             pnlProducts.Visible = (page == "Products");
             pnlTransPage.Visible = (page == "Transactions");
@@ -2165,8 +2181,8 @@ namespace PROJECT_SBV1.Forms
                 "Products" => "Products & Inventory",
                 "Transactions" => "Financial Transactions Ledger",
                 "Statistics" => "Statistics & Analytics",
-                "Purchases" => "Purchase Management",
-                "Suppliers" => "Suppliers & Vendors",
+                "Purchases" => "Purchase Management & Vendor Bills",
+                "Suppliers" => "Suppliers & Vendor Accounts",
                 "Settings" => "System Settings & Business Profile",
                 _ => page
             };
@@ -2179,6 +2195,8 @@ namespace PROJECT_SBV1.Forms
                 "Products" => "Product catalog stock & inventory valuation",
                 "Transactions" => "Audit log of receipts and payment transactions",
                 "Statistics" => "Comprehensive revenue analysis & printable financial report",
+                "Purchases" => "Vendor purchase bills, stock addition & payables tracking",
+                "Suppliers" => "Vendor catalog, payables ledgers & procurement contacts",
                 "Settings" => "Business profile, GSTIN, payment details & database backup",
                 _ => "Manage and monitor your business operations"
             };
@@ -2193,6 +2211,14 @@ namespace PROJECT_SBV1.Forms
             else if (page == "Sales")
             {
                 _salesModule?.SwitchTab("Dashboard");
+            }
+            else if (page == "Purchases")
+            {
+                RefreshPurchasesTable();
+            }
+            else if (page == "Suppliers")
+            {
+                RefreshSuppliersTable();
             }
             else if (page == "Customers")
             {
@@ -2309,11 +2335,13 @@ namespace PROJECT_SBV1.Forms
                 }
             };
 
+            dgvCustomers.Dock = DockStyle.Fill;
             var pnlGridContainer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 0, 20, 20) };
             pnlGridContainer.Controls.Add(dgvCustomers);
 
             pnlCustomers.Controls.Add(pnlGridContainer);
             pnlCustomers.Controls.Add(pnlTop);
+            pnlGridContainer.BringToFront();
             pnlContentHost.Controls.Add(pnlCustomers);
             RefreshCustomersTable();
         }
@@ -2456,11 +2484,13 @@ namespace PROJECT_SBV1.Forms
                 }
             };
 
+            dgvProducts.Dock = DockStyle.Fill;
             var pnlGridContainer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 0, 20, 20) };
             pnlGridContainer.Controls.Add(dgvProducts);
 
             pnlProducts.Controls.Add(pnlGridContainer);
             pnlProducts.Controls.Add(pnlTop);
+            pnlGridContainer.BringToFront();
             pnlContentHost.Controls.Add(pnlProducts);
             RefreshProductsTable();
         }
@@ -2535,11 +2565,13 @@ namespace PROJECT_SBV1.Forms
             TableDesignStandard.ApplyStandardGrid(dgvAllTransactions, new TableStyleOptions { EmptyStateMessage = "No payment transactions recorded" });
             dgvAllTransactions.Cursor = Cursors.Hand;
 
+            dgvAllTransactions.Dock = DockStyle.Fill;
             var pnlGridContainer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 0, 20, 20) };
             pnlGridContainer.Controls.Add(dgvAllTransactions);
 
             pnlTransPage.Controls.Add(pnlGridContainer);
             pnlTransPage.Controls.Add(pnlTop);
+            pnlGridContainer.BringToFront();
             pnlContentHost.Controls.Add(pnlTransPage);
             RefreshTransactionsTable();
         }
@@ -2565,6 +2597,267 @@ namespace PROJECT_SBV1.Forms
                     var amtCell = dgvAllTransactions.Rows[rIdx].Cells["Amount"];
                     amtCell.Style.ForeColor = C_Positive;
                     amtCell.Style.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  PURCHASE MANAGEMENT & VENDOR BILLS PAGE
+        // ═══════════════════════════════════════════════════════════════════════════
+        private void BuildPurchasesPage()
+        {
+            pnlPurchases.Dock = DockStyle.Fill;
+            pnlPurchases.Visible = false;
+            pnlPurchases.BackColor = C_PageBg;
+            pnlPurchases.Controls.Clear();
+
+            // 1. KPI Cards Bar at the Top (Total Purchases, Total Bills, Paid, Pending Payables)
+            var pnlKpiBar = new Panel { Dock = DockStyle.Top, Height = 84, Padding = new Padding(20, 10, 20, 6), BackColor = Color.Transparent };
+            var tlpKpi = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1 };
+            for (int i = 0; i < 4; i++)
+                tlpKpi.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
+
+            Panel CreateMiniKpi(string title, Label lblVal, Color accent)
+            {
+                var pnl = new Panel { Dock = DockStyle.Fill, BackColor = C_CardBg, Margin = new Padding(4) };
+                pnl.Paint += (s, e) =>
+                {
+                    var g = e.Graphics;
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    using var path = GraphicsExtensions.CreateRoundedRectanglePath(0, 0, pnl.Width - 1, pnl.Height - 1, 8);
+                    using var pen = new Pen(C_Border, 1f);
+                    g.DrawPath(pen, path);
+                };
+                var lblT = new Label { Text = title, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = C_TextMid, Bounds = new Rectangle(14, 10, 180, 18) };
+                lblVal.Font = new Font("Segoe UI", 13f, FontStyle.Bold);
+                lblVal.ForeColor = accent;
+                lblVal.Bounds = new Rectangle(14, 30, 200, 28);
+                pnl.Controls.AddRange(new Control[] { lblT, lblVal });
+                return pnl;
+            }
+
+            tlpKpi.Controls.Add(CreateMiniKpi("Total Purchases", lblPurchasesKpi1, C_Blue), 0, 0);
+            tlpKpi.Controls.Add(CreateMiniKpi("Total Vendor Bills", lblPurchasesKpi2, C_TextDark), 1, 0);
+            tlpKpi.Controls.Add(CreateMiniKpi("Paid to Vendors", lblPurchasesKpi3, C_Positive), 2, 0);
+            tlpKpi.Controls.Add(CreateMiniKpi("Pending Payables Due", lblPurchasesKpi4, C_Negative), 3, 0);
+            pnlKpiBar.Controls.Add(tlpKpi);
+
+            // 2. Filter & Action Toolbar
+            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 56, BackColor = Color.Transparent, Padding = new Padding(20, 10, 20, 6) };
+
+            txtPurchaseSearch.PlaceholderText = "Search purchase bills by bill #, vendor, or remarks...";
+            txtPurchaseSearch.SetBounds(20, 10, 360, 32);
+            txtPurchaseSearch.Font = new Font("Segoe UI", 9.5f);
+            txtPurchaseSearch.TextChanged += (s, e) => RefreshPurchasesTable(txtPurchaseSearch.Text.Trim(), cmbPurchaseStatus.SelectedItem?.ToString() ?? "All");
+
+            cmbPurchaseStatus.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbPurchaseStatus.Items.Clear();
+            cmbPurchaseStatus.Items.AddRange(new object[] { "All Statuses", "Paid", "Partially Paid", "Unpaid", "Overdue" });
+            cmbPurchaseStatus.SelectedIndex = 0;
+            cmbPurchaseStatus.SetBounds(390, 10, 140, 32);
+            cmbPurchaseStatus.Font = new Font("Segoe UI", 9.5f);
+            cmbPurchaseStatus.SelectedIndexChanged += (s, e) => RefreshPurchasesTable(txtPurchaseSearch.Text.Trim(), cmbPurchaseStatus.SelectedItem?.ToString() ?? "All");
+
+            var btnNewBill = new Button
+            {
+                Text = "+ New Purchase Bill",
+                BackColor = C_Blue,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
+            };
+            btnNewBill.FlatAppearance.BorderSize = 0;
+            btnNewBill.SetBounds(540, 10, 170, 32);
+            btnNewBill.Click += (s, e) =>
+            {
+                using var dlg = new PurchaseBillDialog();
+                if (dlg.ShowDialog(this) == DialogResult.OK)
+                {
+                    RefreshPurchasesTable();
+                    RefreshProductsTable();
+                    RefreshLowStockTable();
+                    RefreshDashboardAnalytics();
+                }
+            };
+
+            pnlTop.Controls.AddRange(new Control[] { txtPurchaseSearch, cmbPurchaseStatus, btnNewBill });
+
+            // 3. Grid Table
+            dgvPurchases.Columns.Clear();
+            dgvPurchases.Columns.Add("BillNum", "BILL #");
+            dgvPurchases.Columns.Add("Supplier", "VENDOR / SUPPLIER");
+            dgvPurchases.Columns.Add("Date", "BILL DATE");
+            dgvPurchases.Columns.Add("Due", "DUE DATE");
+            dgvPurchases.Columns.Add("Total", "AMOUNT (₹)");
+            dgvPurchases.Columns.Add("Paid", "PAID (₹)");
+            dgvPurchases.Columns.Add("Balance", "BALANCE DUE (₹)");
+            dgvPurchases.Columns.Add("Status", "PAYMENT STATUS");
+
+            dgvPurchases.Columns["Total"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvPurchases.Columns["Total"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvPurchases.Columns["Paid"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvPurchases.Columns["Paid"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvPurchases.Columns["Balance"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvPurchases.Columns["Balance"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvPurchases.Columns["Status"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvPurchases.Columns["Status"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+
+            dgvPurchases.Dock = DockStyle.Fill;
+            TableDesignStandard.ApplyStandardGrid(dgvPurchases, new TableStyleOptions { EmptyStateMessage = "No purchase bills recorded" });
+
+            var pnlGridContainer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 0, 20, 20) };
+            pnlGridContainer.Controls.Add(dgvPurchases);
+
+            pnlPurchases.Controls.Add(pnlGridContainer);
+            pnlPurchases.Controls.Add(pnlTop);
+            pnlPurchases.Controls.Add(pnlKpiBar);
+            pnlGridContainer.BringToFront();
+
+            pnlContentHost.Controls.Add(pnlPurchases);
+            RefreshPurchasesTable();
+        }
+
+        public void RefreshPurchasesTable(string search = "", string status = "")
+        {
+            dgvPurchases.Rows.Clear();
+            try
+            {
+                var list = DatabaseService.GetPurchaseBills(search, status);
+                foreach (var b in list)
+                {
+                    dgvPurchases.Rows.Add(
+                        b.BillNumber,
+                        string.IsNullOrWhiteSpace(b.SupplierCompany) ? b.SupplierName : $"{b.SupplierName} ({b.SupplierCompany})",
+                        b.BillDate.ToString("dd MMM yyyy"),
+                        b.DueDate.ToString("dd MMM yyyy"),
+                        $"₹{b.GrandTotal:N2}",
+                        $"₹{b.AmountPaid:N2}",
+                        $"₹{b.BalanceDue:N2}",
+                        b.Status
+                    );
+                }
+
+                var m = DatabaseService.GetPurchaseDashboardMetrics();
+                lblPurchasesKpi1.Text = $"₹{m.TotalPurchases:N2}";
+                lblPurchasesKpi2.Text = $"{m.TotalBillsCount}";
+                lblPurchasesKpi3.Text = $"₹{(m.TotalPurchases - m.TotalPayablesDue):N2}";
+                lblPurchasesKpi4.Text = $"₹{m.TotalPayablesDue:N2}";
+            }
+            catch
+            {
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  SUPPLIERS & VENDOR ACCOUNTS PAGE
+        // ═══════════════════════════════════════════════════════════════════════════
+        private void BuildSuppliersPage()
+        {
+            pnlSuppliers.Dock = DockStyle.Fill;
+            pnlSuppliers.Visible = false;
+            pnlSuppliers.BackColor = C_PageBg;
+            pnlSuppliers.Controls.Clear();
+
+            var pnlTop = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = Color.Transparent, Padding = new Padding(20, 14, 20, 10) };
+
+            txtSupplierSearch.PlaceholderText = "Search vendors by name, company, phone, or GSTIN...";
+            txtSupplierSearch.SetBounds(20, 14, 380, 32);
+            txtSupplierSearch.Font = new Font("Segoe UI", 9.5f);
+            txtSupplierSearch.TextChanged += (s, e) => RefreshSuppliersTable(txtSupplierSearch.Text.Trim());
+
+            var btnAddSupplier = new Button
+            {
+                Text = "+ Add Supplier",
+                BackColor = C_Blue,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
+            };
+            btnAddSupplier.FlatAppearance.BorderSize = 0;
+            btnAddSupplier.SetBounds(420, 14, 150, 32);
+            btnAddSupplier.Click += (s, e) =>
+            {
+                using var dlg = new SupplierDialog();
+                if (dlg.ShowDialog(this) == DialogResult.OK)
+                {
+                    RefreshSuppliersTable();
+                }
+            };
+
+            pnlTop.Controls.AddRange(new Control[] { txtSupplierSearch, btnAddSupplier });
+
+            dgvSuppliers.Columns.Clear();
+            dgvSuppliers.Columns.Add("Id", "ID");
+            dgvSuppliers.Columns["Id"].Visible = false;
+            dgvSuppliers.Columns.Add("Name", "Vendor Name");
+            dgvSuppliers.Columns.Add("Company", "Company / Firm");
+            dgvSuppliers.Columns.Add("Phone", "Phone");
+            dgvSuppliers.Columns.Add("GSTIN", "GSTIN");
+            dgvSuppliers.Columns.Add("Balance", "Payable Balance (₹)");
+            dgvSuppliers.Columns.Add("Status", "Status");
+
+            dgvSuppliers.Columns["Balance"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvSuppliers.Columns["Balance"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            dgvSuppliers.Columns["Status"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvSuppliers.Columns["Status"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+
+            dgvSuppliers.Dock = DockStyle.Fill;
+            TableDesignStandard.ApplyStandardGrid(dgvSuppliers, new TableStyleOptions { EmptyStateMessage = "No suppliers / vendors registered" });
+            dgvSuppliers.Cursor = Cursors.Hand;
+
+            dgvSuppliers.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex >= 0 && e.RowIndex < dgvSuppliers.Rows.Count)
+                {
+                    if (long.TryParse(dgvSuppliers.Rows[e.RowIndex].Cells["Id"].Value?.ToString(), out long sid))
+                    {
+                        var sup = DatabaseService.GetSupplierById(sid);
+                        if (sup != null)
+                        {
+                            using var dlg = new SupplierDialog(sup);
+                            if (dlg.ShowDialog(this) == DialogResult.OK)
+                            {
+                                RefreshSuppliersTable();
+                            }
+                        }
+                    }
+                }
+            };
+
+            var pnlGridContainer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 0, 20, 20) };
+            pnlGridContainer.Controls.Add(dgvSuppliers);
+
+            pnlSuppliers.Controls.Add(pnlGridContainer);
+            pnlSuppliers.Controls.Add(pnlTop);
+            pnlGridContainer.BringToFront();
+
+            pnlContentHost.Controls.Add(pnlSuppliers);
+            RefreshSuppliersTable();
+        }
+
+        public void RefreshSuppliersTable(string search = "")
+        {
+            dgvSuppliers.Rows.Clear();
+            try
+            {
+                var list = DatabaseService.GetSuppliers(search);
+                foreach (var s in list)
+                {
+                    string status = s.OutstandingBalance > 0 ? "Pending Due" : "Settled";
+                    dgvSuppliers.Rows.Add(
+                        s.Id,
+                        s.Name,
+                        s.CompanyName,
+                        s.Phone,
+                        s.GSTIN,
+                        $"₹{s.OutstandingBalance:N2}",
+                        status
+                    );
                 }
             }
             catch

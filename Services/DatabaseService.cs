@@ -151,6 +151,56 @@ namespace PROJECT_SBV1.Services
                         CommissionPercent REAL DEFAULT 0,
                         CreatedAt TEXT NOT NULL
                     );
+
+                    CREATE TABLE IF NOT EXISTS Suppliers (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        Name TEXT NOT NULL,
+                        CompanyName TEXT,
+                        Phone TEXT,
+                        Email TEXT,
+                        Address TEXT,
+                        GSTIN TEXT,
+                        OutstandingBalance REAL DEFAULT 0,
+                        CreatedAt TEXT NOT NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_suppliers_name ON Suppliers(Name);
+
+                    CREATE TABLE IF NOT EXISTS PurchaseBills (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        BillNumber TEXT NOT NULL UNIQUE,
+                        SupplierId INTEGER,
+                        SupplierName TEXT NOT NULL,
+                        SupplierCompany TEXT,
+                        SupplierPhone TEXT,
+                        SupplierGSTIN TEXT,
+                        BillDate TEXT NOT NULL,
+                        DueDate TEXT NOT NULL,
+                        TaxType TEXT DEFAULT 'GST_INTRA',
+                        Subtotal REAL DEFAULT 0,
+                        TaxableAmount REAL DEFAULT 0,
+                        CgstAmount REAL DEFAULT 0,
+                        SgstAmount REAL DEFAULT 0,
+                        IgstAmount REAL DEFAULT 0,
+                        GrandTotal REAL DEFAULT 0,
+                        AmountPaid REAL DEFAULT 0,
+                        BalanceDue REAL DEFAULT 0,
+                        Status TEXT DEFAULT 'Unpaid',
+                        Notes TEXT,
+                        CreatedAt TEXT NOT NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_pbills_num ON PurchaseBills(BillNumber);
+                    CREATE INDEX IF NOT EXISTS idx_pbills_date ON PurchaseBills(BillDate);
+
+                    CREATE TABLE IF NOT EXISTS PurchaseItems (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        PurchaseBillId INTEGER NOT NULL,
+                        ProductId INTEGER DEFAULT 0,
+                        ItemName TEXT NOT NULL,
+                        Quantity REAL DEFAULT 1,
+                        UnitCost REAL DEFAULT 0,
+                        TaxPercent REAL DEFAULT 18,
+                        TotalAmount REAL DEFAULT 0
+                    );
                 ";
                 cmd.ExecuteNonQuery();
 
@@ -444,6 +494,162 @@ namespace PROJECT_SBV1.Services
                         insertB.Parameters.AddWithValue("@comm", b.CommissionPercent);
                         insertB.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
                         insertB.ExecuteNonQuery();
+                    }
+                }
+            }
+
+            // 4. Seed Suppliers if Suppliers table is empty
+            using (var checkSup = conn.CreateCommand())
+            {
+                checkSup.CommandText = "SELECT COUNT(*) FROM Suppliers;";
+                long supCount = (long)(checkSup.ExecuteScalar() ?? 0);
+                if (supCount == 0)
+                {
+                    var defaultSuppliers = new[]
+                    {
+                        new Supplier { Name = "TechSource Components Ltd", CompanyName = "TechSource India Pvt Ltd", Phone = "+91 98980 11223", Email = "orders@techsource.in", Address = "Plot 42, Electronic SEZ, Gandhinagar", GSTIN = "24AABCT4455P1Z1" },
+                        new Supplier { Name = "Silicon Hardware Distributing", CompanyName = "Silicon Distro Hub", Phone = "+91 97120 44556", Email = "sales@siliconhw.com", Address = "88, Central Computer Market, Ahmedabad", GSTIN = "24BBAPS8899K1Z4" },
+                        new Supplier { Name = "NetLink Networking Systems", CompanyName = "NetLink Infra Corp", Phone = "+91 99090 77889", Email = "billing@netlinksys.in", Address = "105, IT Park, Sanand Road, Ahmedabad", GSTIN = "24CCAPN1234M1Z2" }
+                    };
+
+                    foreach (var sup in defaultSuppliers)
+                    {
+                        using var insertS = conn.CreateCommand();
+                        insertS.CommandText = @"
+                            INSERT INTO Suppliers (Name, CompanyName, Phone, Email, Address, GSTIN, OutstandingBalance, CreatedAt)
+                            VALUES (@name, @comp, @phone, @email, @addr, @gstin, 0, @created);
+                        ";
+                        insertS.Parameters.AddWithValue("@name", sup.Name);
+                        insertS.Parameters.AddWithValue("@comp", sup.CompanyName);
+                        insertS.Parameters.AddWithValue("@phone", sup.Phone);
+                        insertS.Parameters.AddWithValue("@email", sup.Email);
+                        insertS.Parameters.AddWithValue("@addr", sup.Address);
+                        insertS.Parameters.AddWithValue("@gstin", sup.GSTIN);
+                        insertS.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
+                        insertS.ExecuteNonQuery();
+                    }
+                }
+            }
+
+            // 5. Seed Sample Purchase Bills if PurchaseBills table is empty
+            using (var checkBills = conn.CreateCommand())
+            {
+                checkBills.CommandText = "SELECT COUNT(*) FROM PurchaseBills;";
+                long billCount = (long)(checkBills.ExecuteScalar() ?? 0);
+                if (billCount == 0)
+                {
+                    // Fetch existing suppliers
+                    var existingSuppliers = new List<Supplier>();
+                    using (var cmdFetchSup = conn.CreateCommand())
+                    {
+                        cmdFetchSup.CommandText = "SELECT Id, Name, CompanyName, Phone, GSTIN FROM Suppliers ORDER BY Id ASC LIMIT 5;";
+                        using var r = cmdFetchSup.ExecuteReader();
+                        while (r.Read())
+                        {
+                            existingSuppliers.Add(new Supplier
+                            {
+                                Id = r.GetInt64(0),
+                                Name = r.GetString(1),
+                                CompanyName = r.IsDBNull(2) ? "" : r.GetString(2),
+                                Phone = r.IsDBNull(3) ? "" : r.GetString(3),
+                                GSTIN = r.IsDBNull(4) ? "" : r.GetString(4)
+                            });
+                        }
+                    }
+
+                    if (existingSuppliers.Count > 0)
+                    {
+                        var s0 = existingSuppliers[0];
+                        var s1 = existingSuppliers.Count > 1 ? existingSuppliers[1] : s0;
+                        var s2 = existingSuppliers.Count > 2 ? existingSuppliers[2] : s0;
+
+                        var sampleBills = new[]
+                        {
+                            new { Sup = s1, BillNum = "PB-2026-0001", Date = DateTime.Today.AddDays(-10), Due = DateTime.Today.AddDays(5), Item = "Dell 24-inch Full HD Monitor", Qty = 10m, Cost = 9200m, Paid = 108560m, Status = "Paid" },
+                            new { Sup = s2, BillNum = "PB-2026-0002", Date = DateTime.Today.AddDays(-4), Due = DateTime.Today.AddDays(11), Item = "Cat6 LAN Cable 305M Roll", Qty = 15m, Cost = 4200m, Paid = 40000m, Status = "Partially Paid" },
+                            new { Sup = s0, BillNum = "PB-2026-0003", Date = DateTime.Today.AddDays(-1), Due = DateTime.Today.AddDays(14), Item = "Samsung SSD 1TB 980 Pro", Qty = 12m, Cost = 6800m, Paid = 0m, Status = "Unpaid" }
+                        };
+
+                        foreach (var sb in sampleBills)
+                        {
+                            var bill = new PurchaseBill
+                            {
+                                BillNumber = sb.BillNum,
+                                SupplierId = sb.Sup.Id,
+                                SupplierName = sb.Sup.Name,
+                                SupplierCompany = sb.Sup.CompanyName,
+                                SupplierPhone = sb.Sup.Phone,
+                                SupplierGSTIN = sb.Sup.GSTIN,
+                                BillDate = sb.Date,
+                                DueDate = sb.Due,
+                                TaxType = "GST_INTRA",
+                                AmountPaid = sb.Paid
+                            };
+                            bill.Items.Add(new PurchaseBillItem
+                            {
+                                ItemName = sb.Item,
+                                Quantity = sb.Qty,
+                                UnitCost = sb.Cost,
+                                TaxPercent = 18m
+                            });
+                            bill.RecalculateTotals();
+
+                            using var cmdBill = conn.CreateCommand();
+                            cmdBill.CommandText = @"
+                                INSERT INTO PurchaseBills (BillNumber, SupplierId, SupplierName, SupplierCompany, SupplierPhone, SupplierGSTIN, BillDate, DueDate, TaxType, Subtotal, TaxableAmount, CgstAmount, SgstAmount, IgstAmount, GrandTotal, AmountPaid, BalanceDue, Status, Notes, CreatedAt)
+                                VALUES (@num, @sid, @sname, @scomp, @sphone, @supgst, @bdate, @ddate, @taxtype, @sub, @taxable, @cgsta, @sgsta, @igsta, @grand, @paid, @bal, @status, @notes, @created);
+                                SELECT last_insert_rowid();
+                            ";
+                            cmdBill.Parameters.AddWithValue("@num", bill.BillNumber ?? "");
+                            cmdBill.Parameters.AddWithValue("@sid", bill.SupplierId);
+                            cmdBill.Parameters.AddWithValue("@sname", bill.SupplierName ?? "");
+                            cmdBill.Parameters.AddWithValue("@scomp", bill.SupplierCompany ?? "");
+                            cmdBill.Parameters.AddWithValue("@sphone", bill.SupplierPhone ?? "");
+                            cmdBill.Parameters.AddWithValue("@supgst", bill.SupplierGSTIN ?? "");
+                            cmdBill.Parameters.AddWithValue("@bdate", bill.BillDate.ToString("yyyy-MM-dd"));
+                            cmdBill.Parameters.AddWithValue("@ddate", bill.DueDate.ToString("yyyy-MM-dd"));
+                            cmdBill.Parameters.AddWithValue("@taxtype", bill.TaxType ?? "GST_INTRA");
+                            cmdBill.Parameters.AddWithValue("@sub", bill.Subtotal);
+                            cmdBill.Parameters.AddWithValue("@taxable", bill.TaxableAmount);
+                            cmdBill.Parameters.AddWithValue("@cgsta", bill.CgstAmount);
+                            cmdBill.Parameters.AddWithValue("@sgsta", bill.SgstAmount);
+                            cmdBill.Parameters.AddWithValue("@igsta", bill.IgstAmount);
+                            cmdBill.Parameters.AddWithValue("@grand", bill.GrandTotal);
+                            cmdBill.Parameters.AddWithValue("@paid", bill.AmountPaid);
+                            cmdBill.Parameters.AddWithValue("@bal", bill.BalanceDue);
+                            cmdBill.Parameters.AddWithValue("@status", bill.Status ?? "Unpaid");
+                            cmdBill.Parameters.AddWithValue("@notes", "Sample supplier purchase bill");
+                            cmdBill.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
+                            bill.Id = (long)(cmdBill.ExecuteScalar() ?? 0);
+
+                            foreach (var it in bill.Items)
+                            {
+                                using var cmdItem = conn.CreateCommand();
+                                cmdItem.CommandText = @"
+                                    INSERT INTO PurchaseItems (PurchaseBillId, ProductId, ItemName, Quantity, UnitCost, TaxPercent, TotalAmount)
+                                    VALUES (@bid, @pid, @name, @qty, @cost, @tax, @tot);
+                                ";
+                                cmdItem.Parameters.AddWithValue("@bid", bill.Id);
+                                cmdItem.Parameters.AddWithValue("@pid", it.ProductId);
+                                cmdItem.Parameters.AddWithValue("@name", it.ItemName ?? "");
+                                cmdItem.Parameters.AddWithValue("@qty", it.Quantity);
+                                cmdItem.Parameters.AddWithValue("@cost", it.UnitCost);
+                                cmdItem.Parameters.AddWithValue("@tax", it.TaxPercent);
+                                cmdItem.Parameters.AddWithValue("@tot", it.TotalAmount);
+                                cmdItem.ExecuteNonQuery();
+                            }
+
+                            using var updateSupBal = conn.CreateCommand();
+                            updateSupBal.CommandText = @"
+                                UPDATE Suppliers 
+                                SET OutstandingBalance = (
+                                    SELECT COALESCE(SUM(BalanceDue), 0) FROM PurchaseBills WHERE SupplierId = @sid AND Status != 'Cancelled'
+                                )
+                                WHERE Id = @sid;
+                            ";
+                            updateSupBal.Parameters.AddWithValue("@sid", bill.SupplierId);
+                            updateSupBal.ExecuteNonQuery();
+                        }
                     }
                 }
             }
@@ -1942,6 +2148,348 @@ namespace PROJECT_SBV1.Services
                 }
             }
             return b;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  SUPPLIERS & VENDORS REPOSITORY
+        // ═══════════════════════════════════════════════════════════════════════════
+        public static List<Supplier> GetSuppliers(string search = "")
+        {
+            var list = new List<Supplier>();
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    cmd.CommandText = @"
+                        SELECT Id, Name, CompanyName, Phone, Email, Address, GSTIN, OutstandingBalance, CreatedAt
+                        FROM Suppliers
+                        WHERE Name LIKE @q OR CompanyName LIKE @q OR Phone LIKE @q OR GSTIN LIKE @q
+                        ORDER BY Name ASC;
+                    ";
+                    cmd.Parameters.AddWithValue("@q", $"%{search.Trim()}%");
+                }
+                else
+                {
+                    cmd.CommandText = @"
+                        SELECT Id, Name, CompanyName, Phone, Email, Address, GSTIN, OutstandingBalance, CreatedAt
+                        FROM Suppliers
+                        ORDER BY Name ASC;
+                    ";
+                }
+
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    list.Add(new Supplier
+                    {
+                        Id = r.GetInt64(0),
+                        Name = r.GetString(1),
+                        CompanyName = r.IsDBNull(2) ? "" : r.GetString(2),
+                        Phone = r.IsDBNull(3) ? "" : r.GetString(3),
+                        Email = r.IsDBNull(4) ? "" : r.GetString(4),
+                        Address = r.IsDBNull(5) ? "" : r.GetString(5),
+                        GSTIN = r.IsDBNull(6) ? "" : r.GetString(6),
+                        OutstandingBalance = Convert.ToDecimal(r.GetDouble(7)),
+                        CreatedAt = DateTime.TryParse(r.GetString(8), out var dt) ? dt : DateTime.Now
+                    });
+                }
+            }
+            return list;
+        }
+
+        public static Supplier? GetSupplierById(long id)
+        {
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+                    SELECT Id, Name, CompanyName, Phone, Email, Address, GSTIN, OutstandingBalance, CreatedAt
+                    FROM Suppliers
+                    WHERE Id = @id;
+                ";
+                cmd.Parameters.AddWithValue("@id", id);
+                using var r = cmd.ExecuteReader();
+                if (r.Read())
+                {
+                    return new Supplier
+                    {
+                        Id = r.GetInt64(0),
+                        Name = r.GetString(1),
+                        CompanyName = r.IsDBNull(2) ? "" : r.GetString(2),
+                        Phone = r.IsDBNull(3) ? "" : r.GetString(3),
+                        Email = r.IsDBNull(4) ? "" : r.GetString(4),
+                        Address = r.IsDBNull(5) ? "" : r.GetString(5),
+                        GSTIN = r.IsDBNull(6) ? "" : r.GetString(6),
+                        OutstandingBalance = Convert.ToDecimal(r.GetDouble(7)),
+                        CreatedAt = DateTime.TryParse(r.GetString(8), out var dt) ? dt : DateTime.Now
+                    };
+                }
+            }
+            return null;
+        }
+
+        public static Supplier SaveSupplier(Supplier s)
+        {
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                if (s.Id == 0)
+                {
+                    cmd.CommandText = @"
+                        INSERT INTO Suppliers (Name, CompanyName, Phone, Email, Address, GSTIN, OutstandingBalance, CreatedAt)
+                        VALUES (@name, @comp, @phone, @email, @addr, @gstin, @bal, @created);
+                        SELECT last_insert_rowid();
+                    ";
+                    cmd.Parameters.AddWithValue("@name", s.Name.Trim());
+                    cmd.Parameters.AddWithValue("@comp", s.CompanyName.Trim());
+                    cmd.Parameters.AddWithValue("@phone", s.Phone.Trim());
+                    cmd.Parameters.AddWithValue("@email", s.Email.Trim());
+                    cmd.Parameters.AddWithValue("@addr", s.Address.Trim());
+                    cmd.Parameters.AddWithValue("@gstin", s.GSTIN.Trim());
+                    cmd.Parameters.AddWithValue("@bal", s.OutstandingBalance);
+                    cmd.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
+                    s.Id = (long)(cmd.ExecuteScalar() ?? 0);
+                }
+                else
+                {
+                    cmd.CommandText = @"
+                        UPDATE Suppliers 
+                        SET Name = @name, CompanyName = @comp, Phone = @phone, Email = @email, Address = @addr, GSTIN = @gstin
+                        WHERE Id = @id;
+                    ";
+                    cmd.Parameters.AddWithValue("@id", s.Id);
+                    cmd.Parameters.AddWithValue("@name", s.Name.Trim());
+                    cmd.Parameters.AddWithValue("@comp", s.CompanyName.Trim());
+                    cmd.Parameters.AddWithValue("@phone", s.Phone.Trim());
+                    cmd.Parameters.AddWithValue("@email", s.Email.Trim());
+                    cmd.Parameters.AddWithValue("@addr", s.Address.Trim());
+                    cmd.Parameters.AddWithValue("@gstin", s.GSTIN.Trim());
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            return s;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        //  PURCHASE BILLS & VENDOR PAYABLES REPOSITORY
+        // ═══════════════════════════════════════════════════════════════════════════
+        public static string GetNextPurchaseBillNumber()
+        {
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "SELECT COUNT(*) FROM PurchaseBills;";
+                long count = (long)(cmd.ExecuteScalar() ?? 0);
+                return $"PB-{DateTime.Today.Year}-{(count + 1):D4}";
+            }
+        }
+
+        public static List<PurchaseBill> GetPurchaseBills(string search = "", string status = "")
+        {
+            var list = new List<PurchaseBill>();
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+
+                string where = "WHERE 1=1 ";
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    where += " AND (BillNumber LIKE @q OR SupplierName LIKE @q OR SupplierCompany LIKE @q) ";
+                    cmd.Parameters.AddWithValue("@q", $"%{search.Trim()}%");
+                }
+                if (!string.IsNullOrWhiteSpace(status) && status != "All" && !status.StartsWith("All"))
+                {
+                    where += " AND Status = @st ";
+                    cmd.Parameters.AddWithValue("@st", status);
+                }
+
+                cmd.CommandText = $@"
+                    SELECT Id, BillNumber, SupplierId, SupplierName, SupplierCompany, SupplierPhone, SupplierGSTIN,
+                           BillDate, DueDate, TaxType, Subtotal, TaxableAmount, CgstAmount, SgstAmount, IgstAmount,
+                           GrandTotal, AmountPaid, BalanceDue, Status, Notes, CreatedAt
+                    FROM PurchaseBills
+                    {where}
+                    ORDER BY BillDate DESC, Id DESC;
+                ";
+
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    var pb = new PurchaseBill
+                    {
+                        Id = r.GetInt64(0),
+                        BillNumber = r.GetString(1),
+                        SupplierId = r.GetInt64(2),
+                        SupplierName = r.GetString(3),
+                        SupplierCompany = r.IsDBNull(4) ? "" : r.GetString(4),
+                        SupplierPhone = r.IsDBNull(5) ? "" : r.GetString(5),
+                        SupplierGSTIN = r.IsDBNull(6) ? "" : r.GetString(6),
+                        BillDate = DateTime.TryParse(r.GetString(7), out var bdt) ? bdt : DateTime.Today,
+                        DueDate = DateTime.TryParse(r.GetString(8), out var ddt) ? ddt : DateTime.Today,
+                        TaxType = r.GetString(9),
+                        Subtotal = Convert.ToDecimal(r.GetDouble(10)),
+                        TaxableAmount = Convert.ToDecimal(r.GetDouble(11)),
+                        CgstAmount = Convert.ToDecimal(r.GetDouble(12)),
+                        SgstAmount = Convert.ToDecimal(r.GetDouble(13)),
+                        IgstAmount = Convert.ToDecimal(r.GetDouble(14)),
+                        GrandTotal = Convert.ToDecimal(r.GetDouble(15)),
+                        AmountPaid = Convert.ToDecimal(r.GetDouble(16)),
+                        BalanceDue = Convert.ToDecimal(r.GetDouble(17)),
+                        Status = r.GetString(18),
+                        Notes = r.IsDBNull(19) ? "" : r.GetString(19),
+                        CreatedAt = DateTime.TryParse(r.GetString(20), out var cdt) ? cdt : DateTime.Now
+                    };
+                    list.Add(pb);
+                }
+            }
+            return list;
+        }
+
+        public static PurchaseBill SavePurchaseBill(PurchaseBill bill)
+        {
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var tx = conn.BeginTransaction();
+                try
+                {
+                    bill.RecalculateTotals();
+
+                    using var cmd = conn.CreateCommand();
+                    cmd.Transaction = tx;
+                    if (bill.Id == 0)
+                    {
+                        cmd.CommandText = @"
+                            INSERT INTO PurchaseBills (BillNumber, SupplierId, SupplierName, SupplierCompany, SupplierPhone, SupplierGSTIN, BillDate, DueDate, TaxType, Subtotal, TaxableAmount, CgstAmount, SgstAmount, IgstAmount, GrandTotal, AmountPaid, BalanceDue, Status, Notes, CreatedAt)
+                            VALUES (@num, @sid, @sname, @scomp, @sphone, @supgst, @bdate, @ddate, @taxtype, @sub, @taxable, @cgsta, @sgsta, @igsta, @grand, @paid, @bal, @status, @notes, @created);
+                            SELECT last_insert_rowid();
+                        ";
+                        cmd.Parameters.AddWithValue("@num", bill.BillNumber);
+                        cmd.Parameters.AddWithValue("@sid", bill.SupplierId);
+                        cmd.Parameters.AddWithValue("@sname", bill.SupplierName);
+                        cmd.Parameters.AddWithValue("@scomp", bill.SupplierCompany ?? "");
+                        cmd.Parameters.AddWithValue("@sphone", bill.SupplierPhone ?? "");
+                        cmd.Parameters.AddWithValue("@supgst", bill.SupplierGSTIN ?? "");
+                        cmd.Parameters.AddWithValue("@bdate", bill.BillDate.ToString("yyyy-MM-dd"));
+                        cmd.Parameters.AddWithValue("@ddate", bill.DueDate.ToString("yyyy-MM-dd"));
+                        cmd.Parameters.AddWithValue("@taxtype", bill.TaxType ?? "GST_INTRA");
+                        cmd.Parameters.AddWithValue("@sub", bill.Subtotal);
+                        cmd.Parameters.AddWithValue("@taxable", bill.TaxableAmount);
+                        cmd.Parameters.AddWithValue("@cgsta", bill.CgstAmount);
+                        cmd.Parameters.AddWithValue("@sgsta", bill.SgstAmount);
+                        cmd.Parameters.AddWithValue("@igsta", bill.IgstAmount);
+                        cmd.Parameters.AddWithValue("@grand", bill.GrandTotal);
+                        cmd.Parameters.AddWithValue("@paid", bill.AmountPaid);
+                        cmd.Parameters.AddWithValue("@bal", bill.BalanceDue);
+                        cmd.Parameters.AddWithValue("@status", bill.Status ?? "Unpaid");
+                        cmd.Parameters.AddWithValue("@notes", bill.Notes ?? "");
+                        cmd.Parameters.AddWithValue("@created", DateTime.Now.ToString("o"));
+                        bill.Id = (long)(cmd.ExecuteScalar() ?? 0);
+
+                        // Save Items & INCREMENT stock for purchased products
+                        foreach (var it in bill.Items)
+                        {
+                            using var cmdItem = conn.CreateCommand();
+                            cmdItem.Transaction = tx;
+                            cmdItem.CommandText = @"
+                                INSERT INTO PurchaseItems (PurchaseBillId, ProductId, ItemName, Quantity, UnitCost, TaxPercent, TotalAmount)
+                                VALUES (@bid, @pid, @name, @qty, @cost, @tax, @tot);
+                            ";
+                            cmdItem.Parameters.AddWithValue("@bid", bill.Id);
+                            cmdItem.Parameters.AddWithValue("@pid", it.ProductId);
+                            cmdItem.Parameters.AddWithValue("@name", it.ItemName);
+                            cmdItem.Parameters.AddWithValue("@qty", it.Quantity);
+                            cmdItem.Parameters.AddWithValue("@cost", it.UnitCost);
+                            cmdItem.Parameters.AddWithValue("@tax", it.TaxPercent);
+                            cmdItem.Parameters.AddWithValue("@tot", it.TotalAmount);
+                            cmdItem.ExecuteNonQuery();
+
+                            // Stock Increment
+                            if (it.ProductId > 0)
+                            {
+                                using var stockCmd = conn.CreateCommand();
+                                stockCmd.Transaction = tx;
+                                stockCmd.CommandText = "UPDATE Products SET StockQuantity = StockQuantity + @qty WHERE Id = @pid;";
+                                stockCmd.Parameters.AddWithValue("@qty", it.Quantity);
+                                stockCmd.Parameters.AddWithValue("@pid", it.ProductId);
+                                stockCmd.ExecuteNonQuery();
+                            }
+                        }
+                    }
+
+                    // Update supplier outstanding balance
+                    if (bill.SupplierId > 0)
+                    {
+                        using var balCmd = conn.CreateCommand();
+                        balCmd.Transaction = tx;
+                        balCmd.CommandText = @"
+                            UPDATE Suppliers 
+                            SET OutstandingBalance = (
+                                SELECT COALESCE(SUM(BalanceDue), 0) FROM PurchaseBills WHERE SupplierId = @sid AND Status != 'Cancelled'
+                            )
+                            WHERE Id = @sid;
+                        ";
+                        balCmd.Parameters.AddWithValue("@sid", bill.SupplierId);
+                        balCmd.ExecuteNonQuery();
+                    }
+
+                    tx.Commit();
+                }
+                catch
+                {
+                    tx.Rollback();
+                    throw;
+                }
+            }
+            return bill;
+        }
+
+        public static PurchaseDashboardMetrics GetPurchaseDashboardMetrics()
+        {
+            var m = new PurchaseDashboardMetrics();
+            lock (s_lock)
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+                    SELECT 
+                        COALESCE(SUM(CASE WHEN Status != 'Cancelled' THEN GrandTotal ELSE 0 END), 0),
+                        COUNT(CASE WHEN Status != 'Cancelled' THEN 1 END),
+                        COALESCE(SUM(CASE WHEN Status = 'Paid' THEN 1 ELSE 0 END), 0),
+                        COALESCE(SUM(CASE WHEN Status != 'Paid' AND Status != 'Cancelled' THEN 1 ELSE 0 END), 0),
+                        COALESCE(SUM(CASE WHEN Status != 'Cancelled' THEN BalanceDue ELSE 0 END), 0)
+                    FROM PurchaseBills;
+                ";
+                using (var r = cmd.ExecuteReader())
+                {
+                    if (r.Read())
+                    {
+                        m.TotalPurchases = Convert.ToDecimal(r.GetDouble(0));
+                        m.TotalBillsCount = r.GetInt32(1);
+                        m.PaidBillsCount = r.GetInt32(2);
+                        m.UnpaidBillsCount = r.GetInt32(3);
+                        m.TotalPayablesDue = Convert.ToDecimal(r.GetDouble(4));
+                    }
+                }
+
+                using var supCmd = conn.CreateCommand();
+                supCmd.CommandText = "SELECT COUNT(*) FROM Suppliers;";
+                m.TotalSuppliers = Convert.ToInt32(supCmd.ExecuteScalar() ?? 0);
+            }
+            return m;
         }
     }
 }

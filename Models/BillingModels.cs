@@ -298,4 +298,109 @@ namespace PROJECT_SBV1.Models
         public string ReferenceNumber { get; set; } = string.Empty;
         public string Notes { get; set; } = string.Empty;
     }
+
+    public class Supplier
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string CompanyName { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string GSTIN { get; set; } = string.Empty;
+        public decimal OutstandingBalance { get; set; } = 0m;
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        public string DisplayName => string.IsNullOrWhiteSpace(CompanyName) 
+            ? Name 
+            : $"{Name} ({CompanyName})";
+    }
+
+    public class PurchaseBill
+    {
+        public long Id { get; set; }
+        public string BillNumber { get; set; } = string.Empty;
+        public long SupplierId { get; set; }
+        public string SupplierName { get; set; } = string.Empty;
+        public string SupplierCompany { get; set; } = string.Empty;
+        public string SupplierPhone { get; set; } = string.Empty;
+        public string SupplierGSTIN { get; set; } = string.Empty;
+        public DateTime BillDate { get; set; } = DateTime.Today;
+        public DateTime DueDate { get; set; } = DateTime.Today.AddDays(15);
+        public string TaxType { get; set; } = "GST_INTRA";
+        public decimal Subtotal { get; set; } = 0m;
+        public decimal TaxableAmount { get; set; } = 0m;
+        public decimal CgstAmount { get; set; } = 0m;
+        public decimal SgstAmount { get; set; } = 0m;
+        public decimal IgstAmount { get; set; } = 0m;
+        public decimal GrandTotal { get; set; } = 0m;
+        public decimal AmountPaid { get; set; } = 0m;
+        public decimal BalanceDue { get; set; } = 0m;
+        public string Status { get; set; } = "Unpaid";
+        public string Notes { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public List<PurchaseBillItem> Items { get; set; } = new();
+
+        public void RecalculateTotals()
+        {
+            Subtotal = 0m;
+            foreach (var item in Items)
+            {
+                item.TotalAmount = item.Quantity * item.UnitCost;
+                Subtotal += item.TotalAmount;
+            }
+            TaxableAmount = Subtotal;
+
+            if (TaxType == "GST_INTRA")
+            {
+                CgstAmount = Math.Round(TaxableAmount * 0.09m, 2);
+                SgstAmount = Math.Round(TaxableAmount * 0.09m, 2);
+                IgstAmount = 0m;
+            }
+            else if (TaxType == "GST_INTER")
+            {
+                CgstAmount = 0m;
+                SgstAmount = 0m;
+                IgstAmount = Math.Round(TaxableAmount * 0.18m, 2);
+            }
+            else
+            {
+                CgstAmount = 0m;
+                SgstAmount = 0m;
+                IgstAmount = 0m;
+            }
+
+            GrandTotal = TaxableAmount + CgstAmount + SgstAmount + IgstAmount;
+            BalanceDue = Math.Max(0m, GrandTotal - AmountPaid);
+
+            if (AmountPaid >= GrandTotal && GrandTotal > 0)
+                Status = "Paid";
+            else if (AmountPaid > 0)
+                Status = "Partially Paid";
+            else
+                Status = DueDate < DateTime.Today ? "Overdue" : "Unpaid";
+        }
+    }
+
+    public class PurchaseBillItem
+    {
+        public long Id { get; set; }
+        public long PurchaseBillId { get; set; }
+        public long ProductId { get; set; }
+        public string ItemName { get; set; } = string.Empty;
+        public decimal Quantity { get; set; } = 1m;
+        public decimal UnitCost { get; set; } = 0m;
+        public decimal TaxPercent { get; set; } = 18m;
+        public decimal TotalAmount { get; set; } = 0m;
+    }
+
+    public class PurchaseDashboardMetrics
+    {
+        public decimal TotalPurchases { get; set; } = 0m;
+        public int TotalBillsCount { get; set; } = 0;
+        public int PaidBillsCount { get; set; } = 0;
+        public int UnpaidBillsCount { get; set; } = 0;
+        public decimal TotalPayablesDue { get; set; } = 0m;
+        public int TotalSuppliers { get; set; } = 0;
+    }
 }

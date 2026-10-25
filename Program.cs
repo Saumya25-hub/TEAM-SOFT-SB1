@@ -63,6 +63,12 @@ namespace PROJECT_SBV1
                 return;
             }
 
+            if (args.Length > 0 && args[0].Equals("--render-all-pages", StringComparison.OrdinalIgnoreCase))
+            {
+                RunRenderAllPagesTest();
+                return;
+            }
+
             Application.Run(new Sb1ApplicationContext());
         }
 
@@ -212,7 +218,8 @@ namespace PROJECT_SBV1
         private static void RunRenderSalesTest()
         {
             Services.DatabaseService.InitializeDatabase();
-            string artifactDir = @"C:\Users\jenil\.gemini\antigravity-ide\brain\37f34276-3163-4b3f-9687-e4a92f749dcb";
+            string artifactDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TEAMSOFT", "Captures");
+            System.IO.Directory.CreateDirectory(artifactDir);
 
             void CaptureView(int w, int h, bool isDark, string fileName)
             {
@@ -268,6 +275,37 @@ namespace PROJECT_SBV1
             CaptureView(1366, 820, false, "sales_layout_light_1366.png");
             CaptureView(1366, 820, true, "sales_layout_dark_1366.png");
             CaptureView(1600, 900, false, "sales_layout_light_1600.png");
+        }
+
+        private static void RunRenderAllPagesTest()
+        {
+            Services.DatabaseService.InitializeDatabase();
+            string artifactDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TEAMSOFT", "Captures");
+            System.IO.Directory.CreateDirectory(artifactDir);
+
+            string[] pages = new[] { "Customers", "Purchases", "Suppliers", "Sales" };
+            foreach (var page in pages)
+            {
+                using var form = new Forms.DashboardForm();
+                form.StartPosition = FormStartPosition.Manual;
+                form.Location = new Point(0, 0);
+                form.Size = new Size(1366, 820);
+                form.Show();
+                form.ShowPage(page);
+
+                for (int i = 0; i < 15; i++)
+                {
+                    Application.DoEvents();
+                    System.Threading.Thread.Sleep(20);
+                }
+
+                string outPath = System.IO.Path.Combine(artifactDir, $"{page.ToLower()}_page_captured.png");
+                using var bmp = new Bitmap(1366, 820);
+                form.DrawToBitmap(bmp, new Rectangle(0, 0, 1366, 820));
+                bmp.Save(outPath, System.Drawing.Imaging.ImageFormat.Png);
+                Console.WriteLine($"[RENDER] Captured {outPath}");
+                form.Close();
+            }
         }
 
         private static void RunFlowTest()
@@ -517,7 +555,7 @@ namespace PROJECT_SBV1
         private static void RunRenderNewInvoiceTest()
         {
             Services.DatabaseService.InitializeDatabase();
-            string artifactDir = @"C:\Users\jenil\.gemini\antigravity-ide\brain\cf109fb3-3e2e-4c7f-a72b-df5d766f6218";
+            string artifactDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TEAMSOFT", "Captures");
             System.IO.Directory.CreateDirectory(artifactDir);
 
             void CaptureInvoiceView(int w, int h, bool isDark, string fileName)
